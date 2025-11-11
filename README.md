@@ -20,6 +20,8 @@ PUT /api/admin/users/:id — แอดมินแก้ไขข้อมูล
 
 POST /api/admin/users/:id/avatar — แอดมินอัปโหลด/เปลี่ยนรูปโปรไฟล์ให้ผู้ใช้อื่น
 
+GET /uploads/avatars/:filename — ดึงรูปโปรไฟล์จากเซิร์ฟเวอร์
+
 ## Example Header
 
 ```
