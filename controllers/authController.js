@@ -73,8 +73,8 @@ const login = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid username or password" });
     }
-    // สร้าง token และส่งกลับไปให้ผู้ใช้
-    const token = jwt.sign({ id: user.id }, config.jwtSecret, {
+    // สร้าง token และส่งกลับไปให้ผู้ใช้ (ใส่ role ไปด้วย)
+    const token = jwt.sign({ id: user.id, role: user.role }, config.jwtSecret, {
       expiresIn: "24h",
     });
     res.json({ token });

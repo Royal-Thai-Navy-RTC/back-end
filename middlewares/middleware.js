@@ -19,6 +19,7 @@ const verifyToken = (req, res, next) => {
       return res.status(500).json({ message: "Failed to authenticate token" }); // หากไม่สามารถตรวจสอบ token ได้ให้ส่งข้อความกลับไปว่าไม่สามารถตรวจสอบ token ได้
 
     req.userId = decoded.id; // ถ้าตรวจสอบ token สำเร็จ ให้เก็บ id ของผู้ใช้ไว้ใน req.userId
+    if (decoded.role) req.userRole = decoded.role; // แนบ role จาก token (ถ้ามี)
     next(); // ส่งต่อไปยัง middleware ถัดไป
   });
 };
