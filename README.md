@@ -22,6 +22,10 @@ POST /api/admin/users/:id/avatar — แอดมินอัปโหลด/เ
 
 GET /uploads/avatars/:filename — ดึงรูปโปรไฟล์จากเซิร์ฟเวอร์
 
+POST /api/admin/users — สร้างผู้ใช้ใหม่ (โครงสร้าง body เหมือน /api/register)
+
+DELETE /api/admin/users/:id — ลบผู้ใช้แบบถาวร (hard delete)
+
 ## Example Header
 
 ```

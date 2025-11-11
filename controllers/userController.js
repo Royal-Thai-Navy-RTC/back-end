@@ -114,6 +114,38 @@ const adminGetUserById = async (req, res) => {
   }
 };
 
+// แอดมินสร้างผู้ใช้ใหม่
+const adminCreateUser = async (req, res) => {
+  try {
+    const created = await User.createUser(req.body);
+    const user = await User.getUserById(created.id);
+    res.status(201).json(user);
+  } catch (err) {
+    if (err.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ message: err.message });
+    }
+    if (err.code === "P2002") {
+      return res.status(409).json({ message: "ข้อมูลซ้ำ (username/email/phone)" });
+    }
+    res.status(500).json({ message: "Error creating user" });
+  }
+};
+
+// แอดมินลบผู้ใช้แบบถาวร (hard delete)
+const adminDeleteUser = async (req, res) => {
+  const targetId = req.params && req.params.id;
+  if (!targetId) return res.status(400).json({ message: "ต้องระบุ id ผู้ใช้ใน URL" });
+  const idNum = Number(targetId);
+  if (!Number.isInteger(idNum)) return res.status(400).json({ message: "id ต้องเป็นจำนวนเต็ม" });
+  try {
+    const deleted = await User.deleteUserHard(idNum);
+    res.json({ message: "ลบผู้ใช้สำเร็จ", user: deleted });
+  } catch (err) {
+    if (err.code === "P2025") return res.status(404).json({ message: "User not found" });
+    res.status(500).json({ message: "Error deleting user" });
+  }
+};
+
 // อัปโหลด/เปลี่ยน avatar ของตัวเอง
 const uploadAvatar = async (req, res) => {
   try {
@@ -224,4 +256,6 @@ module.exports = {
   adminGetUserById,
   uploadAvatar,
   adminUploadAvatar,
+  adminCreateUser,
+  adminDeleteUser,
 };

@@ -26,6 +26,14 @@ router.get(
   userController.adminGetAllUsers
 );
 
+// แอดมินเพิ่มผู้ใช้ใหม่
+router.post(
+  "/admin/users",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  userController.adminCreateUser
+);
+
 // แอดมินดึงข้อมูลผู้ใช้ตาม id
 router.get(
   "/admin/users/:id",
@@ -41,6 +49,14 @@ router.post(
   middleware.authorizeAdmin,
   avatarUploadOne,
   userController.adminUploadAvatar
+);
+
+// แอดมินลบผู้ใช้ (hard delete)
+router.delete(
+  "/admin/users/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  userController.adminDeleteUser
 );
 
 // Profile routes (ต้องล็อกอิน)

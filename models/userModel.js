@@ -259,6 +259,29 @@ module.exports = {
 
     return { items, total, page: Number(page) || 1, pageSize: take };
   },
+  // ปิดการใช้งาน (soft delete) ผู้ใช้ โดยตั้ง isActive = false
+  deactivateUser: async (id) => {
+    return prisma.user.update({
+      where: { id: Number(id) },
+      data: { isActive: false },
+      select: {
+        id: true,
+        username: true,
+        isActive: true,
+        updatedAt: true,
+      },
+    });
+  },
+  // ลบผู้ใช้ออกจากฐานข้อมูลแบบถาวร (hard delete)
+  deleteUserHard: async (id) => {
+    return prisma.user.delete({
+      where: { id: Number(id) },
+      select: {
+        id: true,
+        username: true,
+      },
+    });
+  },
   // ตั้งค่า avatar ตาม id (สำหรับแอดมิน)
   setUserAvatar: async (id, avatarPath) => {
     return prisma.user.update({
