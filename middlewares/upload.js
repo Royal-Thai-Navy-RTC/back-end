@@ -25,7 +25,11 @@ const storage = multer.diskStorage({
     };
     const extFromMime = mimeToExt[file.mimetype];
     const extFromName = path.extname(file.originalname).toLowerCase();
-    const safeExt = extFromMime || ( [".png", ".jpg", ".jpeg", ".webp"].includes(extFromName) ? extFromName : "" );
+    const safeExt =
+      extFromMime ||
+      ([".png", ".jpg", ".jpeg", ".webp"].includes(extFromName)
+        ? extFromName
+        : "");
 
     const targetId = (req.params && req.params.id) || req.userId || "unknown";
     const filename = `user-${targetId}${safeExt}`;

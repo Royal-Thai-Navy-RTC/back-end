@@ -18,27 +18,27 @@ enum Role {
 }
 
 enum Rank {
-  ADMIRAL              @map("พลเรือเอก")
-  VICE_ADMIRAL         @map("พลเรือโท")
-  REAR_ADMIRAL         @map("พลเรือตรี")
+  ADMIRAL      @map("พลเรือเอก")
+  VICE_ADMIRAL @map("พลเรือโท")
+  REAR_ADMIRAL @map("พลเรือตรี")
 
   CAPTAIN              @map("นาวาเอก")
   COMMANDER            @map("นาวาโท")
   LIEUTENANT_COMMANDER @map("นาวาตรี")
 
-  LIEUTENANT           @map("เรือเอก")
-  SUB_LIEUTENANT       @map("เรือโท")
-  ENSIGN               @map("เรือตรี")
+  LIEUTENANT     @map("เรือเอก")
+  SUB_LIEUTENANT @map("เรือโท")
+  ENSIGN         @map("เรือตรี")
 
-  PETTY_OFFICER_1      @map("พันจ่าเอก")
-  PETTY_OFFICER_2      @map("พันจ่าโท")
-  PETTY_OFFICER_3      @map("พันจ่าตรี")
+  PETTY_OFFICER_1 @map("พันจ่าเอก")
+  PETTY_OFFICER_2 @map("พันจ่าโท")
+  PETTY_OFFICER_3 @map("พันจ่าตรี")
 
-  PETTY_OFFICER        @map("จ่าเอก")
-  LEADING_RATING       @map("จ่าโท")
-  ABLE_SEAMAN          @map("จ่าตรี")
+  PETTY_OFFICER  @map("จ่าเอก")
+  LEADING_RATING @map("จ่าโท")
+  ABLE_SEAMAN    @map("จ่าตรี")
 
-  SEAMAN_RECRUIT       @map("พลฯ")
+  SEAMAN_RECRUIT @map("พลฯ")
 }
 
 // --------------------------------------------------
@@ -46,41 +46,41 @@ enum Rank {
 // --------------------------------------------------
 model User {
   // --- ระบบ / Primary Key ---
-  id            Int       @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
   // --- ข้อมูลเข้าใช้ระบบ ---
-  username      String    @unique @db.VarChar(64)   // ชื่อผู้ใช้ (ห้ามซ้ำ)
-  passwordHash  String    @db.VarChar(255)          // เก็บรหัสผ่านแบบ hash
-  role          Role      @default(STUDENT)         // บทบาทในระบบ (แอดมิน/ครู/นักเรียน)
-  isActive      Boolean   @default(true)            // ใช้งานอยู่หรือไม่ (สำหรับ soft delete)
+  username     String  @unique @db.VarChar(64) // ชื่อผู้ใช้ (ห้ามซ้ำ)
+  passwordHash String  @db.VarChar(255) // เก็บรหัสผ่านแบบ hash
+  role         Role    @default(STUDENT) // บทบาทในระบบ (แอดมิน/ครู/นักเรียน)
+  isActive     Boolean @default(true) // ใช้งานอยู่หรือไม่ (สำหรับ soft delete)
 
   // --- ข้อมูลส่วนบุคคล ---
-  firstName     String    @db.VarChar(100)          // ชื่อจริง
-  lastName      String    @db.VarChar(100)          // นามสกุล
-  birthDate     DateTime                           // วันเกิด
-  rank          Rank      @default(SEAMAN_RECRUIT)  // ยศทหารเรือไทย
-  fullAddress   String    @db.VarChar(255)          // ที่อยู่เต็ม
+  firstName   String   @db.VarChar(100) // ชื่อจริง
+  lastName    String   @db.VarChar(100) // นามสกุล
+  birthDate   DateTime // วันเกิด
+  rank        Rank     @default(SEAMAN_RECRUIT) // ยศทหารเรือไทย
+  fullAddress String   @db.VarChar(255) // ที่อยู่เต็ม
 
   // --- ประวัติการศึกษา / ตำแหน่ง ---
-  education     String?   @db.VarChar(255)          // ประวัติการศึกษา (อาจไม่มี หรือใช้ “วุฒิสูงสุด”)
-  position      String?   @db.VarChar(150)          // ตำแหน่งปัจจุบัน/ตำแหน่งงาน
+  education String? @db.VarChar(255) // ประวัติการศึกษา (อาจไม่มี หรือใช้ “วุฒิสูงสุด”)
+  position  String? @db.VarChar(150) // ตำแหน่งปัจจุบัน/ตำแหน่งงาน
 
   // --- การติดต่อหลัก ---
-  email         String    @unique @db.VarChar(191)  // อีเมล (ห้ามซ้ำ)
-  phone         String    @unique @db.VarChar(32)   // เบอร์โทรศัพท์ (ห้ามซ้ำ)
+  email String @unique @db.VarChar(191) // อีเมล (ห้ามซ้ำ)
+  phone String @unique @db.VarChar(32) // เบอร์โทรศัพท์ (ห้ามซ้ำ)
 
   // --- ข้อมูลติดต่อฉุกเฉิน ---
-  emergencyContactName   String @db.VarChar(100)    // ชื่อผู้ติดต่อฉุกเฉิน
-  emergencyContactPhone  String @db.VarChar(32)     // เบอร์โทรผู้ติดต่อฉุกเฉิน
+  emergencyContactName  String @db.VarChar(100) // ชื่อผู้ติดต่อฉุกเฉิน
+  emergencyContactPhone String @db.VarChar(32) // เบอร์โทรผู้ติดต่อฉุกเฉิน
 
   // --- ข้อมูลด้านการแพทย์ (Sensitive) ---
-  medicalHistory String?  @db.Text                  // ประวัติทางการแพทย์ (ควรเข้ารหัส/จำกัดสิทธิ์)
+  medicalHistory String? @db.Text // ประวัติทางการแพทย์ (ควรเข้ารหัส/จำกัดสิทธิ์)
 
   // --- อื่น ๆ ---
-  avatar        String?   @db.VarChar(255)          // URL รูปโปรไฟล์
+  avatar String? @db.VarChar(255) // URL รูปโปรไฟล์
 
-  createdAt     DateTime  @default(now())           // วันที่สร้างข้อมูล
-  updatedAt     DateTime  @updatedAt                // อัปเดตอัตโนมัติทุกครั้งที่แก้ไข
+  createdAt DateTime @default(now()) // วันที่สร้างข้อมูล
+  updatedAt DateTime @updatedAt // อัปเดตอัตโนมัติทุกครั้งที่แก้ไข
 
   // --- Indexes สำหรับการค้นหา ---
   @@index([lastName, firstName])

@@ -54,7 +54,9 @@ const register = async (req, res) => {
     }
     if (err.code === "P2002") {
       // P2002: Unique constraint failed
-      return res.status(409).json({ message: "ข้อมูล (username/email/phone) ซ้ำในระบบ" });
+      return res
+        .status(409)
+        .json({ message: "ข้อมูล (username/email/phone) ซ้ำในระบบ" });
     }
     res.status(500).json({ message: "Error registering user" });
   }

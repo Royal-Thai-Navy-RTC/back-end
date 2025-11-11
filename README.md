@@ -26,8 +26,32 @@ POST /api/admin/users — สร้างผู้ใช้ใหม่ (โค�
 
 DELETE /api/admin/users/:id — ลบผู้ใช้แบบถาวร (hard delete)
 
-## Example Header
+## Authentication / Headers
 
+- แนะนำใช้รูปแบบหัวข้อ: `Authorization: Bearer <JWT>`
+- ระบบยังยอมรับรูปแบบเดิมที่ส่งเฉพาะ `<token>` ได้ แต่ควรใช้ Bearer เพื่อความมาตรฐาน
+- Token ที่ได้จาก /api/login มี payload เป็น `{ id, role }`
+
+ตัวอย่าง
 ```
-Authorization: <token>
+Authorization: Bearer <JWT>
 ```
+
+## Auth Requirements (สรุป)
+
+- Public (ไม่ต้องใช้ token)
+  - POST /api/register
+  - POST /api/login
+
+- JWT (ผู้ใช้ล็อกอินทั่วไป)
+  - GET /api/me
+  - PUT /api/me
+  - POST /api/me/avatar (multipart/form-data; file field: avatar)
+
+- Admin (JWT + สิทธิ์ ADMIN)
+  - GET /api/admin/users
+  - GET /api/admin/users/:id
+  - POST /api/admin/users
+  - PUT /api/admin/users/:id
+  - DELETE /api/admin/users/:id
+  - POST /api/admin/users/:id/avatar (multipart/form-data; file field: avatar)

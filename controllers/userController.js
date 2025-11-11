@@ -13,7 +13,7 @@ const buildUserAvatarFilename = (userId, srcExt) => {
 // helper: พยายามอ่านไฟล์จาก path ที่ถูกส่งมาใน body (กรณี client ส่งเป็นสตริงพาธแทนไฟล์)
 const tryPickupLocalFileFromBody = (body) => {
   if (!body) return null;
-  const keys = ["avatar", "file", "image", "photo", "picture"]; 
+  const keys = ["avatar", "file", "image", "photo", "picture"];
   for (const k of keys) {
     if (typeof body[k] === "string" && body[k].trim() !== "") {
       let p = body[k].trim();
@@ -125,7 +125,9 @@ const adminCreateUser = async (req, res) => {
       return res.status(400).json({ message: err.message });
     }
     if (err.code === "P2002") {
-      return res.status(409).json({ message: "ข้อมูลซ้ำ (username/email/phone)" });
+      return res
+        .status(409)
+        .json({ message: "ข้อมูลซ้ำ (username/email/phone)" });
     }
     res.status(500).json({ message: "Error creating user" });
   }
@@ -134,14 +136,17 @@ const adminCreateUser = async (req, res) => {
 // แอดมินลบผู้ใช้แบบถาวร (hard delete)
 const adminDeleteUser = async (req, res) => {
   const targetId = req.params && req.params.id;
-  if (!targetId) return res.status(400).json({ message: "ต้องระบุ id ผู้ใช้ใน URL" });
+  if (!targetId)
+    return res.status(400).json({ message: "ต้องระบุ id ผู้ใช้ใน URL" });
   const idNum = Number(targetId);
-  if (!Number.isInteger(idNum)) return res.status(400).json({ message: "id ต้องเป็นจำนวนเต็ม" });
+  if (!Number.isInteger(idNum))
+    return res.status(400).json({ message: "id ต้องเป็นจำนวนเต็ม" });
   try {
     const deleted = await User.deleteUserHard(idNum);
     res.json({ message: "ลบผู้ใช้สำเร็จ", user: deleted });
   } catch (err) {
-    if (err.code === "P2025") return res.status(404).json({ message: "User not found" });
+    if (err.code === "P2025")
+      return res.status(404).json({ message: "User not found" });
     res.status(500).json({ message: "Error deleting user" });
   }
 };
@@ -155,35 +160,56 @@ const uploadAvatar = async (req, res) => {
       const localPath = tryPickupLocalFileFromBody(req.body);
       if (localPath) {
         const uploadsDir = path.join(__dirname, "..", "uploads", "avatars");
-        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+        if (!fs.existsSync(uploadsDir))
+          fs.mkdirSync(uploadsDir, { recursive: true });
         const ext = path.extname(localPath).toLowerCase();
         filenameOnDisk = buildUserAvatarFilename(req.userId, ext);
         fs.copyFileSync(localPath, path.join(uploadsDir, filenameOnDisk));
       }
     }
     if (!filenameOnDisk) {
-      return res.status(400).json({ message: "ไม่พบไฟล์ที่อัปโหลด (ฟิลด์ 'avatar')" });
+      return res
+        .status(400)
+        .json({ message: "ไม่พบไฟล์ที่อัปโหลด (ฟิลด์ 'avatar')" });
     }
     // เก็บ path เก่าก่อน เพื่อใช้ลบทิ้งหากชื่อไฟล์เปลี่ยน
     const before = await User.getUserById(req.userId);
     const oldPath = before && before.avatar;
     const publicPath = `/uploads/avatars/${filenameOnDisk}`;
-    const updated = await User.updateUserSelf(req.userId, { avatar: publicPath });
+    const updated = await User.updateUserSelf(req.userId, {
+      avatar: publicPath,
+    });
     // หากชื่อไฟล์เปลี่ยน ให้ลบไฟล์เดิม
     if (oldPath && oldPath !== publicPath) {
       const oldFile = path.join(__dirname, "..", oldPath.replace(/^\//, ""));
-      try { if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile); } catch {}
+      try {
+        if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+      } catch {}
     }
-    res.status(200).json({ message: "อัปโหลดรูปโปรไฟล์สำเร็จ", avatar: publicPath, profile: updated });
+    res
+      .status(200)
+      .json({
+        message: "อัปโหลดรูปโปรไฟล์สำเร็จ",
+        avatar: publicPath,
+        profile: updated,
+      });
   } catch (err) {
     // ลบไฟล์ที่เพิ่งอัปโหลดหาก DB อัปเดตไม่สำเร็จ
     try {
       if (req.file && req.file.filename) {
-        const p = path.join(__dirname, "..", "uploads", "avatars", req.file.filename);
+        const p = path.join(
+          __dirname,
+          "..",
+          "uploads",
+          "avatars",
+          req.file.filename
+        );
         fs.existsSync(p) && fs.unlinkSync(p);
       }
     } catch {}
-    res.status(500).json({ message: "Error uploading avatar", detail: err.message });
+    res
+      .status(500)
+      .json({ message: "Error uploading avatar", detail: err.message });
   }
 };
 
@@ -202,20 +228,29 @@ const adminUploadAvatar = async (req, res) => {
       const localPath = tryPickupLocalFileFromBody(req.body);
       if (localPath) {
         const uploadsDir = path.join(__dirname, "..", "uploads", "avatars");
-        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+        if (!fs.existsSync(uploadsDir))
+          fs.mkdirSync(uploadsDir, { recursive: true });
         const ext = path.extname(localPath).toLowerCase();
         filenameOnDisk = buildUserAvatarFilename(idNum, ext);
         fs.copyFileSync(localPath, path.join(uploadsDir, filenameOnDisk));
       }
     }
     if (!filenameOnDisk) {
-      return res.status(400).json({ message: "ไม่พบไฟล์ที่อัปโหลด (ฟิลด์ 'avatar')" });
+      return res
+        .status(400)
+        .json({ message: "ไม่พบไฟล์ที่อัปโหลด (ฟิลด์ 'avatar')" });
     }
     // ตรวจว่าผู้ใช้มีอยู่จริงก่อน และจำ path เก่า
     const exists = await User.getUserById(idNum);
     if (!exists) {
       try {
-        const p = path.join(__dirname, "..", "uploads", "avatars", filenameOnDisk);
+        const p = path.join(
+          __dirname,
+          "..",
+          "uploads",
+          "avatars",
+          filenameOnDisk
+        );
         fs.existsSync(p) && fs.unlinkSync(p);
       } catch {}
       return res.status(404).json({ message: "User not found" });
@@ -225,8 +260,14 @@ const adminUploadAvatar = async (req, res) => {
     const updated = await User.setUserAvatar(idNum, publicPath);
     // ลบไฟล์เก่าหากชื่อเปลี่ยน
     if (exists.avatar && exists.avatar !== publicPath) {
-      const oldFile = path.join(__dirname, "..", exists.avatar.replace(/^\//, ""));
-      try { if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile); } catch {}
+      const oldFile = path.join(
+        __dirname,
+        "..",
+        exists.avatar.replace(/^\//, "")
+      );
+      try {
+        if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+      } catch {}
     }
     res.status(200).json({
       message: "อัปโหลดรูปโปรไฟล์ผู้ใช้สำเร็จ",
@@ -237,14 +278,22 @@ const adminUploadAvatar = async (req, res) => {
     // ลบไฟล์ที่เพิ่งอัปโหลดหาก DB อัปเดตไม่สำเร็จ
     try {
       if (req.file && req.file.filename) {
-        const p = path.join(__dirname, "..", "uploads", "avatars", req.file.filename);
+        const p = path.join(
+          __dirname,
+          "..",
+          "uploads",
+          "avatars",
+          req.file.filename
+        );
         fs.existsSync(p) && fs.unlinkSync(p);
       }
     } catch {}
     if (err.code === "P2025") {
       return res.status(404).json({ message: "User not found" });
     }
-    res.status(500).json({ message: "Error uploading avatar", detail: err.message });
+    res
+      .status(500)
+      .json({ message: "Error uploading avatar", detail: err.message });
   }
 };
 
