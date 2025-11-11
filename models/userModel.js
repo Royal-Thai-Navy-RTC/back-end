@@ -259,6 +259,19 @@ module.exports = {
 
     return { items, total, page: Number(page) || 1, pageSize: take };
   },
+  // ตั้งค่า avatar ตาม id (สำหรับแอดมิน)
+  setUserAvatar: async (id, avatarPath) => {
+    return prisma.user.update({
+      where: { id: Number(id) },
+      data: { avatar: String(avatarPath) },
+      select: {
+        id: true,
+        username: true,
+        avatar: true,
+        updatedAt: true,
+      },
+    });
+  },
   // สำหรับแอดมิน: อนุญาตแก้ไขฟิลด์กว้างขึ้น และรีเซ็ตรหัสผ่านได้
   updateUserByAdmin: async (id, input) => {
     const allowed = new Set([

@@ -6,8 +6,12 @@ const prisma = new PrismaClient();
 // next คือ callback function ที่ใช้ในการส่งต่อไปยัง middleware ถัดไป
 const verifyToken = (req, res, next) => {
   // middleware สำหรับตรวจสอบ token
-  const token = req.headers["authorization"]; // รับ token จาก header ของ request
-  if (!token) return res.status(403).json({ message: "No token provided" }); // หากไม่มี token ให้ส่งข้อความกลับไปว่าไม่มี token
+  let token = req.headers["authorization"]; // รับ token จาก header ของ request
+  if (!token) return res.status(403).json({ message: "No token provided" });
+  // รองรับทั้งรูปแบบ "<token>" และ "Bearer <token>"
+  if (typeof token === "string" && token.toLowerCase().startsWith("bearer ")) {
+    token = token.slice(7).trim();
+  }
 
   jwt.verify(token, config.jwtSecret, (err, decoded) => {
     // ตรวจสอบ token
