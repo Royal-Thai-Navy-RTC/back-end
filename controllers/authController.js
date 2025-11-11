@@ -75,7 +75,7 @@ const login = async (req, res) => {
     }
     // สร้าง token และส่งกลับไปให้ผู้ใช้
     const token = jwt.sign({ id: user.id }, config.jwtSecret, {
-      expiresIn: "1h",
+      expiresIn: "24h",
     });
     res.json({ token });
   } catch (err) {
