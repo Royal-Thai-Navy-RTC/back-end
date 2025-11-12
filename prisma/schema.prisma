@@ -86,4 +86,54 @@ model User {
   @@index([lastName, firstName])
   @@index([rank])
   @@index([role])
+
+  // ความสัมพันธ์กับแบบประเมินที่ตนเป็นผู้สอน (ถ้ามีการผูก teacherId)
+  evaluationsReceived EvaluationSheet[] @relation("TeacherEvaluations")
+}
+
+// --------------------------------------------------
+// TEACHING EVALUATION MODELS (แบบประเมินครู)
+// --------------------------------------------------
+model EvaluationSheet {
+  id            Int       @id @default(autoincrement())
+
+  // รายวิชา + ครูผู้สอน
+  subject       String    @db.VarChar(191)
+  teacherName   String    @db.VarChar(191)
+
+  // อ้างอิงไปยัง User (role = TEACHER) ได้ ถ้ามี
+  teacherId     Int?
+  teacher       User?     @relation("TeacherEvaluations", fields: [teacherId], references: [id])
+
+  // ผู้ประเมิน
+  evaluatorName String    @db.VarChar(191)
+  evaluatorUnit String?   @db.VarChar(255)
+  evaluatedAt   DateTime  // วันที่ประเมินจากไฟล์ (ถ้าหาไม่ได้ให้ใช้เวลาปัจจุบัน)
+
+  notes         String?   @db.Text
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  answers       EvaluationAnswer[]
+
+  @@index([teacherId])
+  @@index([teacherName])
+  @@index([subject])
+}
+
+model EvaluationAnswer {
+  id        Int              @id @default(autoincrement())
+  sheetId   Int
+  sheet     EvaluationSheet   @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+
+  // ตัวชี้วัด/หัวข้อประเมิน
+  section   String?           @db.VarChar(32)
+  itemCode  String?           @db.VarChar(32)
+  itemText  String            @db.VarChar(255)
+
+  // คะแนนแบบ Likert 1..5 (5 = พึงพอใจมากที่สุด)
+  rating    Int
+
+  @@index([sheetId])
 }

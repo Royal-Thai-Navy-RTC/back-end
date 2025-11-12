@@ -3,6 +3,7 @@ const express = require("express");
 const authRoutes = require("./auth");
 const userRoutes = require("./user");
 const adminRoutes = require("./admin");
+const evaluationRoutes = require("./evaluation");
 
 const router = express.Router();
 
@@ -10,6 +11,7 @@ const router = express.Router();
 router.use("/", authRoutes);
 router.use("/", userRoutes);
 router.use("/", adminRoutes);
+router.use("/", evaluationRoutes);
 
 module.exports = router;
 

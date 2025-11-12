@@ -10,7 +10,9 @@ const ensureDir = (dir) => {
 
 const uploadRoot = path.join(__dirname, "..", "uploads");
 const avatarDir = path.join(uploadRoot, "avatars");
+const excelDir = path.join(uploadRoot, "evaluations");
 ensureDir(avatarDir);
+ensureDir(excelDir);
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -68,3 +70,56 @@ const avatarUploadOne = (req, res, next) => {
 };
 
 module.exports = { avatarUpload, avatarUploadOne, uploadRoot };
+
+// -----------------------------
+// Excel upload for evaluations
+// -----------------------------
+const excelStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, excelDir);
+  },
+  filename: function (req, file, cb) {
+    const ts = Date.now();
+    const ext = path.extname(file.originalname).toLowerCase() || ".xlsx";
+    cb(null, `eval-${ts}${ext}`);
+  },
+});
+
+const excelFileFilter = (req, file, cb) => {
+  const allowed = new Set([
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    // บาง client ส่งเป็น octet-stream ให้ตรวจจากนามสกุลไฟล์แทน
+    "application/octet-stream",
+  ]);
+  if (!allowed.has(file.mimetype)) {
+    return cb(new Error("รองรับเฉพาะไฟล์ Excel (.xlsx, .xls) เท่านั้น"));
+  }
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ext !== ".xlsx" && ext !== ".xls") {
+    return cb(new Error("กรุณาอัปโหลดไฟล์นามสกุล .xlsx หรือ .xls"));
+  }
+  cb(null, true);
+};
+
+const excelUpload = multer({ storage: excelStorage, fileFilter: excelFileFilter, limits });
+
+// ยอมรับหลายชื่อฟิลด์สำหรับไฟล์ Excel และแมปเป็น req.file ตัวเดียว
+const excelUploadOne = (req, res, next) => {
+  const uploadAny = excelUpload.any();
+  uploadAny(req, res, (err) => {
+    if (err) return next(err);
+    if (!Array.isArray(req.files)) return next();
+    const prefer = ["file", "excel", "upload", "sheet"];
+    let picked = null;
+    for (const name of prefer) {
+      picked = req.files.find((f) => f.fieldname === name);
+      if (picked) break;
+    }
+    if (!picked) picked = req.files[0];
+    if (picked) req.file = picked;
+    next();
+  });
+};
+
+module.exports.excelUploadOne = excelUploadOne;

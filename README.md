@@ -28,6 +28,29 @@ DELETE /api/admin/users/:id — ปิดการใช้งานผู้ใ
 
 PATCH /api/admin/users/:id/activate — เปิดการใช้งานผู้ใช้ (isActive=true)
 
+POST /api/evaluations/import — อัปโหลดไฟล์ Excel แบบประเมินครู (ต้องมี JWT)
+  - multipart/form-data; file field: `file`
+  - body optional: `teacherId` (เชื่อมกับผู้ใช้ role TEACHER ถ้ามี)
+
+ตัวอย่างผลลัพธ์สำเร็จ:
+```
+{
+  "message": "นำเข้าข้อมูลแบบประเมินสำเร็จ",
+  "sheet": {
+    "id": 1,
+    "subject": "การปืน",
+    "teacherName": "กอไก่ ขอไข่",
+    "evaluatorName": "พลฯ ภากร เรื่อศรีจันทร์",
+    "evaluatorUnit": "กองร้อยฝึกที่ 4 กองพันฝึกที่ 4",
+    "evaluatedAt": "2025-11-12T00:00:00.000Z",
+    "answers": [
+      { "itemCode": "1", "itemText": "ครูสอนเข้าใจง่าย ใช้คำพูดชัดเจน", "rating": 5 },
+      ...
+    ]
+  }
+}
+```
+
 ## Project Structure
 
 - `server.js` — Express app
@@ -35,13 +58,17 @@ PATCH /api/admin/users/:id/activate — เปิดการใช้งาน�
   - `routes/auth.js` — สมัคร/เข้าสู่ระบบ
   - `routes/user.js` — โปรไฟล์ผู้ใช้ (me)
   - `routes/admin.js` — จัดการผู้ใช้โดยผู้ดูแลระบบ
+  - `routes/evaluation.js` — นำเข้าแบบประเมินจาก Excel
   - `routes/index.js` — รวมและ export router ที่ `server.js` ใช้
 - `controllers/` — ตัวจัดการ Request/Response
   - `controllers/authController.js`
   - `controllers/userController.js`
+  - `controllers/evaluationController.js`
   - `controllers/admin/userAdminController.js`
 - `models/` — Prisma data access (`userModel.js`)
 - `middlewares/` — JWT, upload, etc.
+  - รองรับอัปโหลดรูป (`middlewares/upload.js` — avatar)
+  - รองรับอัปโหลด Excel (`middlewares/upload.js` — excelUploadOne => ไฟล์ `.xlsx`)
 - `utils/` — helper ทั่วไป (`utils/avatar.js`)
 
 ## Authentication / Headers
