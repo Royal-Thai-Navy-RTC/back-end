@@ -37,8 +37,8 @@ const adminUpdateUser = async (req, res) => {
 
 const adminGetAllUsers = async (req, res) => {
   try {
-    const { page, pageSize, search } = req.query || {};
-    const result = await User.listUsers({ page, pageSize, search });
+    const { page, pageSize, search, role } = req.query || {};
+    const result = await User.listUsers({ page, pageSize, search, role });
     const totalPages = Math.ceil(result.total / result.pageSize) || 1;
     res.json({
       data: result.items,
@@ -49,6 +49,30 @@ const adminGetAllUsers = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: "Error fetching users" });
+  }
+};
+
+// Admin: list only STUDENT
+const adminGetAllStudents = async (req, res) => {
+  try {
+    const { page, pageSize, search } = req.query || {};
+    const result = await User.listUsers({ page, pageSize, search, role: "STUDENT" });
+    const totalPages = Math.ceil(result.total / result.pageSize) || 1;
+    res.json({ data: result.items, page: result.page, pageSize: result.pageSize, total: result.total, totalPages });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching students" });
+  }
+};
+
+// Admin: list only TEACHER
+const adminGetAllTeachers = async (req, res) => {
+  try {
+    const { page, pageSize, search } = req.query || {};
+    const result = await User.listUsers({ page, pageSize, search, role: "TEACHER" });
+    const totalPages = Math.ceil(result.total / result.pageSize) || 1;
+    res.json({ data: result.items, page: result.page, pageSize: result.pageSize, total: result.total, totalPages });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching teachers" });
   }
 };
 
@@ -203,6 +227,8 @@ const adminUploadAvatar = async (req, res) => {
 module.exports = {
   adminUpdateUser,
   adminGetAllUsers,
+  adminGetAllStudents,
+  adminGetAllTeachers,
   adminGetUserById,
   adminCreateUser,
   adminDeactivateUser,

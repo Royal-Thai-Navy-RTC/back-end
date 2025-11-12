@@ -211,24 +211,28 @@ module.exports = {
     });
   },
   // สำหรับแอดมิน: ดึงรายการผู้ใช้ (รองรับค้นหา/แบ่งหน้าแบบง่าย)
-  listUsers: async ({ page = 1, pageSize = 50, search } = {}) => {
+  listUsers: async ({ page = 1, pageSize = 50, search, role } = {}) => {
     const take = Math.max(1, Math.min(Number(pageSize) || 50, 200));
     const skip = Math.max(0, ((Number(page) || 1) - 1) * take);
-    const where = search
-      ? {
-          OR: [
-            { username: { contains: String(search) } },
-            { firstName: { contains: String(search) } },
-            { lastName: { contains: String(search) } },
-            { email: { contains: String(search) } },
-            { phone: { contains: String(search) } },
-          ],
-        }
-      : undefined;
+    const where = {};
+    if (search) {
+      where.OR = [
+        { username: { contains: String(search) } },
+        { firstName: { contains: String(search) } },
+        { lastName: { contains: String(search) } },
+        { email: { contains: String(search) } },
+        { phone: { contains: String(search) } },
+      ];
+    }
+    if (role) {
+      const r = String(role).toUpperCase();
+      const allowed = new Set(["ADMIN", "TEACHER", "STUDENT"]);
+      if (allowed.has(r)) where.role = r;
+    }
 
     const [items, total] = await Promise.all([
       prisma.user.findMany({
-        where,
+        where: Object.keys(where).length ? where : undefined,
         skip,
         take,
         orderBy: { createdAt: "desc" },

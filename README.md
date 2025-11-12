@@ -95,6 +95,9 @@ Authorization: Bearer <JWT>
 
 - Admin (JWT + สิทธิ์ ADMIN)
   - GET /api/admin/users
+  - GET /api/admin/users?role=STUDENT|TEACHER — กรองตาม role ได้จาก query
+  - GET /api/admin/users/students — รายชื่อผู้ใช้ role STUDENT
+  - GET /api/admin/users/teachers — รายชื่อผู้ใช้ role TEACHER
   - GET /api/admin/users/:id
   - POST /api/admin/users
   - PUT /api/admin/users/:id

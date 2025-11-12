@@ -20,6 +20,22 @@ router.get(
   adminUser.adminGetAllUsers
 );
 
+// Admin: list students only
+router.get(
+  "/admin/users/students",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminUser.adminGetAllStudents
+);
+
+// Admin: list teachers only
+router.get(
+  "/admin/users/teachers",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminUser.adminGetAllTeachers
+);
+
 router.post(
   "/admin/users",
   middleware.verifyToken,
