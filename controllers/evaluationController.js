@@ -20,11 +20,11 @@ const THAI_MONTHS = {
   "กรกฎาคม": 7, "สิงหาคม": 8, "กันยายน": 9, "ตุลาคม": 10, "พฤศจิกายน": 11, "ธันวาคม": 12,
 };
 
-const safeString = (v) => (v === undefined || v === null ? "" : String(v).trim());
+const safeString = (v) => (v === undefined || v === null ? "" : thaiDigitsToArabic(String(v)).trim());
 
 // แปลงเลขไทย -> อารบิก
 function thaiDigitsToArabic(s) {
-  return safeString(s)
+  return String(s)
     .replace(/๐/g, "0")
     .replace(/๑/g, "1")
     .replace(/๒/g, "2")
@@ -331,8 +331,8 @@ const importEvaluationExcel = async (req, res) => {
     // หาก client ส่ง teacherId มา จะพยายามแนบ
     let teacherId = undefined;
     if (req.body && req.body.teacherId) {
-      // รองรับกรณีถูกส่งมาเป็นสตริงมีอัญประกาศ เช่น "1" หรือ '1'
-      let raw = String(req.body.teacherId).trim();
+      // รองรับกรณีถูกส่งมาเป็นสตริงมีอัญประกาศ/เลขไทย เช่น "1"/'1'/"๑"
+      let raw = thaiDigitsToArabic(String(req.body.teacherId)).trim();
       raw = raw.replace(/^\s*["']+|["']+\s*$/g, "");
       const idNum = Number(raw);
       if (!Number.isNaN(idNum)) {
