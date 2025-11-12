@@ -26,6 +26,22 @@ POST /api/admin/users — สร้างผู้ใช้ใหม่ (โค�
 
 DELETE /api/admin/users/:id — ลบผู้ใช้แบบถาวร (hard delete)
 
+## Project Structure
+
+- `server.js` — Express app bootstrap
+- `routes/` — แยกเส้นทางตามกลุ่มฟีเจอร์
+  - `routes/auth.js` — สมัคร/เข้าสู่ระบบ
+  - `routes/user.js` — โปรไฟล์ผู้ใช้ (me)
+  - `routes/admin.js` — จัดการผู้ใช้โดยผู้ดูแลระบบ
+  - `routes/index.js` — รวมและ export router กลางที่ `server.js` ใช้
+- `controllers/` — ตัวจัดการธุรกิจแยกตามโดเมน
+  - `controllers/authController.js`
+  - `controllers/userController.js`
+  - `controllers/admin/userAdminController.js`
+- `models/` — Prisma data access (`userModel.js`)
+- `middlewares/` — JWT, upload, etc.
+- `utils/` — helper ทั่วไป (`utils/avatar.js`)
+
 ## Authentication / Headers
 
 - แนะนำใช้รูปแบบหัวข้อ: `Authorization: Bearer <JWT>`
