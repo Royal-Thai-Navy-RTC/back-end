@@ -71,14 +71,18 @@ const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid username or password" });
     }
     // หากรหัสผ่านไม่ตรงกับที่เก็บไว้ในฐานข้อมูล
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid username or password" });
+  const isMatch = await bcrypt.compare(password, user.passwordHash);
+  if (!isMatch) {
+    return res.status(401).json({ message: "Invalid username or password" });
+  }
+    // บล็อกผู้ใช้ที่ถูกปิดการใช้งานไม่ให้เข้าสู่ระบบ
+    if (user.isActive === false) {
+      return res.status(403).json({ message: "บัญชีผู้ใช้นี้ถูกปิดการใช้งาน" });
     }
-    // สร้าง token และส่งกลับไปให้ผู้ใช้ (ใส่ role ไปด้วย)
-    const token = jwt.sign({ id: user.id, role: user.role }, config.jwtSecret, {
-      expiresIn: "24h",
-    });
+  // สร้าง token และส่งกลับไปให้ผู้ใช้ (ใส่ role ไปด้วย)
+  const token = jwt.sign({ id: user.id, role: user.role }, config.jwtSecret, {
+    expiresIn: "24h",
+  });
     res.json({ token });
   } catch (err) {
     // หากเกิดข้อผิดพลาดในการเข้าสู่ระบบ
