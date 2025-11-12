@@ -24,17 +24,19 @@ GET /uploads/avatars/:filename — ดึงรูปโปรไฟล์จา
 
 POST /api/admin/users — สร้างผู้ใช้ใหม่ (โครงสร้าง body เหมือน /api/register)
 
-DELETE /api/admin/users/:id — ลบผู้ใช้แบบถาวร (hard delete)
+DELETE /api/admin/users/:id — ปิดการใช้งานผู้ใช้ (soft delete: isActive=false)
+
+PATCH /api/admin/users/:id/activate — เปิดการใช้งานผู้ใช้ (isActive=true)
 
 ## Project Structure
 
-- `server.js` — Express app bootstrap
-- `routes/` — แยกเส้นทางตามกลุ่มฟีเจอร์
+- `server.js` — Express app
+- `routes/` — แยกเส้นแต่ละฟีเจอร์
   - `routes/auth.js` — สมัคร/เข้าสู่ระบบ
   - `routes/user.js` — โปรไฟล์ผู้ใช้ (me)
   - `routes/admin.js` — จัดการผู้ใช้โดยผู้ดูแลระบบ
-  - `routes/index.js` — รวมและ export router กลางที่ `server.js` ใช้
-- `controllers/` — ตัวจัดการธุรกิจแยกตามโดเมน
+  - `routes/index.js` — รวมและ export router ที่ `server.js` ใช้
+- `controllers/` — ตัวจัดการ Request/Response
   - `controllers/authController.js`
   - `controllers/userController.js`
   - `controllers/admin/userAdminController.js`
@@ -44,8 +46,8 @@ DELETE /api/admin/users/:id — ลบผู้ใช้แบบถาวร (h
 
 ## Authentication / Headers
 
-- แนะนำใช้รูปแบบหัวข้อ: `Authorization: Bearer <JWT>`
-- ระบบยังยอมรับรูปแบบเดิมที่ส่งเฉพาะ `<token>` ได้ แต่ควรใช้ Bearer เพื่อความมาตรฐาน
+- ตัวอย่าง Headers: `Authorization: Bearer <JWT>`
+- ส่ง `<token>` ได้เลย แต่สามารถใช้ Bearer ได้
 - Token ที่ได้จาก /api/login มี payload เป็น `{ id, role }`
 
 ตัวอย่าง
@@ -69,5 +71,6 @@ Authorization: Bearer <JWT>
   - GET /api/admin/users/:id
   - POST /api/admin/users
   - PUT /api/admin/users/:id
-  - DELETE /api/admin/users/:id
+  - DELETE /api/admin/users/deactivate/:id
+  - PATCH /api/admin/users/activate/:id
   - POST /api/admin/users/:id/avatar (multipart/form-data; file field: avatar)

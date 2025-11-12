@@ -42,12 +42,20 @@ router.post(
   adminUser.adminUploadAvatar
 );
 
+// Deactivate (soft delete) user
 router.delete(
-  "/admin/users/:id",
+  "/admin/users/deactivate/:id",
   middleware.verifyToken,
   middleware.authorizeAdmin,
-  adminUser.adminDeleteUser
+  adminUser.adminDeactivateUser
+);
+
+// Activate user
+router.patch(
+  "/admin/users/activate/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminUser.adminActivateUser
 );
 
 module.exports = router;
-

@@ -83,7 +83,7 @@ const adminCreateUser = async (req, res) => {
   }
 };
 
-const adminDeleteUser = async (req, res) => {
+const adminDeactivateUser = async (req, res) => {
   const targetId = req.params && req.params.id;
   if (!targetId)
     return res.status(400).json({ message: "ต้องระบุ id ผู้ใช้ใน URL" });
@@ -91,12 +91,29 @@ const adminDeleteUser = async (req, res) => {
   if (!Number.isInteger(idNum))
     return res.status(400).json({ message: "id ต้องเป็นจำนวนเต็ม" });
   try {
-    const deleted = await User.deleteUserHard(idNum);
-    res.json({ message: "ลบผู้ใช้สำเร็จ", user: deleted });
+    const user = await User.deactivateUser(idNum);
+    res.json({ message: "ปิดการใช้งานผู้ใช้สำเร็จ", user });
   } catch (err) {
     if (err.code === "P2025")
       return res.status(404).json({ message: "User not found" });
-    res.status(500).json({ message: "Error deleting user" });
+    res.status(500).json({ message: "Error deactivating user" });
+  }
+};
+
+const adminActivateUser = async (req, res) => {
+  const targetId = req.params && req.params.id;
+  if (!targetId)
+    return res.status(400).json({ message: "ต้องระบุ id ผู้ใช้ใน URL" });
+  const idNum = Number(targetId);
+  if (!Number.isInteger(idNum))
+    return res.status(400).json({ message: "id ต้องเป็นจำนวนเต็ม" });
+  try {
+    const user = await User.activateUser(idNum);
+    res.json({ message: "เปิดการใช้งานผู้ใช้สำเร็จ", user });
+  } catch (err) {
+    if (err.code === "P2025")
+      return res.status(404).json({ message: "User not found" });
+    res.status(500).json({ message: "Error activating user" });
   }
 };
 
@@ -188,7 +205,7 @@ module.exports = {
   adminGetAllUsers,
   adminGetUserById,
   adminCreateUser,
-  adminDeleteUser,
+  adminDeactivateUser,
+  adminActivateUser,
   adminUploadAvatar,
 };
-

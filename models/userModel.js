@@ -272,6 +272,19 @@ module.exports = {
       },
     });
   },
+  // เปิดการใช้งานผู้ใช้ (reactivate) โดยตั้ง isActive = true
+  activateUser: async (id) => {
+    return prisma.user.update({
+      where: { id: Number(id) },
+      data: { isActive: true },
+      select: {
+        id: true,
+        username: true,
+        isActive: true,
+        updatedAt: true,
+      },
+    });
+  },
   // ลบผู้ใช้ออกจากฐานข้อมูลแบบถาวร (hard delete)
   deleteUserHard: async (id) => {
     return prisma.user.delete({
