@@ -44,4 +44,21 @@ module.exports = {
       return res.status(500).json({ message: "Authorization error" });
     }
   },
+  authorizeTeacher: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      if (user.role !== "TEACHER") {
+        return res.status(403).json({ message: "Teacher only" });
+      }
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
 };

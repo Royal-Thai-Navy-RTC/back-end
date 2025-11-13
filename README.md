@@ -36,6 +36,10 @@ DELETE /api/admin/users/:id — ปิดการใช้งานผู้ใ
 
 PATCH /api/admin/users/:id/activate — เปิดการใช้งานผู้ใช้ (isActive=true)
 
+POST /api/teacher/training-reports — ครูผู้สอนส่งยอดนักเรียน (subject, participantCount, company, battalion, trainingDate, trainingTime, location, durationHours, notes)
+
+GET /api/teacher/training-reports/latest — ดูประวัติการส่งล่าสุด (ค่าเริ่มต้น 5 รายการ, ปรับจำนวนได้ด้วย query `limit`)
+
 POST /api/evaluations/import — อัปโหลดไฟล์ Excel แบบประเมินครู (ต้องมี JWT)
   - multipart/form-data; file field: `file`
   - body optional: `teacherId` (เชื่อมกับผู้ใช้ role TEACHER ถ้ามี)
@@ -47,14 +51,16 @@ POST /api/evaluations/import — อัปโหลดไฟล์ Excel แบ�
   - `routes/auth.js` — สมัคร/เข้าสู่ระบบ
   - `routes/user.js` — โปรไฟล์ผู้ใช้ (me)
   - `routes/admin.js` — จัดการผู้ใช้โดยผู้ดูแลระบบ
+  - `routes/teacher.js` — เส้นทางสำหรับครูส่งยอดนักเรียน
   - `routes/evaluation.js` — นำเข้าแบบประเมินจาก Excel
   - `routes/index.js` — รวมและ export router ที่ `server.js` ใช้
 - `controllers/` — ตัวจัดการ Request/Response
   - `controllers/authController.js`
   - `controllers/userController.js`
+  - `controllers/teacherReportController.js`
   - `controllers/evaluationController.js`
   - `controllers/admin/userAdminController.js`
-- `models/` — Prisma data access (`userModel.js`)
+- `models/` — Prisma data access (`userModel.js`, `trainingReportModel.js`)
 - `middlewares/` — JWT, upload, etc.
   - รองรับอัปโหลดรูป (`middlewares/upload.js` — avatar)
   - รองรับอัปโหลด Excel (`middlewares/upload.js` — excelUploadOne => ไฟล์ `.xlsx`)
@@ -81,6 +87,10 @@ Authorization: Bearer <JWT>
   - GET /api/me
   - PUT /api/me
   - POST /api/me/avatar (multipart/form-data; file field: avatar)
+
+- Teacher (JWT + สิทธิ์ TEACHER)
+  - POST /api/teacher/training-reports
+  - GET /api/teacher/training-reports/latest
 
 - Admin (JWT + สิทธิ์ ADMIN)
   - GET /api/admin/users

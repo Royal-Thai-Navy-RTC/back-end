@@ -89,6 +89,9 @@ model User {
 
   // ความสัมพันธ์กับแบบประเมินที่ตนเป็นผู้สอน (ถ้ามีการผูก teacherId)
   evaluationsReceived EvaluationSheet[] @relation("TeacherEvaluations")
+
+  // รายงานยอดนักเรียนที่ครูส่ง
+  trainingReports TrainingReport[]
 }
 
 // --------------------------------------------------
@@ -136,4 +139,28 @@ model EvaluationAnswer {
   rating    Int
 
   @@index([sheetId])
+}
+
+// --------------------------------------------------
+// TRAINING REPORTS (ยอดนักเรียน/รายงานการฝึกของครู)
+// --------------------------------------------------
+model TrainingReport {
+  id               Int      @id @default(autoincrement())
+  teacherId        Int
+  teacher          User     @relation(fields: [teacherId], references: [id])
+
+  subject          String   @db.VarChar(191)
+  participantCount Int
+  company          String?  @db.VarChar(150) // ร้อยฝึกที่
+  battalion        String?  @db.VarChar(150) // พันฝึกที่
+  trainingDate     DateTime
+  trainingTime     String?  @db.VarChar(16) // HH:mm
+  location         String?  @db.VarChar(191)
+  durationHours    Float
+  notes            String?  @db.Text
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([teacherId, trainingDate])
 }
