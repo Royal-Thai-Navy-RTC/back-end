@@ -36,6 +36,20 @@ router.get(
   adminUser.adminGetAllTeachers
 );
 
+router.get(
+  "/admin/users/students/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminUser.adminGetStudentById
+);
+
+router.get(
+  "/admin/users/teachers/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminUser.adminGetTeacherById
+);
+
 router.post(
   "/admin/users",
   middleware.verifyToken,

@@ -2,6 +2,36 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const bcrypt = require("bcryptjs");
 
+const rankLabelMap = {
+  ADMIRAL: "พลเรือเอก",
+  VICE_ADMIRAL: "พลเรือโท",
+  REAR_ADMIRAL: "พลเรือตรี",
+  CAPTAIN: "นาวาเอก",
+  COMMANDER: "นาวาโท",
+  LIEUTENANT_COMMANDER: "นาวาตรี",
+  LIEUTENANT: "เรือเอก",
+  SUB_LIEUTENANT: "เรือโท",
+  ENSIGN: "เรือตรี",
+  PETTY_OFFICER_1: "พันจ่าเอก",
+  PETTY_OFFICER_2: "พันจ่าโท",
+  PETTY_OFFICER_3: "พันจ่าตรี",
+  PETTY_OFFICER: "จ่าเอก",
+  LEADING_RATING: "จ่าโท",
+  ABLE_SEAMAN: "จ่าตรี",
+  SEAMAN_RECRUIT: "พลฯ",
+};
+
+const withThaiRank = (payload) => {
+  if (!payload) return payload;
+  if (Array.isArray(payload)) {
+    return payload.map(withThaiRank);
+  }
+  if (payload.rank) {
+    return { ...payload, rank: rankLabelMap[payload.rank] || payload.rank };
+  }
+  return payload;
+};
+
 // ตรวจสอบและจัดรูปแบบข้อมูลให้ตรงกับ schema.prisma
 const normalizeAndValidateUserInput = (input) => {
   const requiredFields = [
@@ -99,30 +129,32 @@ module.exports = {
   findUserByUsername,
   // เพิ่มสำหรับโปรไฟล์ตัวเอง
   getUserById: async (id) => {
-    return prisma.user.findUnique({
-      where: { id: Number(id) },
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        isActive: true,
-        firstName: true,
-        lastName: true,
-        birthDate: true,
-        rank: true,
-        fullAddress: true,
-        education: true,
-        position: true,
-        email: true,
-        phone: true,
-        emergencyContactName: true,
-        emergencyContactPhone: true,
-        medicalHistory: true,
-        avatar: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    return withThaiRank(
+      await prisma.user.findUnique({
+        where: { id: Number(id) },
+        select: {
+          id: true,
+          username: true,
+          role: true,
+          isActive: true,
+          firstName: true,
+          lastName: true,
+          birthDate: true,
+          rank: true,
+          fullAddress: true,
+          education: true,
+          position: true,
+          email: true,
+          phone: true,
+          emergencyContactName: true,
+          emergencyContactPhone: true,
+          medicalHistory: true,
+          avatar: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })
+    );
   },
   updateUserSelf: async (id, input) => {
     const allowed = new Set([
@@ -158,8 +190,38 @@ module.exports = {
     }
 
     if (Object.keys(data).length === 0) {
-      return prisma.user.findUnique({
+      return withThaiRank(
+        await prisma.user.findUnique({
+          where: { id: Number(id) },
+          select: {
+            id: true,
+            username: true,
+            role: true,
+            isActive: true,
+            firstName: true,
+            lastName: true,
+            birthDate: true,
+            rank: true,
+            fullAddress: true,
+            education: true,
+            position: true,
+            email: true,
+            phone: true,
+            emergencyContactName: true,
+            emergencyContactPhone: true,
+            medicalHistory: true,
+            avatar: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        })
+      );
+    }
+
+    return withThaiRank(
+      await prisma.user.update({
         where: { id: Number(id) },
+        data,
         select: {
           id: true,
           username: true,
@@ -181,34 +243,8 @@ module.exports = {
           createdAt: true,
           updatedAt: true,
         },
-      });
-    }
-
-    return prisma.user.update({
-      where: { id: Number(id) },
-      data,
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        isActive: true,
-        firstName: true,
-        lastName: true,
-        birthDate: true,
-        rank: true,
-        fullAddress: true,
-        education: true,
-        position: true,
-        email: true,
-        phone: true,
-        emergencyContactName: true,
-        emergencyContactPhone: true,
-        medicalHistory: true,
-        avatar: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+      })
+    );
   },
   // สำหรับแอดมิน: ดึงรายการผู้ใช้ (รองรับค้นหา/แบ่งหน้าแบบง่าย)
   listUsers: async ({ page = 1, pageSize = 50, search, role } = {}) => {
@@ -230,7 +266,7 @@ module.exports = {
       if (allowed.has(r)) where.role = r;
     }
 
-    const [items, total] = await Promise.all([
+    const [itemsRaw, total] = await Promise.all([
       prisma.user.findMany({
         where: Object.keys(where).length ? where : undefined,
         skip,
@@ -261,7 +297,12 @@ module.exports = {
       prisma.user.count({ where }),
     ]);
 
-    return { items, total, page: Number(page) || 1, pageSize: take };
+    return {
+      items: withThaiRank(itemsRaw),
+      total,
+      page: Number(page) || 1,
+      pageSize: take,
+    };
   },
   // ปิดการใช้งาน (soft delete) ผู้ใช้ โดยตั้ง isActive = false
   deactivateUser: async (id) => {
@@ -355,30 +396,32 @@ module.exports = {
       data[k] = typeof v === "string" ? v.trim() : v;
     }
 
-    return prisma.user.update({
-      where: { id: Number(id) },
-      data,
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        isActive: true,
-        firstName: true,
-        lastName: true,
-        birthDate: true,
-        rank: true,
-        fullAddress: true,
-        education: true,
-        position: true,
-        email: true,
-        phone: true,
-        emergencyContactName: true,
-        emergencyContactPhone: true,
-        medicalHistory: true,
-        avatar: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    return withThaiRank(
+      await prisma.user.update({
+        where: { id: Number(id) },
+        data,
+        select: {
+          id: true,
+          username: true,
+          role: true,
+          isActive: true,
+          firstName: true,
+          lastName: true,
+          birthDate: true,
+          rank: true,
+          fullAddress: true,
+          education: true,
+          position: true,
+          email: true,
+          phone: true,
+          emergencyContactName: true,
+          emergencyContactPhone: true,
+          medicalHistory: true,
+          avatar: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })
+    );
   },
 };

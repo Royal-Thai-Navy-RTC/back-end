@@ -89,6 +89,37 @@ const adminGetUserById = async (req, res) => {
   }
 };
 
+const buildRoleDetailGetter =
+  ({ expectRole, roleLabel, errorMessage }) =>
+  async (req, res) => {
+    const targetId = req.params && req.params.id;
+    if (!targetId) {
+      return res.status(400).json({ message: "ต้องระบุ id ผู้ใช้ใน URL" });
+    }
+    try {
+      const user = await User.getUserById(targetId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.role !== expectRole) {
+        return res.status(400).json({ message: errorMessage });
+      }
+      res.json(user);
+    } catch (err) {
+      res.status(500).json({ message: `Error fetching ${roleLabel}` });
+    }
+  };
+
+const adminGetTeacherById = buildRoleDetailGetter({
+  expectRole: "TEACHER",
+  roleLabel: "teacher",
+  errorMessage: "ผู้ใช้นี้ไม่ได้มีบทบาทครูผู้สอน",
+});
+
+const adminGetStudentById = buildRoleDetailGetter({
+  expectRole: "STUDENT",
+  roleLabel: "student",
+  errorMessage: "ผู้ใช้นี้ไม่ได้มีบทบาทนักเรียน",
+});
+
 const adminCreateUser = async (req, res) => {
   try {
     const created = await User.createUser(req.body);
@@ -229,6 +260,8 @@ module.exports = {
   adminGetAllUsers,
   adminGetAllStudents,
   adminGetAllTeachers,
+  adminGetTeacherById,
+  adminGetStudentById,
   adminGetUserById,
   adminCreateUser,
   adminDeactivateUser,

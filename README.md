@@ -14,6 +14,14 @@ POST /api/me/avatar — อัปโหลด/เปลี่ยนรูปโ�
 
 GET /api/admin/users — แอดมินดึงรายชื่อผู้ใช้ทั้งหมด (รองรับ page/pageSize/search)
 
+GET /api/admin/users/students — รายชื่อผู้ใช้ role STUDENT
+
+GET /api/admin/users/teachers — รายชื่อผู้ใช้ role TEACHER
+
+GET /api/admin/users/students/:id — แอดมินดูข้อมูลนักเรียนรายบุคคล (ตรวจสอบ role = STUDENT)
+
+GET /api/admin/users/teachers/:id — แอดมินดูข้อมูลครูรายบุคคล (ตรวจสอบ role = TEACHER)
+
 GET /api/admin/users/:id — แอดมินดูข้อมูลผู้ใช้ตาม id
 
 PUT /api/admin/users/:id — แอดมินแก้ไขข้อมูลผู้ใช้ตาม id (รวมเปลี่ยน role/rank/isActive/รีเซ็ตรหัสผ่าน)
@@ -79,6 +87,8 @@ Authorization: Bearer <JWT>
   - GET /api/admin/users?role=STUDENT|TEACHER — กรองตาม role ได้จาก query
   - GET /api/admin/users/students — รายชื่อผู้ใช้ role STUDENT
   - GET /api/admin/users/teachers — รายชื่อผู้ใช้ role TEACHER
+  - GET /api/admin/users/students/:id — ดึงข้อมูลนักเรียนเฉพาะคน
+  - GET /api/admin/users/teachers/:id — ดึงข้อมูลครูเฉพาะคน
   - GET /api/admin/users/:id
   - POST /api/admin/users
   - PUT /api/admin/users/:id
