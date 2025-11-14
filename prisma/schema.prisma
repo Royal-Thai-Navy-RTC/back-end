@@ -18,25 +18,56 @@ enum Role {
 }
 
 enum Rank {
-  ADMIRAL      @map("พลเรือเอก")
-  VICE_ADMIRAL @map("พลเรือโท")
-  REAR_ADMIRAL @map("พลเรือตรี")
+  ADMIRAL        @map("พลเรือเอก")
+  ADMIRAL_FEMALE @map("พลเรือเอกหญิง")
 
-  CAPTAIN              @map("นาวาเอก")
-  COMMANDER            @map("นาวาโท")
-  LIEUTENANT_COMMANDER @map("นาวาตรี")
+  VICE_ADMIRAL        @map("พลเรือโท")
+  VICE_ADMIRAL_FEMALE @map("พลเรือโทหญิง")
 
-  LIEUTENANT     @map("เรือเอก")
-  SUB_LIEUTENANT @map("เรือโท")
-  ENSIGN         @map("เรือตรี")
+  REAR_ADMIRAL        @map("พลเรือตรี")
+  REAR_ADMIRAL_FEMALE @map("พลเรือตรีหญิง")
 
-  PETTY_OFFICER_1 @map("พันจ่าเอก")
-  PETTY_OFFICER_2 @map("พันจ่าโท")
-  PETTY_OFFICER_3 @map("พันจ่าตรี")
+  CAPTAIN        @map("นาวาเอก")
+  CAPTAIN_FEMALE @map("นาวาเอกหญิง")
 
-  PETTY_OFFICER  @map("จ่าเอก")
-  LEADING_RATING @map("จ่าโท")
-  ABLE_SEAMAN    @map("จ่าตรี")
+  COMMANDER        @map("นาวาโท")
+  COMMANDER_FEMALE @map("นาวาโทหญิง")
+
+  LIEUTENANT_COMMANDER        @map("นาวาตรี")
+  LIEUTENANT_COMMANDER_FEMALE @map("นาวาตรีหญิง")
+
+  LIEUTENANT        @map("เรือเอก")
+  LIEUTENANT_FEMALE @map("เรือเอกหญิง")
+
+  SUB_LIEUTENANT        @map("เรือโท")
+  SUB_LIEUTENANT_FEMALE @map("เรือโทหญิง")
+
+  ENSIGN        @map("เรือตรี")
+  ENSIGN_FEMALE @map("เรือตรีหญิง")
+
+  PETTY_OFFICER_1        @map("พันจ่าเอก")
+  PETTY_OFFICER_1_FEMALE @map("พันจ่าเอกหญิง")
+
+  PETTY_OFFICER_2        @map("พันจ่าโท")
+  PETTY_OFFICER_2_FEMALE @map("พันจ่าโทหญิง")
+
+  PETTY_OFFICER_3        @map("พันจ่าตรี")
+  PETTY_OFFICER_3_FEMALE @map("พันจ่าตรีหญิง")
+
+  LIEUTENANT_COLONEL        @map("พันโท")
+  LIEUTENANT_COLONEL_FEMALE @map("พันโทหญิง")
+
+  MAJOR        @map("พันตรี")
+  MAJOR_FEMALE @map("พันตรีหญิง")
+
+  PETTY_OFFICER        @map("จ่าเอก")
+  PETTY_OFFICER_FEMALE @map("จ่าเอกหญิง")
+
+  LEADING_RATING        @map("จ่าโท")
+  LEADING_RATING_FEMALE @map("จ่าโทหญิง")
+
+  ABLE_SEAMAN        @map("จ่าตรี")
+  ABLE_SEAMAN_FEMALE @map("จ่าตรีหญิง")
 
   SEAMAN_RECRUIT @map("พลฯ")
 }
