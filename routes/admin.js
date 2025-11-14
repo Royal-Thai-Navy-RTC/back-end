@@ -2,6 +2,7 @@ const express = require("express");
 const middleware = require("../middlewares/middleware");
 const { avatarUploadOne } = require("../middlewares/upload");
 const adminUser = require("../controllers/admin/userAdminController");
+const adminTrainingReports = require("../controllers/admin/trainingReportAdminController");
 
 const router = express.Router();
 
@@ -86,6 +87,13 @@ router.patch(
   middleware.verifyToken,
   middleware.authorizeAdmin,
   adminUser.adminActivateUser
+);
+
+router.get(
+  "/admin/training-reports",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminTrainingReports.getTrainingReportDashboard
 );
 
 module.exports = router;

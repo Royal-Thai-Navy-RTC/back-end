@@ -82,7 +82,160 @@ const getRecentReportsForTeacher = async ({ teacherId, limit = 5 }) => {
   });
 };
 
+const getAdminTrainingReportSummary = async ({ search } = {}) => {
+  const totalReportsPromise = prisma.trainingReport.count();
+  const participantSumPromise = prisma.trainingReport.aggregate({
+    _sum: { participantCount: true },
+  });
+  const distinctRoundsPromise = prisma.trainingReport.findMany({
+    distinct: ["trainingDate"],
+    select: { trainingDate: true },
+  });
+  const lastReportPromise = prisma.trainingReport.findFirst({
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+  const teacherAggregatesPromise = prisma.trainingReport.groupBy({
+    by: ["teacherId"],
+    _count: { _all: true },
+    _sum: { participantCount: true },
+  });
+
+  const [
+    totalReports,
+    participantSum,
+    distinctRounds,
+    lastReport,
+    teacherAggregates,
+  ] = await Promise.all([
+    totalReportsPromise,
+    participantSumPromise,
+    distinctRoundsPromise,
+    lastReportPromise,
+    teacherAggregatesPromise,
+  ]);
+
+  const teacherIds = teacherAggregates.map((item) => item.teacherId);
+  const latestReportsRaw = teacherIds.length
+    ? await prisma.trainingReport.findMany({
+        where: { teacherId: { in: teacherIds } },
+        orderBy: [
+          { teacherId: "asc" },
+          { createdAt: "desc" },
+        ],
+        include: {
+          teacher: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              rank: true,
+              position: true,
+            },
+          },
+        },
+      })
+    : [];
+
+  const latestByTeacher = new Map();
+  for (const report of latestReportsRaw) {
+    if (!latestByTeacher.has(report.teacherId)) {
+      latestByTeacher.set(report.teacherId, report);
+    }
+  }
+
+  let teacherStats = teacherAggregates.map((agg) => {
+    const latest = latestByTeacher.get(agg.teacherId);
+    const teacherName = latest?.teacher
+      ? `${latest.teacher.firstName} ${latest.teacher.lastName}`
+      : null;
+    return {
+      teacherId: agg.teacherId,
+      teacherName,
+      rank: latest?.teacher?.rank || null,
+      position: latest?.teacher?.position || null,
+      totalReports: agg._count._all,
+      totalParticipants: agg._sum.participantCount || 0,
+      company: latest?.company || null,
+      battalion: latest?.battalion || null,
+      latestSubject: latest?.subject || null,
+      latestTrainingDate: latest?.trainingDate || null,
+      latestReportAt: latest?.createdAt || null,
+    };
+  });
+
+  const keyword = typeof search === "string" ? search.trim().toLowerCase() : "";
+  if (keyword) {
+    teacherStats = teacherStats.filter((stat) => {
+      const haystack = [
+        stat.teacherName,
+        stat.company,
+        stat.battalion,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }
+
+  teacherStats.sort((a, b) => {
+    const aTime = a.latestReportAt ? new Date(a.latestReportAt).getTime() : 0;
+    const bTime = b.latestReportAt ? new Date(b.latestReportAt).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  const recentReportsRaw = await prisma.trainingReport.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    include: {
+      teacher: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          rank: true,
+          position: true,
+        },
+      },
+    },
+  });
+
+  const recentReports = recentReportsRaw.map((report) => ({
+    id: report.id,
+    teacherId: report.teacherId,
+    teacherName: report.teacher
+      ? `${report.teacher.firstName} ${report.teacher.lastName}`
+      : null,
+    rank: report.teacher?.rank || null,
+    position: report.teacher?.position || null,
+    subject: report.subject,
+    participantCount: report.participantCount,
+    company: report.company,
+    battalion: report.battalion,
+    trainingDate: report.trainingDate,
+    trainingTime: report.trainingTime,
+    location: report.location,
+    durationHours: report.durationHours,
+    notes: report.notes,
+    createdAt: report.createdAt,
+  }));
+
+  return {
+    overview: {
+      totalReports,
+      totalTrainingRounds: distinctRounds.length,
+      totalParticipants: participantSum._sum.participantCount || 0,
+      totalTeachersSubmitted: teacherAggregates.length,
+      lastReportAt: lastReport?.createdAt || null,
+    },
+    teacherStats,
+    recentReports,
+  };
+};
+
 module.exports = {
   createTrainingReport,
   getRecentReportsForTeacher,
+  getAdminTrainingReportSummary,
 };

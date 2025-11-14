@@ -36,6 +36,8 @@ DELETE /api/admin/users/:id — ปิดการใช้งานผู้ใ
 
 PATCH /api/admin/users/:id/activate — เปิดการใช้งานผู้ใช้ (isActive=true)
 
+GET /api/admin/training-reports — สรุปยอดรายงานและการส่งล่าสุดของครูทุกคน (query: `search` สำหรับค้นหา)
+
 POST /api/teacher/training-reports — ครูผู้สอนส่งยอดนักเรียน (subject, participantCount, company, battalion, trainingDate, trainingTime, location, durationHours, notes)
 
 GET /api/teacher/training-reports/latest — ดูประวัติการส่งล่าสุด (ค่าเริ่มต้น 5 รายการ, ปรับจำนวนได้ด้วย query `limit`)
@@ -58,8 +60,9 @@ POST /api/evaluations/import — อัปโหลดไฟล์ Excel แบ�
   - `controllers/authController.js`
   - `controllers/userController.js`
   - `controllers/teacherReportController.js`
-  - `controllers/evaluationController.js`
-  - `controllers/admin/userAdminController.js`
+- `controllers/evaluationController.js`
+- `controllers/admin/userAdminController.js`
+- `controllers/admin/trainingReportAdminController.js`
 - `models/` — Prisma data access (`userModel.js`, `trainingReportModel.js`)
 - `middlewares/` — JWT, upload, etc.
   - รองรับอัปโหลดรูป (`middlewares/upload.js` — avatar)
@@ -105,3 +108,4 @@ Authorization: Bearer <JWT>
   - DELETE /api/admin/users/deactivate/:id
   - PATCH /api/admin/users/activate/:id
   - POST /api/admin/users/:id/avatar (multipart/form-data; file field: avatar)
+  - GET /api/admin/training-reports — dashboard summary + ค้นหา
