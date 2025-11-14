@@ -38,9 +38,19 @@ PATCH /api/admin/users/:id/activate — เปิดการใช้งาน�
 
 GET /api/admin/training-reports — สรุปยอดรายงานและการส่งล่าสุดของครูทุกคน (query: `search` สำหรับค้นหา)
 
+GET /api/admin/teacher-leaves/summary — สรุปยอดบัญชีพลครูฝึก (จำนวนครูทั้งหมด / ผู้ที่ลาปัจจุบัน / จุดหมาย)
+
+GET /api/admin/teacher-leaves — รายการคำขอลา (query: `status` = PENDING|APPROVED|REJECTED, `limit`)
+
+PATCH /api/admin/teacher-leaves/:id/status — อนุมัติ/ปฏิเสธคำขอลา (`status` = APPROVED หรือ REJECTED)
+
 POST /api/teacher/training-reports — ครูผู้สอนส่งยอดนักเรียน (subject, participantCount, company, battalion, trainingDate, trainingTime, location, durationHours, notes)
 
 GET /api/teacher/training-reports/latest — ดูประวัติการส่งล่าสุด (ค่าเริ่มต้น 5 รายการ, ปรับจำนวนได้ด้วย query `limit`)
+
+POST /api/teacher/leaves — ครูแจ้งการลา (leaveType, startDate, endDate?, destination, reason)
+
+GET /api/teacher/leaves — ครูดูรายการลาของตนเอง
 
 POST /api/evaluations/import — อัปโหลดไฟล์ Excel แบบประเมินครู (ต้องมี JWT)
   - multipart/form-data; file field: `file`
@@ -60,10 +70,12 @@ POST /api/evaluations/import — อัปโหลดไฟล์ Excel แบ�
   - `controllers/authController.js`
   - `controllers/userController.js`
   - `controllers/teacherReportController.js`
-- `controllers/evaluationController.js`
-- `controllers/admin/userAdminController.js`
-- `controllers/admin/trainingReportAdminController.js`
-- `models/` — Prisma data access (`userModel.js`, `trainingReportModel.js`)
+  - `controllers/teacherLeaveController.js`
+  - `controllers/evaluationController.js`
+  - `controllers/admin/userAdminController.js`
+  - `controllers/admin/trainingReportAdminController.js`
+  - `controllers/admin/teacherLeaveAdminController.js`
+- `models/` — Prisma data access (`userModel.js`, `trainingReportModel.js`, `teacherLeaveModel.js`)
 - `middlewares/` — JWT, upload, etc.
   - รองรับอัปโหลดรูป (`middlewares/upload.js` — avatar)
   - รองรับอัปโหลด Excel (`middlewares/upload.js` — excelUploadOne => ไฟล์ `.xlsx`)
@@ -94,6 +106,8 @@ Authorization: Bearer <JWT>
 - Teacher (JWT + สิทธิ์ TEACHER)
   - POST /api/teacher/training-reports
   - GET /api/teacher/training-reports/latest
+  - POST /api/teacher/leaves
+  - GET /api/teacher/leaves
 
 - Admin (JWT + สิทธิ์ ADMIN)
   - GET /api/admin/users
@@ -109,3 +123,6 @@ Authorization: Bearer <JWT>
   - PATCH /api/admin/users/activate/:id
   - POST /api/admin/users/:id/avatar (multipart/form-data; file field: avatar)
   - GET /api/admin/training-reports — dashboard summary + ค้นหา
+  - GET /api/admin/teacher-leaves/summary — บัญชีพลครูฝึก (ยอดรวม/ลาปัจจุบัน/จุดหมาย)
+  - GET /api/admin/teacher-leaves — รายการคำขอลา (กรองตามสถานะ)
+  - PATCH /api/admin/teacher-leaves/:id/status — อนุมัติ/ปฏิเสธคำขอลา

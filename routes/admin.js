@@ -3,6 +3,7 @@ const middleware = require("../middlewares/middleware");
 const { avatarUploadOne } = require("../middlewares/upload");
 const adminUser = require("../controllers/admin/userAdminController");
 const adminTrainingReports = require("../controllers/admin/trainingReportAdminController");
+const adminTeacherLeaves = require("../controllers/admin/teacherLeaveAdminController");
 
 const router = express.Router();
 
@@ -94,6 +95,27 @@ router.get(
   middleware.verifyToken,
   middleware.authorizeAdmin,
   adminTrainingReports.getTrainingReportDashboard
+);
+
+router.get(
+  "/admin/teacher-leaves/summary",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminTeacherLeaves.getTeacherLeaveSummary
+);
+
+router.get(
+  "/admin/teacher-leaves",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminTeacherLeaves.listTeacherLeaves
+);
+
+router.patch(
+  "/admin/teacher-leaves/:id/status",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminTeacherLeaves.updateTeacherLeaveStatus
 );
 
 module.exports = router;

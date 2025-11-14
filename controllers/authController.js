@@ -4,21 +4,20 @@ const config = require("../config"); // เรียกใช้งานไฟ�
 const User = require("../models/userModel"); // เรียกใช้งาน userModel.js ที่เราสร้างไว้
 
 const register = async (req, res) => {
-  // ต้องการ field ให้ครบตาม schema.prisma
   const {
     username,
     password,
     firstName,
     lastName,
-    birthDate,
-    fullAddress,
     email,
     phone,
+    rank,
+    profileImage,
+    birthDate,
+    fullAddress,
     emergencyContactName,
     emergencyContactPhone,
-    // optional
     role,
-    rank,
     education,
     position,
     medicalHistory,
@@ -26,20 +25,42 @@ const register = async (req, res) => {
     isActive,
   } = req.body;
 
+  const requiredFields = [
+    { key: "username", value: username },
+    { key: "password", value: password },
+    { key: "firstName", value: firstName },
+    { key: "lastName", value: lastName },
+    { key: "email", value: email },
+    { key: "phone", value: phone },
+    { key: "rank", value: rank },
+  ];
+  const missing = requiredFields
+    .filter(({ value }) => value === undefined || value === null || value === "")
+    .map(({ key }) => key);
+  if (!profileImage && !avatar) {
+    missing.push("profileImage");
+  }
+  if (missing.length) {
+    return res
+      .status(400)
+      .json({ message: `ข้อมูลไม่ครบถ้วน: ต้องมี ${missing.join(", ")}` });
+  }
+
   try {
     await User.createUser({
       username,
       password,
       firstName,
       lastName,
-      birthDate,
-      fullAddress,
       email,
       phone,
+      rank,
+      profileImage,
+      birthDate,
+      fullAddress,
       emergencyContactName,
       emergencyContactPhone,
       role,
-      rank,
       education,
       position,
       medicalHistory,
@@ -58,7 +79,10 @@ const register = async (req, res) => {
         .status(409)
         .json({ message: "ข้อมูล (username/email/phone) ซ้ำในระบบ" });
     }
-    res.status(500).json({ message: "Error registering user" });
+    console.error("Register error:", err);
+    res
+      .status(500)
+      .json({ message: "Error registering user", detail: err.message });
   }
 };
 

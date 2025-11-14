@@ -21,6 +21,15 @@ const rankLabelMap = {
   SEAMAN_RECRUIT: "พลฯ",
 };
 
+const rankKeySet = new Set(Object.keys(rankLabelMap));
+const thaiRankToEnum = Object.entries(rankLabelMap).reduce(
+  (acc, [key, label]) => {
+    acc[label] = key;
+    return acc;
+  },
+  {}
+);
+
 const withThaiRank = (payload) => {
   if (!payload) return payload;
   if (Array.isArray(payload)) {
@@ -33,38 +42,60 @@ const withThaiRank = (payload) => {
 };
 
 // ตรวจสอบและจัดรูปแบบข้อมูลให้ตรงกับ schema.prisma
-const normalizeAndValidateUserInput = (input) => {
+const normalizeAndValidateUserInput = (input = {}) => {
   const requiredFields = [
     "username",
     "password", // ใช้รับจาก client แล้วจะแปลงเป็น passwordHash
     "firstName",
     "lastName",
-    "birthDate",
-    "fullAddress",
     "email",
     "phone",
-    "emergencyContactName",
-    "emergencyContactPhone",
   ];
 
   const missing = requiredFields.filter(
     (k) => input[k] === undefined || input[k] === null || input[k] === ""
   );
+
   if (missing.length) {
     const err = new Error(`ข้อมูลไม่ครบถ้วน: ต้องมี ${missing.join(", ")}`);
     err.code = "VALIDATION_ERROR";
     throw err;
   }
 
-  // แปลง birthDate เป็น Date
+  // แปลง birthDate เป็น Date (ใช้วันปัจจุบันเป็นค่าเริ่มต้นถ้าไม่ได้ส่งมา)
+  const birthDateInput = input.birthDate || new Date();
   const birthDate =
-    input.birthDate instanceof Date
-      ? input.birthDate
-      : new Date(input.birthDate);
+    birthDateInput instanceof Date
+      ? birthDateInput
+      : new Date(birthDateInput);
   if (isNaN(birthDate.getTime())) {
     const err = new Error("รูปแบบวันเกิด (birthDate) ไม่ถูกต้อง");
     err.code = "VALIDATION_ERROR";
     throw err;
+  }
+
+  const profileImage =
+    input.profileImage !== undefined ? input.profileImage : input.avatar;
+  let avatarValue =
+    profileImage !== undefined && profileImage !== null
+      ? String(profileImage).trim()
+      : undefined;
+
+  let rankValue;
+  if (input.rank) {
+    const rawRank = String(input.rank).trim();
+    const upperRank = rawRank.toUpperCase();
+    if (rankKeySet.has(rawRank)) {
+      rankValue = rawRank;
+    } else if (rankKeySet.has(upperRank)) {
+      rankValue = upperRank;
+    } else if (thaiRankToEnum[rawRank]) {
+      rankValue = thaiRankToEnum[rawRank];
+    } else {
+      const err = new Error("rank ไม่ถูกต้อง");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
   }
 
   // เตรียมข้อมูลตาม schema (field ชื่อให้ตรง)
@@ -77,16 +108,22 @@ const normalizeAndValidateUserInput = (input) => {
     role: input.role || undefined, // ใช้ค่า default ใน schema ถ้าไม่ส่งมา
     isActive:
       input.isActive !== undefined ? Boolean(input.isActive) : undefined, // default true จาก schema
-    rank: input.rank || undefined, // ใช้ค่า default ใน schema ถ้าไม่ส่งมา
-    fullAddress: String(input.fullAddress).trim(),
+    rank: rankValue || undefined, // ใช้ค่า default ใน schema ถ้าไม่ส่งมา
+    fullAddress: input.fullAddress
+      ? String(input.fullAddress).trim()
+      : "-",
     education: input.education ?? undefined,
     position: input.position ?? undefined,
     email: String(input.email).trim(),
     phone: String(input.phone).trim(),
-    emergencyContactName: String(input.emergencyContactName).trim(),
-    emergencyContactPhone: String(input.emergencyContactPhone).trim(),
+    emergencyContactName: input.emergencyContactName
+      ? String(input.emergencyContactName).trim()
+      : `${String(input.firstName).trim()} ${String(input.lastName).trim()}`,
+    emergencyContactPhone: input.emergencyContactPhone
+      ? String(input.emergencyContactPhone).trim()
+      : String(input.phone).trim(),
     medicalHistory: input.medicalHistory ?? undefined,
-    avatar: input.avatar ?? undefined,
+    avatar: avatarValue,
   };
 
   return { data };

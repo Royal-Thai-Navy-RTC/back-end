@@ -9,7 +9,17 @@ const PORT = process.env.PORT || 3000;
 
 // Enable CORS for all origins and standard headers/methods
 app.use(cors());
-app.use(bodyParser.json());
+app.use(
+  bodyParser.json({
+    limit: process.env.REQUEST_BODY_LIMIT || "10mb",
+  })
+);
+app.use(
+  bodyParser.urlencoded({
+    limit: process.env.REQUEST_BODY_LIMIT || "10mb",
+    extended: true,
+  })
+);
 // Serve uploaded files publicly
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api", routes);
