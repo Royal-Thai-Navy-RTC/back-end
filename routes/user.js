@@ -14,6 +14,10 @@ router.post(
   avatarUploadOne,
   userController.uploadAvatar
 );
+router.post(
+  "/me/change-password",
+  middleware.verifyToken,
+  userController.changeMyPassword
+);
 
 module.exports = router;
-

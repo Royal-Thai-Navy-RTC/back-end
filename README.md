@@ -12,6 +12,8 @@ PUT /api/me — แก้ไขโปรไฟล์ของตนเอง (�
 
 POST /api/me/avatar — อัปโหลด/เปลี่ยนรูปโปรไฟล์ของตนเอง
 
+POST /api/me/change-password — เปลี่ยนรหัสผ่านของตนเอง (ต้องระบุ currentPassword + newPassword)
+
 GET /api/admin/users — แอดมินดึงรายชื่อผู้ใช้ทั้งหมด (รองรับ page/pageSize/search)
 
 GET /api/admin/users/students — รายชื่อผู้ใช้ role STUDENT
@@ -110,6 +112,7 @@ Authorization: Bearer <JWT>
   - GET /api/me
   - PUT /api/me
   - POST /api/me/avatar (multipart/form-data; file field: avatar)
+  - POST /api/me/change-password
 
 - Teacher (JWT + สิทธิ์ TEACHER)
   - POST /api/teacher/training-reports

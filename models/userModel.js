@@ -302,6 +302,54 @@ module.exports = {
       })
     );
   },
+  changePasswordSelf: async ({ id, currentPassword, newPassword }) => {
+    if (!id) {
+      const err = new Error("ต้องระบุผู้ใช้ที่ต้องการเปลี่ยนรหัสผ่าน");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+    if (!currentPassword || !newPassword) {
+      const err = new Error("ต้องระบุ currentPassword และ newPassword");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+    const current = String(currentPassword);
+    const next = String(newPassword);
+    if (next.length < 8) {
+      const err = new Error("รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 8 ตัวอักษร");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+    if (current === next) {
+      const err = new Error("รหัสผ่านใหม่ต้องไม่เหมือนกับรหัสผ่านเดิม");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: Number(id) },
+      select: { id: true, passwordHash: true },
+    });
+    if (!user) {
+      const err = new Error("ไม่พบผู้ใช้");
+      err.code = "P2025";
+      throw err;
+    }
+
+    const match = await bcrypt.compare(current, user.passwordHash);
+    if (!match) {
+      const err = new Error("รหัสผ่านเดิมไม่ถูกต้อง");
+      err.code = "INVALID_PASSWORD";
+      throw err;
+    }
+
+    const nextHash = await bcrypt.hash(next, 10);
+    return prisma.user.update({
+      where: { id: Number(id) },
+      data: { passwordHash: nextHash },
+      select: { id: true, updatedAt: true },
+    });
+  },
   // สำหรับแอดมิน: ดึงรายการผู้ใช้ (รองรับค้นหา/แบ่งหน้าแบบง่าย)
   listUsers: async ({ page = 1, pageSize = 50, search, role } = {}) => {
     const take = Math.max(1, Math.min(Number(pageSize) || 50, 200));

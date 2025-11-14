@@ -95,9 +95,31 @@ const uploadAvatar = async (req, res) => {
   }
 };
 
+const changeMyPassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    await User.changePasswordSelf({
+      id: req.userId,
+      currentPassword,
+      newPassword,
+    });
+    res.json({ message: "เปลี่ยนรหัสผ่านสำเร็จ" });
+  } catch (err) {
+    if (err.code === "VALIDATION_ERROR" || err.code === "INVALID_PASSWORD") {
+      return res.status(400).json({ message: err.message });
+    }
+    if (err.code === "P2025") {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(500).json({
+      message: "ไม่สามารถเปลี่ยนรหัสผ่านได้",
+    });
+  }
+};
+
 module.exports = {
   getMe,
   updateMe,
+  changeMyPassword,
   uploadAvatar,
 };
-
