@@ -13,6 +13,7 @@ datasource db {
 // --------------------------------------------------
 enum Role {
   ADMIN   @map("แอดมิน")
+  DEPARTMENT_HEAD @map("หัวหน้าแผนกศึกษา")
   TEACHER @map("ครูผู้สอน")
   STUDENT @map("นักเรียน")
 }
@@ -131,7 +132,8 @@ model User {
   trainingReports TrainingReport[]
 
   // คำขอลาของครูฝึก
-  teacherLeaves TeacherLeave[]
+  teacherLeaves           TeacherLeave[] @relation("TeacherLeaves")
+  departmentApprovedLeaves TeacherLeave[] @relation("DepartmentApproval")
 }
 
 // --------------------------------------------------
@@ -211,7 +213,7 @@ model TrainingReport {
 model TeacherLeave {
   id          Int          @id @default(autoincrement())
   teacherId   Int
-  teacher     User         @relation(fields: [teacherId], references: [id])
+  teacher     User         @relation("TeacherLeaves", fields: [teacherId], references: [id])
 
   leaveType   String       @db.VarChar(100)
   destination String?      @db.VarChar(191)
@@ -219,9 +221,16 @@ model TeacherLeave {
   startDate   DateTime
   endDate     DateTime?
   status      LeaveStatus  @default(PENDING)
+  isOfficialDuty Boolean   @default(false)
+
+  departmentApprovalStatus LeaveStatus?
+  departmentApprovalBy     Int?
+  departmentApprover       User?        @relation("DepartmentApproval", fields: [departmentApprovalBy], references: [id])
+  departmentApprovalAt     DateTime?
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   @@index([teacherId, startDate])
+  @@index([isOfficialDuty, status])
 }

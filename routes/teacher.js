@@ -33,4 +33,18 @@ router.get(
   teacherLeaveController.listMyLeaves
 );
 
+router.post(
+  "/teacher/official-duty-leaves",
+  middleware.verifyToken,
+  middleware.authorizeTeacher,
+  teacherLeaveController.requestOfficialDutyLeave
+);
+
+router.get(
+  "/teacher/official-duty-leaves",
+  middleware.verifyToken,
+  middleware.authorizeTeacher,
+  teacherLeaveController.listMyOfficialDutyLeaves
+);
+
 module.exports = router;

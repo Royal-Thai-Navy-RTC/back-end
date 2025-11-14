@@ -52,6 +52,14 @@ POST /api/teacher/leaves — ครูแจ้งการลา (leaveType, st
 
 GET /api/teacher/leaves — ครูดูรายการลาของตนเอง
 
+POST /api/teacher/official-duty-leaves — ครูแจ้งลาไปราชการ (ข้อมูลเหมือนการลา แต่ระบบส่งเข้าช่องทางหัวหน้าแผนกศึกษา)
+
+GET /api/teacher/official-duty-leaves — ครูดูรายการลาไปราชการของตนเอง
+
+GET /api/department/official-duty-leaves — หัวหน้าแผนกศึกษาดูรายการลาไปราชการ (query: `status` = PENDING|APPROVED|REJECTED, `limit`)
+
+PATCH /api/department/official-duty-leaves/:id/status — หัวหน้าแผนกศึกษาอนุมัติ/ปฏิเสธลาไปราชการ
+
 POST /api/evaluations/import — อัปโหลดไฟล์ Excel แบบประเมินครู (ต้องมี JWT)
   - multipart/form-data; file field: `file`
   - body optional: `teacherId` (เชื่อมกับผู้ใช้ role TEACHER ถ้ามี)
@@ -108,6 +116,8 @@ Authorization: Bearer <JWT>
   - GET /api/teacher/training-reports/latest
   - POST /api/teacher/leaves
   - GET /api/teacher/leaves
+  - POST /api/teacher/official-duty-leaves
+  - GET /api/teacher/official-duty-leaves
 
 - Admin (JWT + สิทธิ์ ADMIN)
   - GET /api/admin/users
@@ -126,3 +136,7 @@ Authorization: Bearer <JWT>
   - GET /api/admin/teacher-leaves/summary — บัญชีพลครูฝึก (ยอดรวม/ลาปัจจุบัน/จุดหมาย)
   - GET /api/admin/teacher-leaves — รายการคำขอลา (กรองตามสถานะ)
   - PATCH /api/admin/teacher-leaves/:id/status — อนุมัติ/ปฏิเสธคำขอลา
+
+- Department Head (JWT + สิทธิ์ DEPARTMENT_HEAD)
+  - GET /api/department/official-duty-leaves — ตรวจคำขอลาไปราชการ
+  - PATCH /api/department/official-duty-leaves/:id/status — อนุมัติ/ปฏิเสธลาไปราชการ

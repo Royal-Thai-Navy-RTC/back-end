@@ -23,12 +23,37 @@ const requestLeave = async (req, res) => {
   }
 };
 
+const requestOfficialDutyLeave = async (req, res) => {
+  try {
+    const payload = {
+      ...req.body,
+      teacherId: req.userId,
+      status: "PENDING",
+      isOfficialDuty: true,
+    };
+    const leave = await TeacherLeave.createOfficialDutyLeave(payload);
+    res.status(201).json({
+      message: "บันทึกคำขอลาไปราชการสำเร็จ",
+      leave,
+    });
+  } catch (err) {
+    if (err.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ message: err.message });
+    }
+    res.status(500).json({
+      message: "ไม่สามารถบันทึกการลาไปราชการได้",
+      detail: err.message,
+    });
+  }
+};
+
 const listMyLeaves = async (req, res) => {
   try {
     const { limit } = req.query || {};
     const leaves = await TeacherLeave.getTeacherLeaves({
       teacherId: req.userId,
       limit,
+      officialDutyOnly: false,
     });
     res.json({ data: leaves });
   } catch (err) {
@@ -38,7 +63,25 @@ const listMyLeaves = async (req, res) => {
   }
 };
 
+const listMyOfficialDutyLeaves = async (req, res) => {
+  try {
+    const { limit } = req.query || {};
+    const leaves = await TeacherLeave.getTeacherLeaves({
+      teacherId: req.userId,
+      limit,
+      officialDutyOnly: true,
+    });
+    res.json({ data: leaves });
+  } catch (err) {
+    res.status(500).json({
+      message: "ไม่สามารถดึงข้อมูลลาไปราชการได้",
+    });
+  }
+};
+
 module.exports = {
   requestLeave,
+  requestOfficialDutyLeave,
   listMyLeaves,
+  listMyOfficialDutyLeaves,
 };

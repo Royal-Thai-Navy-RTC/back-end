@@ -44,6 +44,23 @@ module.exports = {
       return res.status(500).json({ message: "Authorization error" });
     }
   },
+  authorizeDepartmentHead: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      if (user.role !== "DEPARTMENT_HEAD") {
+        return res.status(403).json({ message: "Department head only" });
+      }
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
   authorizeTeacher: async (req, res, next) => {
     try {
       const user = await prisma.user.findUnique({

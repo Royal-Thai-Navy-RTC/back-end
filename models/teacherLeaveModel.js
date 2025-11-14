@@ -4,6 +4,30 @@ const prisma = new PrismaClient();
 const REQUIRED_FIELDS = ["teacherId", "leaveType", "startDate"];
 const VALID_STATUSES = new Set(["PENDING", "APPROVED", "REJECTED"]);
 
+const teacherSelectFields = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  rank: true,
+  position: true,
+};
+
+const departmentApproverSelectFields = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  role: true,
+};
+
+const leaveRelationInclude = {
+  teacher: {
+    select: teacherSelectFields,
+  },
+  departmentApprover: {
+    select: departmentApproverSelectFields,
+  },
+};
+
 const normalizePayload = (input = {}) => {
   const missing = REQUIRED_FIELDS.filter(
     (field) => input[field] === undefined || input[field] === null || input[field] === ""
@@ -65,22 +89,54 @@ const normalizePayload = (input = {}) => {
     status,
   };
 
+  if (typeof input.isOfficialDuty === "boolean") {
+    payload.isOfficialDuty = input.isOfficialDuty;
+  }
+
   return payload;
 };
 
 const createTeacherLeave = async (input) => {
   const data = normalizePayload(input);
+  data.isOfficialDuty = false;
+  data.departmentApprovalStatus = null;
   return prisma.teacherLeave.create({
     data,
+    include: leaveRelationInclude,
   });
 };
 
-const getTeacherLeaves = async ({ teacherId, limit = 20 }) => {
+const createOfficialDutyLeave = async (input = {}) => {
+  const data = normalizePayload({
+    ...input,
+    leaveType: input.leaveType || "ลาไปราชการ",
+  });
+  data.isOfficialDuty = true;
+  data.status = "PENDING";
+  data.departmentApprovalStatus = "PENDING";
+  return prisma.teacherLeave.create({
+    data,
+    include: leaveRelationInclude,
+  });
+};
+
+const getTeacherLeaves = async ({
+  teacherId,
+  limit = 20,
+  officialDutyOnly = false,
+} = {}) => {
   const take = Math.max(1, Math.min(Number(limit) || 20, 100));
+  const where = { teacherId: Number(teacherId) };
+  if (officialDutyOnly === true) {
+    where.isOfficialDuty = true;
+  } else if (officialDutyOnly === false) {
+    where.isOfficialDuty = false;
+  }
   return prisma.teacherLeave.findMany({
-    where: { teacherId: Number(teacherId) },
+    where,
     orderBy: { startDate: "desc" },
     take,
+    include: leaveRelationInclude,
   });
 };
 
@@ -95,9 +151,12 @@ const getAdminLeaveSummary = async () => {
     prisma.user.count({
       where: { role: "TEACHER", isActive: true },
     }),
-    prisma.teacherLeave.count(),
+    prisma.teacherLeave.count({
+      where: { isOfficialDuty: false },
+    }),
     prisma.teacherLeave.findMany({
       where: {
+        isOfficialDuty: false,
         status: { in: ["PENDING", "APPROVED"] },
         startDate: { lte: now },
         OR: [{ endDate: null }, { endDate: { gte: now } }],
@@ -116,6 +175,7 @@ const getAdminLeaveSummary = async () => {
       orderBy: { startDate: "asc" },
     }),
     prisma.teacherLeave.findMany({
+      where: { isOfficialDuty: false },
       orderBy: { createdAt: "desc" },
       take: 10,
       include: {
@@ -193,21 +253,41 @@ const listTeacherLeaves = async ({ status, limit = 50 } = {}) => {
     }
   }
 
+  const where = { isOfficialDuty: false };
+  if (normalizedStatus) {
+    where.status = normalizedStatus;
+  }
+
   return prisma.teacherLeave.findMany({
-    where: normalizedStatus ? { status: normalizedStatus } : {},
+    where,
     orderBy: { createdAt: "desc" },
     take,
-    include: {
-      teacher: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          rank: true,
-          position: true,
-        },
-      },
-    },
+    include: leaveRelationInclude,
+  });
+};
+
+const listOfficialDutyLeaves = async ({ status, limit = 50 } = {}) => {
+  const take = Math.max(1, Math.min(Number(limit) || 50, 200));
+  let normalizedStatus;
+  if (status) {
+    normalizedStatus = String(status).toUpperCase();
+    if (!VALID_STATUSES.has(normalizedStatus)) {
+      const err = new Error("สถานะการลาไม่ถูกต้อง");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+  }
+
+  const where = { isOfficialDuty: true };
+  if (normalizedStatus) {
+    where.departmentApprovalStatus = normalizedStatus;
+  }
+
+  return prisma.teacherLeave.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take,
+    include: leaveRelationInclude,
   });
 };
 
@@ -227,27 +307,85 @@ const updateTeacherLeaveStatus = async ({ leaveId, status }) => {
     throw err;
   }
 
+  const existing = await prisma.teacherLeave.findUnique({
+    where: { id },
+    select: { id: true, isOfficialDuty: true },
+  });
+  if (!existing) {
+    const err = new Error("ไม่พบคำขอลา");
+    err.code = "P2025";
+    throw err;
+  }
+  if (existing.isOfficialDuty) {
+    const err = new Error("คำขอลาไปราชการต้องให้หัวหน้าแผนกพิจารณา");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
   return prisma.teacherLeave.update({
     where: { id },
     data: { status: normalizedStatus },
-    include: {
-      teacher: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          rank: true,
-          position: true,
-        },
-      },
+    include: leaveRelationInclude,
+  });
+};
+
+const updateOfficialDutyLeaveStatus = async ({ leaveId, status, approverId }) => {
+  const id = Number(leaveId);
+  if (!Number.isInteger(id) || id <= 0) {
+    const err = new Error("leaveId ไม่ถูกต้อง");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  const normalizedStatus = String(status || "")
+    .trim()
+    .toUpperCase();
+  if (!VALID_STATUSES.has(normalizedStatus)) {
+    const err = new Error("สถานะการลาไม่ถูกต้อง");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const existing = await prisma.teacherLeave.findUnique({
+    where: { id },
+    select: { id: true, isOfficialDuty: true },
+  });
+  if (!existing) {
+    const err = new Error("ไม่พบคำขอลา");
+    err.code = "P2025";
+    throw err;
+  }
+  if (!existing.isOfficialDuty) {
+    const err = new Error("คำขอลาทั่วไปไม่สามารถเปลี่ยนสถานะที่นี่ได้");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const approver = approverId ? Number(approverId) : null;
+  if (approverId && (!Number.isInteger(approver) || approver <= 0)) {
+    const err = new Error("ข้อมูลหัวหน้าแผนกไม่ถูกต้อง");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  return prisma.teacherLeave.update({
+    where: { id },
+    data: {
+      status: normalizedStatus,
+      departmentApprovalStatus: normalizedStatus,
+      departmentApprovalBy: approver,
+      departmentApprovalAt: new Date(),
     },
+    include: leaveRelationInclude,
   });
 };
 
 module.exports = {
   createTeacherLeave,
+  createOfficialDutyLeave,
   getTeacherLeaves,
   getAdminLeaveSummary,
   listTeacherLeaves,
+  listOfficialDutyLeaves,
   updateTeacherLeaveStatus,
+  updateOfficialDutyLeaveStatus,
 };
