@@ -49,6 +49,19 @@ const thaiRankToEnum = Object.entries(rankLabelMap).reduce(
   {}
 );
 
+const normalizeRankValue = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const rawRank = String(value).trim();
+  if (!rawRank) return undefined;
+  const upperRank = rawRank.toUpperCase();
+  if (rankKeySet.has(rawRank)) return rawRank;
+  if (rankKeySet.has(upperRank)) return upperRank;
+  if (thaiRankToEnum[rawRank]) return thaiRankToEnum[rawRank];
+  const err = new Error("rank ไม่ถูกต้อง");
+  err.code = "VALIDATION_ERROR";
+  throw err;
+};
+
 const withThaiRank = (payload) => {
   if (!payload) return payload;
   if (Array.isArray(payload)) {
@@ -100,22 +113,7 @@ const normalizeAndValidateUserInput = (input = {}) => {
       ? String(profileImage).trim()
       : undefined;
 
-  let rankValue;
-  if (input.rank) {
-    const rawRank = String(input.rank).trim();
-    const upperRank = rawRank.toUpperCase();
-    if (rankKeySet.has(rawRank)) {
-      rankValue = rawRank;
-    } else if (rankKeySet.has(upperRank)) {
-      rankValue = upperRank;
-    } else if (thaiRankToEnum[rawRank]) {
-      rankValue = thaiRankToEnum[rawRank];
-    } else {
-      const err = new Error("rank ไม่ถูกต้อง");
-      err.code = "VALIDATION_ERROR";
-      throw err;
-    }
-  }
+  const rankValue = normalizeRankValue(input.rank);
 
   // เตรียมข้อมูลตาม schema (field ชื่อให้ตรง)
   const data = {
@@ -217,6 +215,7 @@ module.exports = {
       "firstName",
       "lastName",
       "birthDate",
+      "rank",
       "fullAddress",
       "education",
       "position",
@@ -240,6 +239,11 @@ module.exports = {
           err.code = "VALIDATION_ERROR";
           throw err;
         }
+        continue;
+      }
+      if (k === "rank") {
+        if (String(v).trim() === "") continue;
+        data.rank = normalizeRankValue(v);
         continue;
       }
       data[k] = typeof v === "string" ? v.trim() : v;
@@ -494,6 +498,10 @@ module.exports = {
           err.code = "VALIDATION_ERROR";
           throw err;
         }
+        continue;
+      }
+      if (k === "rank") {
+        data.rank = normalizeRankValue(v);
         continue;
       }
       if (k === "password") continue; // controller จะจัดการ hash
