@@ -55,7 +55,14 @@ const avatarUpload = multer({ storage, fileFilter, limits });
 const avatarUploadOne = (req, res, next) => {
   const uploadAny = avatarUpload.any();
   uploadAny(req, res, (err) => {
-    if (err) return next(err);
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res
+          .status(400)
+          .json({ message: "ไฟล์รูปต้องมีขนาดไม่เกิน 5MB" });
+      }
+      return next(err);
+    }
     if (!Array.isArray(req.files)) return next();
     const prefer = ["avatar", "file", "image", "photo", "picture"];
     let picked = null;
