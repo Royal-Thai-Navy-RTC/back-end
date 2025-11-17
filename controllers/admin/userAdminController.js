@@ -7,6 +7,98 @@ const {
   tryPickupLocalFileFromBody,
 } = require("../../utils/avatar");
 
+const avatarDir = path.join(__dirname, "..", "..", "uploads", "avatars");
+if (!fs.existsSync(avatarDir)) {
+  fs.mkdirSync(avatarDir, { recursive: true });
+}
+
+const mimeToExt = {
+  "image/png": ".png",
+  "image/jpeg": ".jpg",
+  "image/jpg": ".jpg",
+  "image/webp": ".webp",
+};
+
+const cleanupUploadedFile = async (file) => {
+  if (!file || !file.path) return;
+  try {
+    if (fs.existsSync(file.path)) {
+      await fs.promises.unlink(file.path);
+    }
+  } catch {}
+};
+
+const finalizeAvatarUpload = async (userId, file) => {
+  if (!file || !file.filename) return null;
+  const extFromFile = path.extname(file.filename);
+  const extFromOriginal = path.extname(file.originalname || "");
+  const ext = extFromFile || extFromOriginal || ".png";
+  const finalFilename = buildUserAvatarFilename(userId, ext);
+  const finalPath = path.join(avatarDir, finalFilename);
+  const publicPath = `/uploads/avatars/${finalFilename}`;
+
+  if (file.path !== finalPath) {
+    if (fs.existsSync(finalPath)) {
+      await fs.promises.unlink(finalPath);
+    }
+    await fs.promises.rename(file.path, finalPath);
+  }
+  await User.setUserAvatar(userId, publicPath);
+  return publicPath;
+};
+
+const copyAvatarFromLocalPath = async (userId, sourcePath) => {
+  if (!sourcePath) return null;
+  const ext = path.extname(sourcePath) || ".png";
+  const finalFilename = buildUserAvatarFilename(userId, ext);
+  const finalPath = path.join(avatarDir, finalFilename);
+  const publicPath = `/uploads/avatars/${finalFilename}`;
+  await fs.promises.copyFile(sourcePath, finalPath);
+  await User.setUserAvatar(userId, publicPath);
+  return publicPath;
+};
+
+const parseBase64Image = (value) => {
+  if (!value || typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const dataUrlMatch = trimmed.match(
+    /^data:(image\/[a-z0-9.+-]+);base64,(.*)$/i
+  );
+  let mime = "image/png";
+  let base64Payload = trimmed;
+  if (dataUrlMatch) {
+    mime = dataUrlMatch[1].toLowerCase();
+    base64Payload = dataUrlMatch[2];
+  }
+  const normalized = base64Payload.replace(/\s/g, "");
+  if (
+    normalized.length < 40 ||
+    normalized.length % 4 !== 0 ||
+    !/^[a-z0-9+/=]+$/i.test(normalized)
+  ) {
+    return null;
+  }
+  try {
+    const buffer = Buffer.from(normalized, "base64");
+    if (!buffer || !buffer.length) return null;
+    return { buffer, mime };
+  } catch {
+    return null;
+  }
+};
+
+const saveBase64Avatar = async (userId, parsed) => {
+  if (!parsed) return null;
+  const ext = mimeToExt[parsed.mime] || ".png";
+  const finalFilename = buildUserAvatarFilename(userId, ext);
+  const finalPath = path.join(avatarDir, finalFilename);
+  const publicPath = `/uploads/avatars/${finalFilename}`;
+  await fs.promises.writeFile(finalPath, parsed.buffer);
+  await User.setUserAvatar(userId, publicPath);
+  return publicPath;
+};
+
 const adminUpdateUser = async (req, res) => {
   const targetId = req.params && req.params.id;
   if (!targetId) {
@@ -121,11 +213,44 @@ const adminGetStudentById = buildRoleDetailGetter({
 });
 
 const adminCreateUser = async (req, res) => {
+  const localFilePath = tryPickupLocalFileFromBody(req.body);
+  const base64Image = parseBase64Image(
+    (req.body && (req.body.profileImage || req.body.avatar)) || ""
+  );
+  const userInput = { ...req.body };
+  if (req.file || localFilePath || base64Image) {
+    delete userInput.profileImage;
+    delete userInput.avatar;
+  }
   try {
-    const created = await User.createUser(req.body);
+    const created = await User.createUser(userInput);
+    if (req.file) {
+      try {
+        await finalizeAvatarUpload(created.id, req.file);
+      } catch (avatarErr) {
+        console.error("Admin finalize avatar error:", avatarErr);
+      }
+    }
+    if (localFilePath) {
+      try {
+        await copyAvatarFromLocalPath(created.id, localFilePath);
+      } catch (avatarErr) {
+        console.error("Admin copy avatar error:", avatarErr);
+      }
+    }
+    if (base64Image) {
+      try {
+        await saveBase64Avatar(created.id, base64Image);
+      } catch (avatarErr) {
+        console.error("Admin base64 avatar error:", avatarErr);
+      }
+    }
     const user = await User.getUserById(created.id);
     res.status(201).json(user);
   } catch (err) {
+    if (req.file) {
+      await cleanupUploadedFile(req.file);
+    }
     if (err.code === "VALIDATION_ERROR") {
       return res.status(400).json({ message: err.message });
     }

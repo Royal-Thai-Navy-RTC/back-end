@@ -7,6 +7,14 @@ const adminTeacherLeaves = require("../controllers/admin/teacherLeaveAdminContro
 
 const router = express.Router();
 
+const optionalAvatarUpload = (req, res, next) => {
+  const contentType = (req.headers["content-type"] || "").toLowerCase();
+  if (contentType.includes("multipart/form-data")) {
+    return avatarUploadOne(req, res, next);
+  }
+  return next();
+};
+
 // Admin: users management
 router.put(
   "/admin/users/:id",
@@ -56,6 +64,7 @@ router.post(
   "/admin/users",
   middleware.verifyToken,
   middleware.authorizeAdmin,
+  optionalAvatarUpload,
   adminUser.adminCreateUser
 );
 
