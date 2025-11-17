@@ -1,5 +1,10 @@
 const express = require("express");
-const { importEvaluationExcel } = require("../controllers/evaluationController");
+const {
+  importEvaluationExcel,
+  listEvaluationSheets,
+  getEvaluationSheetById,
+  downloadEvaluationTemplate,
+} = require("../controllers/evaluationController");
 const middleware = require("../middlewares/middleware");
 const { excelUploadOne } = require("../middlewares/upload");
 
@@ -13,5 +18,22 @@ router.post(
   importEvaluationExcel
 );
 
-module.exports = router;
+router.get(
+  "/evaluations",
+  middleware.verifyToken,
+  listEvaluationSheets
+);
 
+router.get(
+  "/evaluations/:id",
+  middleware.verifyToken,
+  getEvaluationSheetById
+);
+
+router.get(
+  "/evaluations/template/download",
+  middleware.verifyToken,
+  downloadEvaluationTemplate
+);
+
+module.exports = router;

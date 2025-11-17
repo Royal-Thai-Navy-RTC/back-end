@@ -22,6 +22,15 @@ const THAI_MONTHS = {
 
 const safeString = (v) => (v === undefined || v === null ? "" : thaiDigitsToArabic(String(v)).trim());
 
+const parseNumericInput = (value) => {
+  if (value === undefined || value === null) return null;
+  let raw = thaiDigitsToArabic(String(value)).trim();
+  raw = raw.replace(/^\s*["']+|["']+\s*$/g, "");
+  if (!raw) return null;
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : null;
+};
+
 // แปลงเลขไทย -> อารบิก
 function thaiDigitsToArabic(s) {
   return String(s)
@@ -374,6 +383,137 @@ const importEvaluationExcel = async (req, res) => {
   }
 };
 
+const listEvaluationSheets = async (req, res) => {
+  try {
+    const page = Math.max(parseNumericInput(req.query?.page) || 1, 1);
+    let pageSize = parseNumericInput(req.query?.pageSize) || 10;
+    pageSize = Math.min(Math.max(pageSize, 1), 100);
+
+    const filters = [];
+    const teacherId = parseNumericInput(req.query?.teacherId);
+    if (teacherId != null) filters.push({ teacherId });
+
+    const subject = safeString(req.query?.subject);
+    if (subject) {
+      filters.push({
+        subject: { contains: subject, mode: "insensitive" },
+      });
+    }
+
+    const teacherName = safeString(req.query?.teacherName);
+    if (teacherName) {
+      filters.push({
+        teacherName: { contains: teacherName, mode: "insensitive" },
+      });
+    }
+
+    const evaluatorName = safeString(req.query?.evaluatorName);
+    if (evaluatorName) {
+      filters.push({
+        evaluatorName: { contains: evaluatorName, mode: "insensitive" },
+      });
+    }
+
+    const search = safeString(req.query?.search);
+    if (search) {
+      filters.push({
+        OR: [
+          { subject: { contains: search, mode: "insensitive" } },
+          { teacherName: { contains: search, mode: "insensitive" } },
+          { evaluatorName: { contains: search, mode: "insensitive" } },
+        ],
+      });
+    }
+
+    const where = filters.length ? { AND: filters } : undefined;
+    const skip = (page - 1) * pageSize;
+
+    const [total, sheets] = await Promise.all([
+      prisma.evaluationSheet.count({ where }),
+      prisma.evaluationSheet.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { evaluatedAt: "desc" },
+        include: {
+          answers: { orderBy: { id: "asc" } },
+          teacher: {
+            select: { id: true, firstName: true, lastName: true, rank: true },
+          },
+        },
+      }),
+    ]);
+
+    res.json({
+      data: sheets,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "ไม่สามารถดึงข้อมูลแบบประเมินได้",
+      detail: err.message,
+    });
+  }
+};
+
+const getEvaluationSheetById = async (req, res) => {
+  const sheetId = parseNumericInput(req.params?.id);
+  if (sheetId == null) {
+    return res.status(400).json({ message: "id ต้องเป็นตัวเลข" });
+  }
+  try {
+    const sheet = await prisma.evaluationSheet.findUnique({
+      where: { id: sheetId },
+      include: {
+        answers: { orderBy: { id: "asc" } },
+        teacher: {
+          select: { id: true, firstName: true, lastName: true, rank: true },
+        },
+      },
+    });
+    if (!sheet) {
+      return res.status(404).json({ message: "ไม่พบแบบประเมิน" });
+    }
+    res.json({ data: sheet });
+  } catch (err) {
+    res.status(500).json({
+      message: "ไม่สามารถดึงข้อมูลแบบประเมินได้",
+      detail: err.message,
+    });
+  }
+};
+
+const downloadEvaluationTemplate = async (_req, res) => {
+  const templatePath = path.join(
+    __dirname,
+    "..",
+    "uploads",
+    "evaluations",
+    "template.xlsx"
+  );
+  try {
+    await fs.promises.access(templatePath, fs.constants.R_OK);
+    res.download(templatePath, "evaluation-template.xlsx", (err) => {
+      if (err && !res.headersSent) {
+        res
+          .status(500)
+          .json({ message: "ไม่สามารถดาวน์โหลดไฟล์เทมเพลตได้" });
+      }
+    });
+  } catch (err) {
+    res.status(404).json({
+      message: "ไม่พบไฟล์เทมเพลต",
+      detail: err.message,
+    });
+  }
+};
+
 module.exports = {
   importEvaluationExcel,
+  listEvaluationSheets,
+  getEvaluationSheetById,
+  downloadEvaluationTemplate,
 };

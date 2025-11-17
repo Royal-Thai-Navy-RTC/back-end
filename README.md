@@ -65,6 +65,7 @@ PATCH /api/department/official-duty-leaves/:id/status — หัวหน้า�
 POST /api/evaluations/import — อัปโหลดไฟล์ Excel แบบประเมินครู (ต้องมี JWT)
   - multipart/form-data; file field: `file`
   - body optional: `teacherId` (เชื่อมกับผู้ใช้ role TEACHER ถ้ามี)
+GET /api/evaluations/template/download — ดาวน์โหลดไฟล์ตัวอย่างแบบประเมินในรูปแบบ Excel
 
 ## Project Structure
 
