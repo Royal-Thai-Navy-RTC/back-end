@@ -4,7 +4,9 @@
 
 POST /api/register — สมัครสมาชิกใหม่ (ต้องกรอกฟิลด์ตาม schema)
 
-POST /api/login — เข้าสู่ระบบด้วย username/password รับ JWT
+POST /api/login — เข้าสู่ระบบด้วย username/password รับ JWT + refresh token
+
+POST /api/refresh-token — ส่ง refresh token เพื่อขอ access token ใหม่ (ใช้เมื่อ JWT หมดอายุ)
 
 GET /api/me — ดูโปรไฟล์ของตนเอง (ต้องมี JWT)
 
@@ -97,6 +99,7 @@ GET /api/evaluations/template/download — ดาวน์โหลดไฟล�
 - ตัวอย่าง Headers: `Authorization: Bearer <JWT>`
 - ส่ง `<token>` ได้เลย แต่สามารถใช้ Bearer ได้
 - Token ที่ได้จาก /api/login มี payload เป็น `{ id, role }`
+- หลังล็อกอินระบบจะส่ง `accessToken` (JWT) + `refreshToken` โดย refresh token ต้องเก็บฝั่ง client และเรียก `/api/refresh-token` เมื่อ JWT หมดอายุ
 
 ตัวอย่าง
 ```
@@ -108,6 +111,7 @@ Authorization: Bearer <JWT>
 - Public (ไม่ต้องใช้ token)
   - POST /api/register
   - POST /api/login
+  - POST /api/refresh-token (ต้องส่ง refresh token มาด้วย)
 
 - JWT (ผู้ใช้ล็อกอินทั่วไป)
   - GET /api/me
@@ -144,3 +148,11 @@ Authorization: Bearer <JWT>
 - Department Head (JWT + สิทธิ์ DEPARTMENT_HEAD)
   - GET /api/department/official-duty-leaves — ตรวจคำขอลาไปราชการ
   - PATCH /api/department/official-duty-leaves/:id/status — อนุมัติ/ปฏิเสธลาไปราชการ
+
+## Database Migration
+
+เพิ่มฟิลด์ `refreshTokenHash` และ `refreshTokenExpiresAt` ให้ตาราง `User` แล้ว ต้องรันคำสั่ง Prisma หลังอัปเดตโค้ด:
+
+```
+npx prisma migrate dev --name add-refresh-token
+```

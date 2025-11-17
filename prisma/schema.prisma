@@ -89,6 +89,8 @@ model User {
   // --- ข้อมูลเข้าใช้ระบบ ---
   username     String  @unique @db.VarChar(64) // ชื่อผู้ใช้ (ห้ามซ้ำ)
   passwordHash String  @db.VarChar(255) // เก็บรหัสผ่านแบบ hash
+  refreshTokenHash String?   @db.VarChar(191) // เก็บ hash ของ refresh token ปัจจุบัน (ถ้ามี)
+  refreshTokenExpiresAt DateTime? // วันหมดอายุของ refresh token
   role         Role    @default(STUDENT) // บทบาทในระบบ (แอดมิน/ครู/นักเรียน)
   isActive     Boolean @default(true) // ใช้งานอยู่หรือไม่ (สำหรับ soft delete)
 

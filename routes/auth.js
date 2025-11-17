@@ -15,5 +15,6 @@ const optionalAvatarUpload = (req, res, next) => {
 // Auth
 router.post("/register", optionalAvatarUpload, authController.register);
 router.post("/login", authController.login);
+router.post("/refresh-token", authController.refreshToken);
 
 module.exports = router;

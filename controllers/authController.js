@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken"); // เรียกใช้งาน jwt เพื่อใช้ในการสร้าง token
 const bcrypt = require("bcryptjs"); // เรียกใช้งาน bcryptjs เพื่อใช้ในการเข้ารหัสรหัสผ่าน
 const config = require("../config"); // เรียกใช้งานไฟล์ config.js ที่เราสร้างไว้
@@ -20,6 +21,52 @@ const mimeToExt = {
   "image/jpg": ".jpg",
   "image/webp": ".webp",
 };
+
+const ACCESS_TOKEN_EXPIRES_IN = "24h";
+const REFRESH_TOKEN_EXPIRY_DAYS = Number(config.refreshTokenExpiryDays || 7);
+const REFRESH_TOKEN_BYTE_LENGTH = 48;
+
+const generateAccessToken = (user) => {
+  return jwt.sign({ id: user.id, role: user.role }, config.jwtSecret, {
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+  });
+};
+
+const generateRawRefreshToken = () =>
+  crypto.randomBytes(REFRESH_TOKEN_BYTE_LENGTH).toString("hex");
+
+const hashRefreshToken = (token) =>
+  crypto.createHash("sha256").update(String(token)).digest("hex");
+
+const calculateRefreshTokenExpiry = () => {
+  const expires = new Date();
+  expires.setDate(expires.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
+  return expires;
+};
+
+const issueTokensForUser = async (user) => {
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRawRefreshToken();
+  const tokenHash = hashRefreshToken(refreshToken);
+  const expiresAt = calculateRefreshTokenExpiry();
+  await User.saveRefreshTokenForUser(user.id, tokenHash, expiresAt);
+  return { accessToken, refreshToken, expiresIn: ACCESS_TOKEN_EXPIRES_IN };
+};
+
+const buildLoginResponse = (user, tokens) => ({
+  // token: tokens.accessToken,
+  accessToken: tokens.accessToken,
+  refreshToken: tokens.refreshToken,
+  tokenType: "Bearer",
+  expiresIn: tokens.expiresIn,
+  user: {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    firstName: user.firstName,
+    lastName: user.lastName,
+  },
+});
 
 const cleanupUploadedFile = async (file) => {
   if (!file || !file.path) return;
@@ -251,18 +298,52 @@ const login = async (req, res) => {
     if (user.isActive === false) {
       return res.status(403).json({ message: "บัญชีผู้ใช้นี้ถูกปิดการใช้งาน" });
     }
-  // สร้าง token และส่งกลับไปให้ผู้ใช้ (ใส่ role ไปด้วย)
-  const token = jwt.sign({ id: user.id, role: user.role }, config.jwtSecret, {
-    expiresIn: "24h",
-  });
-    res.json({ token });
+    const tokens = await issueTokensForUser(user);
+    res.json(buildLoginResponse(user, tokens));
   } catch (err) {
     // หากเกิดข้อผิดพลาดในการเข้าสู่ระบบ
     res.status(500).json({ message: "Error logging in" });
   }
 };
 
+const refreshToken = async (req, res) => {
+  const providedToken =
+    (req.body && (req.body.refreshToken || req.body.refresh_token || req.body.token)) ||
+    req.headers["x-refresh-token"];
+
+  if (!providedToken || typeof providedToken !== "string") {
+    return res.status(400).json({ message: "ต้องระบุ refreshToken" });
+  }
+
+  const hashedToken = hashRefreshToken(providedToken.trim());
+
+  try {
+    const user = await User.findUserByRefreshTokenHash(hashedToken);
+    if (!user) {
+      return res.status(401).json({ message: "refresh token ไม่ถูกต้อง" });
+    }
+    if (user.isActive === false) {
+      await User.clearRefreshTokenForUser(user.id);
+      return res.status(403).json({ message: "บัญชีผู้ใช้นี้ถูกปิดการใช้งาน" });
+    }
+    if (
+      !user.refreshTokenExpiresAt ||
+      user.refreshTokenExpiresAt.getTime() < Date.now()
+    ) {
+      await User.clearRefreshTokenForUser(user.id);
+      return res.status(401).json({ message: "refresh token หมดอายุ" });
+    }
+
+    const tokens = await issueTokensForUser(user);
+    res.json(buildLoginResponse(user, tokens));
+  } catch (err) {
+    console.error("Refresh token error:", err);
+    res.status(500).json({ message: "Error refreshing token" });
+  }
+};
+
 module.exports = {
   register,
   login,
+  refreshToken,
 };

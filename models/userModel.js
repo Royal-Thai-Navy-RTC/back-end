@@ -181,6 +181,51 @@ const findUserByUsername = async (username) => {
       lastName: true,
       email: true,
       phone: true,
+      refreshTokenHash: true,
+      refreshTokenExpiresAt: true,
+    },
+  });
+};
+
+const saveRefreshTokenForUser = async (userId, tokenHash, expiresAt) => {
+  return prisma.user.update({
+    where: { id: Number(userId) },
+    data: {
+      refreshTokenHash: tokenHash,
+      refreshTokenExpiresAt: expiresAt,
+    },
+    select: {
+      id: true,
+      refreshTokenExpiresAt: true,
+    },
+  });
+};
+
+const clearRefreshTokenForUser = async (userId) => {
+  return prisma.user.update({
+    where: { id: Number(userId) },
+    data: {
+      refreshTokenHash: null,
+      refreshTokenExpiresAt: null,
+    },
+    select: {
+      id: true,
+    },
+  });
+};
+
+const findUserByRefreshTokenHash = async (tokenHash) => {
+  if (!tokenHash) return null;
+  return prisma.user.findFirst({
+    where: { refreshTokenHash: String(tokenHash) },
+    select: {
+      id: true,
+      username: true,
+      role: true,
+      isActive: true,
+      refreshTokenExpiresAt: true,
+      firstName: true,
+      lastName: true,
     },
   });
 };
@@ -188,6 +233,9 @@ const findUserByUsername = async (username) => {
 module.exports = {
   createUser,
   findUserByUsername,
+  saveRefreshTokenForUser,
+  clearRefreshTokenForUser,
+  findUserByRefreshTokenHash,
   // เพิ่มสำหรับโปรไฟล์ตัวเอง
   getUserById: async (id) => {
     return withThaiRank(
