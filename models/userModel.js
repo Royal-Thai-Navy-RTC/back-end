@@ -133,11 +133,22 @@ const normalizeAndValidateUserInput = (input = {}) => {
     position: input.position ?? undefined,
     email: String(input.email).trim(),
     phone: input.phone ? String(input.phone).trim() : undefined,
-    emergencyContactName: input.emergencyContactName ? String(input.emergencyContactName).trim() : undefined,
-    emergencyContactPhone: input.emergencyContactPhone ? String(input.emergencyContactPhone).trim() : undefined,
+    emergencyContactName: input.emergencyContactName
+      ? String(input.emergencyContactName).trim()
+      : undefined,
+    emergencyContactPhone: input.emergencyContactPhone
+      ? String(input.emergencyContactPhone).trim()
+      : undefined,
     medicalHistory: input.medicalHistory ?? undefined,
     avatar: avatarValue,
   };
+
+  if (data.emergencyContactName === undefined) {
+    delete data.emergencyContactName;
+  }
+  if (data.emergencyContactPhone === undefined) {
+    delete data.emergencyContactPhone;
+  }
 
   return { data };
 };

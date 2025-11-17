@@ -108,8 +108,8 @@ model User {
   phone String @unique @db.VarChar(32) // เบอร์โทรศัพท์ (ห้ามซ้ำ)
 
   // --- ข้อมูลติดต่อฉุกเฉิน ---
-  emergencyContactName  String @db.VarChar(100) // ชื่อผู้ติดต่อฉุกเฉิน
-  emergencyContactPhone String @db.VarChar(32) // เบอร์โทรผู้ติดต่อฉุกเฉิน
+  emergencyContactName  String? @db.VarChar(100) // ชื่อผู้ติดต่อฉุกเฉิน
+  emergencyContactPhone String? @db.VarChar(32) // เบอร์โทรผู้ติดต่อฉุกเฉิน
 
   // --- ข้อมูลด้านการแพทย์ (Sensitive) ---
   medicalHistory String? @db.Text // ประวัติทางการแพทย์ (ควรเข้ารหัส/จำกัดสิทธิ์)
