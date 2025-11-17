@@ -1,11 +1,19 @@
 const express = require("express");
 const authController = require("../controllers/authController");
+const { avatarUploadOne } = require("../middlewares/upload");
 
 const router = express.Router();
 
+const optionalAvatarUpload = (req, res, next) => {
+  const contentType = (req.headers["content-type"] || "").toLowerCase();
+  if (contentType.includes("multipart/form-data")) {
+    return avatarUploadOne(req, res, next);
+  }
+  return next();
+};
+
 // Auth
-router.post("/register", authController.register);
+router.post("/register", optionalAvatarUpload, authController.register);
 router.post("/login", authController.login);
 
 module.exports = router;
-
