@@ -132,13 +132,9 @@ const normalizeAndValidateUserInput = (input = {}) => {
     education: input.education ?? undefined,
     position: input.position ?? undefined,
     email: String(input.email).trim(),
-    phone: String(input.phone).trim(),
-    emergencyContactName: input.emergencyContactName
-      ? String(input.emergencyContactName).trim()
-      : `${String(input.firstName).trim()} ${String(input.lastName).trim()}`,
-    emergencyContactPhone: input.emergencyContactPhone
-      ? String(input.emergencyContactPhone).trim()
-      : String(input.phone).trim(),
+    phone: input.phone ? String(input.phone).trim() : undefined,
+    emergencyContactName: input.emergencyContactName ? String(input.emergencyContactName).trim() : undefined,
+    emergencyContactPhone: input.emergencyContactPhone ? String(input.emergencyContactPhone).trim() : undefined,
     medicalHistory: input.medicalHistory ?? undefined,
     avatar: avatarValue,
   };
