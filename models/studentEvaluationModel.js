@@ -185,8 +185,12 @@ module.exports = {
     if (!includeInactive) {
       where.isActive = true;
     }
-    if (search) {
-      where.name = { contains: String(search).trim(), mode: "insensitive" };
+    const keyword = typeof search === "string" ? search.trim() : "";
+    if (keyword) {
+      where.OR = [
+        { name: { contains: keyword } },
+        { description: { contains: keyword } },
+      ];
     }
     return prisma.studentEvaluationTemplate.findMany({
       where,
@@ -289,6 +293,11 @@ module.exports = {
     if (!template.isActive) {
       throwValidationError("แบบประเมินนี้ถูกปิดการใช้งาน");
     }
+    const subject =
+      typeof input.subject === "string" ? input.subject.trim() : "";
+    if (!subject) {
+      throwValidationError("ต้องระบุวิชาที่ประเมิน");
+    }
     const companyCode =
       typeof input.companyCode === "string"
         ? input.companyCode.trim().toUpperCase()
@@ -324,6 +333,7 @@ module.exports = {
         evaluatorId: Number(input.evaluatorId),
         companyCode,
         battalionCode,
+        subject,
         evaluationPeriod: input.evaluationPeriod
           ? new Date(input.evaluationPeriod)
           : new Date(),
@@ -397,6 +407,14 @@ module.exports = {
         throwValidationError("รหัสกองร้อยต้องไม่ว่าง");
       }
       data.companyCode = companyCode;
+    }
+    if (input.subject !== undefined) {
+      const subject =
+        typeof input.subject === "string" ? input.subject.trim() : "";
+      if (!subject) {
+        throwValidationError("วิชาที่ประเมินต้องไม่ว่าง");
+      }
+      data.subject = subject;
     }
     if (input.battalionCode !== undefined) {
       const battalionCode =

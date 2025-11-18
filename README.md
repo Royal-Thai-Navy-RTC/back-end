@@ -444,7 +444,7 @@ Content-Type: application/json
 ### POST /api/student-evaluations
 - Auth: ADMIN หรือ TEACHER
 - ใช้บันทึกผลการประเมินระดับ “กองร้อย/กองพัน” ตาม template
-- ฟิลด์สำคัญ: `templateId`, `companyCode`, `battalionCode`, `evaluationPeriod`, `summary`, `overallScore`, `answers[]` (questionId + score + comment ได้)
+- ฟิลด์สำคัญ: `templateId`, `subject` (วิชาที่เรียน), `companyCode`, `battalionCode`, `evaluationPeriod`, `summary`, `overallScore`, `answers[]` (questionId + score + comment ได้)
 
 ```http
 POST /api/student-evaluations
@@ -453,6 +453,7 @@ Content-Type: application/json
 
 {
   "templateId": 1,
+  "subject": "การใช้อาวุธประจำกาย",
   "companyCode": "ร้อย.1",
   "battalionCode": "พัน.ฝึก5",
   "evaluationPeriod": "2025-11-30",
@@ -478,7 +479,7 @@ Content-Type: application/json
 
 ### PUT /api/student-evaluations/:id
 - Auth: ADMIN หรือ TEACHER
-- ปรับ `summary`, `overallScore`, `companyCode`, `battalionCode`, `evaluationPeriod`
+- ปรับ `summary`, `overallScore`, `subject`, `companyCode`, `battalionCode`, `evaluationPeriod`
 - หากส่ง `answers` ใหม่ จะลบของเดิมแล้วเขียนทับ
 
 ### DELETE /api/student-evaluations/:id

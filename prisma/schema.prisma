@@ -246,6 +246,7 @@ model StudentEvaluation {
 
   companyCode  String    @db.VarChar(32) // กองร้อย
   battalionCode String   @db.VarChar(32) // กองพัน
+  subject      String?   @db.VarChar(191) // วิชาที่ใช้ประเมิน
   evaluationPeriod DateTime @default(now()) // วันที่/รอบการประเมิน
 
   summary      String?   @db.Text
