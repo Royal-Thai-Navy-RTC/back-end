@@ -1,158 +1,403 @@
-# API Documentation
+﻿# ระบบรายงานการฝึกและการลา – API Reference
 
-## API Routes
+เอกสารฉบับนี้รวบรวมรายละเอียดของทุกเส้นทาง (endpoint) ในระบบ รวมทั้งสิ่งที่ต้องส่งและตัวอย่างการตอบกลับ เพื่อให้ทีมพัฒนาหรือผู้ทดสอบสามารถใช้งาน REST API ได้อย่างถูกต้อง
 
-POST /api/register — สมัครสมาชิกใหม่ (ต้องกรอกฟิลด์ตาม schema)
+## ภาพรวมระบบ
+- Base URL เริ่มต้น: `https://<host>/api`
+- การพิสูจน์ตัวตน: ส่ง `Authorization: Bearer <accessToken>` ในทุก endpoint ที่มีข้อจำกัดสิทธิ์
+- Access token อายุ 24 ชั่วโมง (ตาม `/login`), ออก token ใหม่ด้วย `/refresh-token`
+- เขตเวลาในตัวอย่างใช้ `Asia/Bangkok` (UTC+7)
 
-POST /api/login — เข้าสู่ระบบด้วย username/password รับ JWT + refresh token
+## บทบาทและสิทธิ์
+| Role | คำอธิบาย | สิทธิ์หลัก |
+| --- | --- | --- |
+| `ADMIN` | ผู้ดูแลระบบ | จัดการผู้ใช้ทั้งหมด, ดูแดชบอร์ดรายงาน, อนุมัติคำขอลา |
+| `TEACHER` | ครูผู้สอน | ส่งยอดรายงานการฝึก, ขออนุมัติการลา/ไปราชการ |
+| `DEPARTMENT_HEAD` | หัวหน้าแผนกศึกษา | ตรวจสอบ/อนุมัติคำขอลาไปราชการ |
+| `STUDENT` | นักเรียน | ใช้งานทั่วไป, เข้าถึงเฉพาะข้อมูลตนเอง |
 
-POST /api/refresh-token — ส่ง refresh token เพื่อขอ access token ใหม่ (ใช้เมื่อ JWT หมดอายุ)
-
-GET /api/me — ดูโปรไฟล์ของตนเอง (ต้องมี JWT)
-
-PUT /api/me — แก้ไขโปรไฟล์ของตนเอง (ฟิลด์ที่อนุญาตเท่านั้น)
-
-POST /api/me/avatar — อัปโหลด/เปลี่ยนรูปโปรไฟล์ของตนเอง
-
-POST /api/me/change-password — เปลี่ยนรหัสผ่านของตนเอง (ต้องระบุ currentPassword + newPassword)
-
-GET /api/admin/users — แอดมินดึงรายชื่อผู้ใช้ทั้งหมด (รองรับ page/pageSize/search)
-
-GET /api/admin/users/students — รายชื่อผู้ใช้ role STUDENT
-
-GET /api/admin/users/teachers — รายชื่อผู้ใช้ role TEACHER
-
-GET /api/admin/users/students/:id — แอดมินดูข้อมูลนักเรียนรายบุคคล (ตรวจสอบ role = STUDENT)
-
-GET /api/admin/users/teachers/:id — แอดมินดูข้อมูลครูรายบุคคล (ตรวจสอบ role = TEACHER)
-
-GET /api/admin/users/:id — แอดมินดูข้อมูลผู้ใช้ตาม id
-
-PUT /api/admin/users/:id — แอดมินแก้ไขข้อมูลผู้ใช้ตาม id (รวมเปลี่ยน role/rank/isActive/รีเซ็ตรหัสผ่าน)
-
-POST /api/admin/users/:id/avatar — แอดมินอัปโหลด/เปลี่ยนรูปโปรไฟล์ให้ผู้ใช้อื่น
-
-GET /uploads/avatars/:filename — ดึงรูปโปรไฟล์จากเซิร์ฟเวอร์
-
-POST /api/admin/users — สร้างผู้ใช้ใหม่ (โครงสร้าง body เหมือน /api/register)
-
-DELETE /api/admin/users/:id — ปิดการใช้งานผู้ใช้ (soft delete: isActive=false)
-
-PATCH /api/admin/users/:id/activate — เปิดการใช้งานผู้ใช้ (isActive=true)
-
-GET /api/admin/training-reports — สรุปยอดรายงานและการส่งล่าสุดของครูทุกคน (query: `search` สำหรับค้นหา)
-
-GET /api/admin/teacher-leaves/summary — สรุปยอดบัญชีพลครูฝึก (จำนวนครูทั้งหมด / ผู้ที่ลาปัจจุบัน / จุดหมาย)
-
-GET /api/admin/teacher-leaves — รายการคำขอลา (query: `status` = PENDING|APPROVED|REJECTED, `limit`)
-
-PATCH /api/admin/teacher-leaves/:id/status — อนุมัติ/ปฏิเสธคำขอลา (`status` = APPROVED หรือ REJECTED)
-
-POST /api/teacher/training-reports — ครูผู้สอนส่งยอดนักเรียน (subject, participantCount, company, battalion, trainingDate, trainingTime, location, durationHours, notes)
-
-GET /api/teacher/training-reports/latest — ดูประวัติการส่งล่าสุด (ค่าเริ่มต้น 5 รายการ, ปรับจำนวนได้ด้วย query `limit`)
-
-POST /api/teacher/leaves — ครูแจ้งการลา (leaveType, startDate, endDate?, destination, reason)
-
-GET /api/teacher/leaves — ครูดูรายการลาของตนเอง
-
-POST /api/teacher/official-duty-leaves — ครูแจ้งลาไปราชการ (ข้อมูลเหมือนการลา แต่ระบบส่งเข้าช่องทางหัวหน้าแผนกศึกษา)
-
-GET /api/teacher/official-duty-leaves — ครูดูรายการลาไปราชการของตนเอง
-
-GET /api/department/official-duty-leaves — หัวหน้าแผนกศึกษาดูรายการลาไปราชการ (query: `status` = PENDING|APPROVED|REJECTED, `limit`)
-
-PATCH /api/department/official-duty-leaves/:id/status — หัวหน้าแผนกศึกษาอนุมัติ/ปฏิเสธลาไปราชการ
-
-POST /api/evaluations/import — อัปโหลดไฟล์ Excel แบบประเมินครู (ต้องมี JWT)
-  - multipart/form-data; file field: `file`
-  - body optional: `teacherId` (เชื่อมกับผู้ใช้ role TEACHER ถ้ามี)
-GET /api/evaluations/template/download — ดาวน์โหลดไฟล์ตัวอย่างแบบประเมินในรูปแบบ Excel
-
-## Project Structure
-
-- `server.js` — Express app
-- `routes/` — แยกเส้นแต่ละฟีเจอร์
-  - `routes/auth.js` — สมัคร/เข้าสู่ระบบ
-  - `routes/user.js` — โปรไฟล์ผู้ใช้ (me)
-  - `routes/admin.js` — จัดการผู้ใช้โดยผู้ดูแลระบบ
-  - `routes/teacher.js` — เส้นทางสำหรับครูส่งยอดนักเรียน
-  - `routes/evaluation.js` — นำเข้าแบบประเมินจาก Excel
-  - `routes/index.js` — รวมและ export router ที่ `server.js` ใช้
-- `controllers/` — ตัวจัดการ Request/Response
-  - `controllers/authController.js`
-  - `controllers/userController.js`
-  - `controllers/teacherReportController.js`
-  - `controllers/teacherLeaveController.js`
-  - `controllers/evaluationController.js`
-  - `controllers/admin/userAdminController.js`
-  - `controllers/admin/trainingReportAdminController.js`
-  - `controllers/admin/teacherLeaveAdminController.js`
-- `models/` — Prisma data access (`userModel.js`, `trainingReportModel.js`, `teacherLeaveModel.js`)
-- `middlewares/` — JWT, upload, etc.
-  - รองรับอัปโหลดรูป (`middlewares/upload.js` — avatar)
-  - รองรับอัปโหลด Excel (`middlewares/upload.js` — excelUploadOne => ไฟล์ `.xlsx`)
-- `utils/` — helper ทั่วไป (`utils/avatar.js`)
-
-## Authentication / Headers
-
-- ตัวอย่าง Headers: `Authorization: Bearer <JWT>`
-- ส่ง `<token>` ได้เลย แต่สามารถใช้ Bearer ได้
-- Token ที่ได้จาก /api/login มี payload เป็น `{ id, role }`
-- หลังล็อกอินระบบจะส่ง `accessToken` (JWT) + `refreshToken` โดย refresh token ต้องเก็บฝั่ง client และเรียก `/api/refresh-token` เมื่อ JWT หมดอายุ
-
-ตัวอย่าง
+## รูปแบบข้อผิดพลาดที่ใช้ร่วมกัน
+```json
+{
+  "message": "ข้อความอธิบายสั้น ๆ",
+  "detail": "(อาจมี) รายละเอียดเชิงเทคนิค",
+  "errors": ["(อาจมี) รายการฟิลด์ที่ผิดพลาด"]
+}
 ```
-Authorization: Bearer <JWT>
+รหัสสถานะที่พบบ่อย: `400` (validation), `401` (ข้อมูลไม่ถูกต้อง), `403` (ไม่มีสิทธิ์), `404` (ไม่พบข้อมูล), `409` (ข้อมูลซ้ำ), `500` (ข้อผิดพลาดฝั่งเซิร์ฟเวอร์)
+
+---
+
+## 1) Authentication
+
+### POST /api/register
+- ไม่ต้องใช้ token
+- Content-Type: `application/json` หรือ `multipart/form-data`
+- ต้องระบุ: `username`, `password`, `firstName`, `lastName`, `email`, `phone`
+- ฟิลด์เพิ่มเติม: `rank`, `birthDate`, `fullAddress`, `education`, `position`, `emergencyContactName`, `emergencyContactPhone`, `medicalHistory`, `role` (ค่าปริยาย STUDENT)
+- แนบรูปโปรไฟล์: ฟิลด์ `avatar`/`file` หรือส่ง Base64 ใน `profileImage`
+
+```http
+POST /api/register HTTP/1.1
+Content-Type: application/json
+
+{
+  "username": "peter",
+  "password": "Sup3rSecret!",
+  "firstName": "Peter",
+  "lastName": "Wong",
+  "email": "peter@example.mil",
+  "phone": "0812345678",
+  "rank": "LIEUTENANT",
+  "birthDate": "1990-05-20",
+  "fullAddress": "123/45 ฐานทัพเรือสัตหีบ"
+}
 ```
 
-## Auth Requirements (สรุป)
+**201** `{"message":"User registered successfully"}`
 
-- Public (ไม่ต้องใช้ token)
-  - POST /api/register
-  - POST /api/login
-  - POST /api/refresh-token (ต้องส่ง refresh token มาด้วย)
+### POST /api/login
+- Body: `username`, `password`
+- Response คืน access/refresh token + ข้อมูลผู้ใช้สั้น ๆ
 
-- JWT (ผู้ใช้ล็อกอินทั่วไป)
-  - GET /api/me
-  - PUT /api/me
-  - POST /api/me/avatar (multipart/form-data; file field: avatar)
-  - POST /api/me/change-password
-
-- Teacher (JWT + สิทธิ์ TEACHER)
-  - POST /api/teacher/training-reports
-  - GET /api/teacher/training-reports/latest
-  - POST /api/teacher/leaves
-  - GET /api/teacher/leaves
-  - POST /api/teacher/official-duty-leaves
-  - GET /api/teacher/official-duty-leaves
-
-- Admin (JWT + สิทธิ์ ADMIN)
-  - GET /api/admin/users
-  - GET /api/admin/users?role=STUDENT|TEACHER — กรองตาม role ได้จาก query
-  - GET /api/admin/users/students — รายชื่อผู้ใช้ role STUDENT
-  - GET /api/admin/users/teachers — รายชื่อผู้ใช้ role TEACHER
-  - GET /api/admin/users/students/:id — ดึงข้อมูลนักเรียนเฉพาะคน
-  - GET /api/admin/users/teachers/:id — ดึงข้อมูลครูเฉพาะคน
-  - GET /api/admin/users/:id
-  - POST /api/admin/users
-  - PUT /api/admin/users/:id
-  - DELETE /api/admin/users/deactivate/:id
-  - PATCH /api/admin/users/activate/:id
-  - POST /api/admin/users/:id/avatar (multipart/form-data; file field: avatar)
-  - GET /api/admin/training-reports — dashboard summary + ค้นหา
-  - GET /api/admin/teacher-leaves/summary — บัญชีพลครูฝึก (ยอดรวม/ลาปัจจุบัน/จุดหมาย)
-  - GET /api/admin/teacher-leaves — รายการคำขอลา (กรองตามสถานะ)
-  - PATCH /api/admin/teacher-leaves/:id/status — อนุมัติ/ปฏิเสธคำขอลา
-
-- Department Head (JWT + สิทธิ์ DEPARTMENT_HEAD)
-  - GET /api/department/official-duty-leaves — ตรวจคำขอลาไปราชการ
-  - PATCH /api/department/official-duty-leaves/:id/status — อนุมัติ/ปฏิเสธลาไปราชการ
-
-## Database Migration
-
-เพิ่มฟิลด์ `refreshTokenHash` และ `refreshTokenExpiresAt` ให้ตาราง `User` แล้ว ต้องรันคำสั่ง Prisma หลังอัปเดตโค้ด:
-
+```json
+{
+  "accessToken": "eyJhbGci...",
+  "refreshToken": "1b5c9f...",
+  "tokenType": "Bearer",
+  "expiresIn": "24h",
+  "user": { "id": 1, "username": "admin", "role": "ADMIN" }
+}
 ```
-npx prisma migrate dev --name add-refresh-token
+
+### POST /api/refresh-token
+- Body: `{ "refreshToken": "..." }` หรือส่ง header `x-refresh-token`
+- Response โครงสร้างเดียวกับ `/login`
+
+---
+
+## 2) โปรไฟล์ผู้ใช้ (ต้องมี JWT)
+
+### GET /api/me
+ส่ง token ของผู้ใช้ปัจจุบันเพื่อตรวจสอบข้อมูลตนเอง
+
+```json
+{
+  "id": 12,
+  "username": "teacher01",
+  "role": "TEACHER",
+  "firstName": "เอกชัย",
+  "lastName": "สถิตย์",
+  "rank": "นาวาโท",
+  "email": "teacher01@example.mil",
+  "avatar": "/uploads/avatars/user-12.png"
+}
 ```
+
+### PUT /api/me
+แก้ไขฟิลด์อนุญาต (ชื่อ, เบอร์, การศึกษา ฯลฯ)
+
+```http
+PUT /api/me
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "phone": "0891234567",
+  "education": "นิติศาสตร์",
+  "medicalHistory": "แพ้อาหารทะเล"
+}
+```
+
+Response: โปรไฟล์ล่าสุด (200)
+
+### POST /api/me/avatar
+- `multipart/form-data`
+- ฟิลด์ไฟล์ที่รับ: `avatar`/`file`/`image`/`photo`/`picture`
+- Response: `{ "message": "อัปโหลดรูปโปรไฟล์สำเร็จ", "avatar": "/uploads/avatars/user-12.png" }`
+
+### POST /api/me/change-password
+- Body: `{ "currentPassword": "...", "newPassword": "..." }`
+- Response 200: `{"message":"เปลี่ยนรหัสผ่านสำเร็จ"}`
+
+---
+
+## 3) Admin – จัดการผู้ใช้ (ต้องมี role ADMIN)
+
+### GET /api/admin/users
+- Query: `page`, `pageSize` (สูงสุด 100), `search`, `role`
+- Response:
+```json
+{
+  "data": [{ "id": 1, "username": "admin", "role": "ADMIN", "email": "admin@example.mil", "isActive": true }],
+  "page": 1,
+  "pageSize": 10,
+  "total": 37,
+  "totalPages": 4
+}
+```
+
+### GET /api/admin/users/students
+เหมือน `/admin/users` แต่บังคับ role = STUDENT
+
+### GET /api/admin/users/teachers
+เหมือนด้านบนแต่ role = TEACHER
+
+### GET /api/admin/users/:id
+คืนโปรไฟล์เต็ม (พร้อม rank, ที่อยู่, เบอร์ ฯลฯ)
+
+### GET /api/admin/users/students/:id
+ตรวจสอบว่า role = STUDENT ไม่เช่นนั้นตอบ 400
+
+### GET /api/admin/users/teachers/:id
+ตรวจสอบว่า role = TEACHER
+
+ตัวอย่าง response รายบุคคล:
+```json
+{
+  "id": 22,
+  "username": "student07",
+  "role": "STUDENT",
+  "firstName": "กิตติ",
+  "lastName": "ศรีสุข",
+  "email": "student07@example.mil",
+  "phone": "0812340007",
+  "isActive": true
+}
+```
+
+### POST /api/admin/users
+- ฟิลด์บังคับเหมือน `/register`
+- รับไฟล์ avatar ผ่าน multipart หรือส่ง path/base64
+- Response 201: โปรไฟล์ผู้ใช้ใหม่
+
+### PUT /api/admin/users/:id
+- แก้ไขฟิลด์กว้าง (รวม `role`, `isActive`, `rank`, `password`)
+- หากส่ง `password` ระบบจะ hash ให้
+
+```json
+{
+  "id": 45,
+  "username": "teacher99",
+  "role": "TEACHER",
+  "phone": "0823456789",
+  "isActive": true
+}
+```
+
+### POST /api/admin/users/:id/avatar
+- Upload รูปแทนผู้ใช้ ระบบตั้งชื่อ `user-<id>.ext`
+- Response 200: `{ "message": "อัปโหลดรูปโปรไฟล์ผู้ใช้สำเร็จ", "avatar": "/uploads/avatars/user-45.png" }`
+
+### DELETE /api/admin/users/deactivate/:id
+- Soft delete (ตั้ง `isActive=false`)
+
+### PATCH /api/admin/users/activate/:id
+- เปิดใช้งาน (`isActive=true`)
+
+ทั้งสอง endpoint ตอบ `{ "message": "...", "user": { "id": <id>, "isActive": <bool> } }`
+
+---
+
+## 4) Admin – แดชบอร์ดรายงานการฝึก
+
+### GET /api/admin/training-reports
+- Query: `search`
+- Response summarises overview + สถิติครู + รายการล่าสุด
+
+```json
+{
+  "overview": {
+    "totalReports": 145,
+    "totalTrainingRounds": 57,
+    "totalParticipants": 5120,
+    "totalTeachersSubmitted": 23,
+    "lastReportAt": "2025-11-18T02:45:00.000Z"
+  },
+  "teacherStats": [
+    {
+      "teacherId": 12,
+      "teacherName": "นาวาโท เอกชัย สถิตย์",
+      "rank": "นาวาโท",
+      "position": "ครูฝึก",
+      "totalReports": 8,
+      "totalParticipants": 420,
+      "company": "ร้อย.3",
+      "battalion": "พัน.ฝึก",
+      "latestSubject": "ยุทธวิธีหมู่เรือ",
+      "latestTrainingDate": "2025-11-17T00:00:00.000Z",
+      "latestReportAt": "2025-11-17T14:00:00.000Z"
+    }
+  ],
+  "recentReports": [
+    {
+      "id": 301,
+      "teacherId": 12,
+      "subject": "การบังคับเรือ",
+      "participantCount": 30,
+      "durationHours": 3,
+      "trainingDate": "2025-11-17T00:00:00.000Z",
+      "createdAt": "2025-11-17T14:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+## 5) Admin – จัดการการลาของครู
+
+### GET /api/admin/teacher-leaves/summary
+คืนภาพรวมพร้อมรายการกำลังลาปัจจุบันและประวัติล่าสุด
+
+```json
+{
+  "overview": {
+    "totalTeachers": 25,
+    "totalLeaveRequests": 48,
+    "currentOnLeave": 2,
+    "availableTeachers": 23
+  },
+  "currentLeaves": [
+    {
+      "id": 11,
+      "teacherName": "น.ต. เอกชัย สถิตย์",
+      "leaveType": "ลาป่วย",
+      "startDate": "2025-11-16T00:00:00.000Z",
+      "endDate": "2025-11-18T00:00:00.000Z",
+      "status": "APPROVED"
+    }
+  ],
+  "recentLeaves": [
+    {
+      "id": 15,
+      "teacherName": "น.ต. สันติ ภักดี",
+      "leaveType": "ลากิจ",
+      "status": "REJECTED"
+    }
+  ]
+}
+```
+
+### GET /api/admin/teacher-leaves
+- Query: `status` (PENDING/APPROVED/REJECTED), `limit` ≤ 200
+- Response `{ "data": [ { leave }, ... ] }`
+
+### PATCH /api/admin/teacher-leaves/:id/status
+- Body: `{ "status": "APPROVED" }` หรือ `REJECTED`
+- ใช้ได้เฉพาะคำขอลาทั่วไป (`isOfficialDuty=false`)
+- Response `{ "message": "อัปเดตสถานะการลาสำเร็จ", "leave": { ... } }`
+
+---
+
+## 6) Teacher – รายงานการฝึก
+
+### POST /api/teacher/training-reports
+- ใช้เฉพาะ role TEACHER
+- Body ตัวอย่าง:
+```json
+{
+  "subject": "การใช้อาวุธประจำกาย",
+  "participantCount": 35,
+  "company": "ร้อย.1",
+  "battalion": "พัน.ฝึก",
+  "trainingDate": "2025-11-17",
+  "trainingTime": "09:00",
+  "location": "ลานฝึกกลาง",
+  "durationHours": 4,
+  "notes": "ฝนตกเล็กน้อย"
+}
+```
+- Response 201: `{ "message": "บันทึกยอดนักเรียนสำเร็จ", "report": { ... } }`
+
+### GET /api/teacher/training-reports/latest
+- Query `limit` (ดีฟอลต์ 5, สูงสุด 20)
+- Response `{ "data": [ { report }, ... ] }`
+
+---
+
+## 7) Teacher – การลา/ลาไปราชการ
+
+### POST /api/teacher/leaves
+- Body: `leaveType`, `startDate`, `endDate?`, `destination?`, `reason?`
+- Response 201: `{ "message": "บันทึกการลาสำเร็จ", "leave": { ... } }`
+
+### GET /api/teacher/leaves
+- Query: `limit`
+- Response `{ "data": [ { leave }, ... ] }`
+
+### POST /api/teacher/official-duty-leaves
+- ใช้สำหรับลาไปราชการ (`isOfficialDuty=true`)
+- Response 201: `{ "message": "บันทึกคำขอลาไปราชการสำเร็จ", "leave": { ..., "departmentApprovalStatus": "PENDING" } }`
+
+### GET /api/teacher/official-duty-leaves
+- Query: `limit`
+- Response `{ "data": [ { officialDutyLeave }, ... ] }`
+
+ตัวอย่างข้อมูล leave:
+```json
+{
+  "id": 51,
+  "teacherId": 12,
+  "leaveType": "ลาไปศึกษาดูงาน",
+  "destination": "กองการศึกษา",
+  "reason": "เข้าร่วมอบรม",
+  "startDate": "2025-11-20T00:00:00.000Z",
+  "endDate": "2025-11-22T00:00:00.000Z",
+  "status": "PENDING",
+  "isOfficialDuty": true,
+  "departmentApprovalStatus": "PENDING"
+}
+```
+
+---
+
+## 8) Department Head – ลาไปราชการ
+
+### GET /api/department/official-duty-leaves
+- ต้องมี role DEPARTMENT_HEAD
+- Query: `status`, `limit`
+- Response `{ "data": [ { leave }, ... ] }`
+
+### PATCH /api/department/official-duty-leaves/:id/status
+- Body: `{ "status": "APPROVED" }` หรือ `REJECTED`
+- ระบบบันทึก `departmentApprovalBy` และ `departmentApprovalAt`
+- Response `{ "message": "อัปเดตสถานะลาไปราชการสำเร็จ", "leave": { ... } }`
+
+---
+
+## 9) Evaluations – แบบประเมินครู
+
+### POST /api/evaluations/import
+- multipart/form-data (ฟิลด์ไฟล์ `file`/`excel`/`upload`/`sheet` – ต้องเป็น `.xlsx`/`.xls`)
+- แนบ `teacherId` ได้เพื่อผูกกับครูในระบบ
+- Response 201: `{ "message": "นำเข้าข้อมูลแบบประเมินสำเร็จ", "sheet": { id, subject, teacherName, evaluatorName, evaluatedAt, answers: [...] } }`
+
+### GET /api/evaluations
+- Query: `page`, `pageSize`, `teacherId`, `subject`, `teacherName`, `evaluatorName`, `search`
+- Response: รายการ + จำนวนหน้ารวม
+
+### GET /api/evaluations/:id
+- คืนแบบประเมินเดี่ยวพร้อมคำตอบและข้อมูลครู (ถ้ามี)
+
+### GET /api/evaluations/template/download
+- คืนไฟล์ Excel เทมเพลต (สามารถใช้ `curl -OJ https://<host>/api/evaluations/template/download -H "Authorization: Bearer <token>"`)
+
+---
+
+## 10) Static Files
+
+### GET /uploads/avatars/:filename
+- ไม่ต้องพิสูจน์ตัวตน
+- ไฟล์ภาพ cache ได้นาน (ตั้งค่า `Cache-Control` ไว้แล้ว)
+
+---
+
+## เช็กลิสต์การใช้งาน
+1. สมัครหรือให้ ADMIN สร้างผู้ใช้เพื่อรับ username/password
+2. เรียก `/login` แล้วเก็บ `accessToken` + `refreshToken`
+3. แนบ `Authorization: Bearer <accessToken>` กับทุกคำขอที่ต้องพิสูจน์สิทธิ์
+4. เมื่อ access token หมดอายุ (401) ให้เรียก `/refresh-token`
+5. ใช้ endpoint ตามบทบาท: ADMIN (จัดการผู้ใช้/แดชบอร์ด/คำขอลา), TEACHER (รายงาน/ลา), DEPARTMENT_HEAD (อนุมัติลาไปราชการ)
+
+หากเจอปัญหาให้ดูข้อความ `message`/`detail` หรือเช็ก log ฝั่งเซิร์ฟเวอร์เพิ่มเติม
