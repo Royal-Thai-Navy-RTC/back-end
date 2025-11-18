@@ -73,6 +73,100 @@ const withThaiRank = (payload) => {
   return payload;
 };
 
+const USER_PROFILE_SELECT = {
+  id: true,
+  username: true,
+  role: true,
+  isActive: true,
+  firstName: true,
+  lastName: true,
+  birthDate: true,
+  rank: true,
+  fullAddress: true,
+  education: true,
+  position: true,
+  email: true,
+  phone: true,
+  emergencyContactName: true,
+  emergencyContactPhone: true,
+  medicalHistory: true,
+  avatar: true,
+  createdAt: true,
+  updatedAt: true,
+};
+
+const USER_PROFILE_CACHE_TTL_MS = 30 * 1000;
+const USER_PROFILE_CACHE_MAX = 500;
+const userProfileCache = new Map();
+
+const cloneProfilePayload = (payload) =>
+  payload ? { ...payload } : payload;
+
+const normalizeUserId = (value) => {
+  const num = Number(value);
+  return Number.isInteger(num) ? num : null;
+};
+
+const readUserProfileCache = (numericId) => {
+  const cached = userProfileCache.get(numericId);
+  if (!cached) return null;
+  if (cached.expiresAt < Date.now()) {
+    userProfileCache.delete(numericId);
+    return null;
+  }
+  return cloneProfilePayload(cached.value);
+};
+
+const evictOldestUserCacheEntry = () => {
+  const oldestKey = userProfileCache.keys().next().value;
+  if (oldestKey !== undefined) {
+    userProfileCache.delete(oldestKey);
+  }
+};
+
+const writeUserProfileCache = (numericId, profile) => {
+  if (!profile) return;
+  if (userProfileCache.size >= USER_PROFILE_CACHE_MAX) {
+    evictOldestUserCacheEntry();
+  }
+  userProfileCache.set(numericId, {
+    value: cloneProfilePayload(profile),
+    expiresAt: Date.now() + USER_PROFILE_CACHE_TTL_MS,
+  });
+};
+
+const primeUserProfileCache = (id, profile) => {
+  const numericId = normalizeUserId(id);
+  if (numericId === null) return;
+  if (profile) {
+    writeUserProfileCache(numericId, profile);
+  } else {
+    userProfileCache.delete(numericId);
+  }
+};
+
+const fetchUserProfileFromDb = async (id) => {
+  return prisma.user.findUnique({
+    where: { id },
+    select: USER_PROFILE_SELECT,
+  });
+};
+
+const getUserProfile = async (id, { useCache = true } = {}) => {
+  const numericId = normalizeUserId(id);
+  if (numericId === null) return null;
+  if (useCache) {
+    const cached = readUserProfileCache(numericId);
+    if (cached) return cached;
+  }
+  const record = await fetchUserProfileFromDb(numericId);
+  const normalized = withThaiRank(record);
+  if (normalized && useCache) {
+    writeUserProfileCache(numericId, normalized);
+  }
+  return normalized ? { ...normalized } : normalized;
+};
+
 // ตรวจสอบและจัดรูปแบบข้อมูลให้ตรงกับ schema.prisma
 const normalizeAndValidateUserInput = (input = {}) => {
   const requiredFields = [
@@ -237,34 +331,7 @@ module.exports = {
   clearRefreshTokenForUser,
   findUserByRefreshTokenHash,
   // เพิ่มสำหรับโปรไฟล์ตัวเอง
-  getUserById: async (id) => {
-    return withThaiRank(
-      await prisma.user.findUnique({
-        where: { id: Number(id) },
-        select: {
-          id: true,
-          username: true,
-          role: true,
-          isActive: true,
-          firstName: true,
-          lastName: true,
-          birthDate: true,
-          rank: true,
-          fullAddress: true,
-          education: true,
-          position: true,
-          email: true,
-          phone: true,
-          emergencyContactName: true,
-          emergencyContactPhone: true,
-          medicalHistory: true,
-          avatar: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      })
-    );
-  },
+  getUserById: getUserProfile,
   updateUserSelf: async (id, input) => {
     const allowed = new Set([
       "firstName",
@@ -305,61 +372,18 @@ module.exports = {
     }
 
     if (Object.keys(data).length === 0) {
-      return withThaiRank(
-        await prisma.user.findUnique({
-          where: { id: Number(id) },
-          select: {
-            id: true,
-            username: true,
-            role: true,
-            isActive: true,
-            firstName: true,
-            lastName: true,
-            birthDate: true,
-            rank: true,
-            fullAddress: true,
-            education: true,
-            position: true,
-            email: true,
-            phone: true,
-            emergencyContactName: true,
-            emergencyContactPhone: true,
-            medicalHistory: true,
-            avatar: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        })
-      );
+      return getUserProfile(id);
     }
 
-    return withThaiRank(
+    const updated = withThaiRank(
       await prisma.user.update({
         where: { id: Number(id) },
         data,
-        select: {
-          id: true,
-          username: true,
-          role: true,
-          isActive: true,
-          firstName: true,
-          lastName: true,
-          birthDate: true,
-          rank: true,
-          fullAddress: true,
-          education: true,
-          position: true,
-          email: true,
-          phone: true,
-          emergencyContactName: true,
-          emergencyContactPhone: true,
-          medicalHistory: true,
-          avatar: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        select: USER_PROFILE_SELECT,
       })
     );
+    primeUserProfileCache(id, updated);
+    return updated;
   },
   changePasswordSelf: async ({ id, currentPassword, newPassword }) => {
     if (!id) {
@@ -477,7 +501,7 @@ module.exports = {
   },
   // ปิดการใช้งาน (soft delete) ผู้ใช้ โดยตั้ง isActive = false
   deactivateUser: async (id) => {
-    return prisma.user.update({
+    const result = await prisma.user.update({
       where: { id: Number(id) },
       data: { isActive: false },
       select: {
@@ -487,10 +511,12 @@ module.exports = {
         updatedAt: true,
       },
     });
+    primeUserProfileCache(id);
+    return result;
   },
   // เปิดการใช้งานผู้ใช้ (reactivate) โดยตั้ง isActive = true
   activateUser: async (id) => {
-    return prisma.user.update({
+    const result = await prisma.user.update({
       where: { id: Number(id) },
       data: { isActive: true },
       select: {
@@ -500,20 +526,24 @@ module.exports = {
         updatedAt: true,
       },
     });
+    primeUserProfileCache(id);
+    return result;
   },
   // ลบผู้ใช้ออกจากฐานข้อมูลแบบถาวร (hard delete)
   deleteUserHard: async (id) => {
-    return prisma.user.delete({
+    const result = await prisma.user.delete({
       where: { id: Number(id) },
       select: {
         id: true,
         username: true,
       },
     });
+    primeUserProfileCache(id);
+    return result;
   },
   // ตั้งค่า avatar ตาม id (สำหรับแอดมิน)
   setUserAvatar: async (id, avatarPath) => {
-    return prisma.user.update({
+    const result = await prisma.user.update({
       where: { id: Number(id) },
       data: { avatar: String(avatarPath) },
       select: {
@@ -523,6 +553,8 @@ module.exports = {
         updatedAt: true,
       },
     });
+    primeUserProfileCache(id);
+    return result;
   },
   // สำหรับแอดมิน: อนุญาตแก้ไขฟิลด์กว้างขึ้น และรีเซ็ตรหัสผ่านได้
   updateUserByAdmin: async (id, input) => {
@@ -571,32 +603,14 @@ module.exports = {
       data[k] = typeof v === "string" ? v.trim() : v;
     }
 
-    return withThaiRank(
+    const updated = withThaiRank(
       await prisma.user.update({
         where: { id: Number(id) },
         data,
-        select: {
-          id: true,
-          username: true,
-          role: true,
-          isActive: true,
-          firstName: true,
-          lastName: true,
-          birthDate: true,
-          rank: true,
-          fullAddress: true,
-          education: true,
-          position: true,
-          email: true,
-          phone: true,
-          emergencyContactName: true,
-          emergencyContactPhone: true,
-          medicalHistory: true,
-          avatar: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        select: USER_PROFILE_SELECT,
       })
     );
+    primeUserProfileCache(id, updated);
+    return updated;
   },
 };
