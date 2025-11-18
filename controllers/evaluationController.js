@@ -4,6 +4,43 @@ const XLSX = require("xlsx");
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
+const evaluationSheetInclude = {
+  answers: { orderBy: { id: "asc" } },
+  teacher: {
+    select: { id: true, firstName: true, lastName: true, rank: true },
+  },
+};
+
+const validationError = (message) => {
+  const err = new Error(message);
+  err.code = "VALIDATION_ERROR";
+  return err;
+};
+
+const normalizeManualAnswers = (rawAnswers) => {
+  if (!Array.isArray(rawAnswers) || rawAnswers.length === 0) {
+    throw validationError("ต้องระบุ answers อย่างน้อย 1 ข้อ");
+  }
+  return rawAnswers.map((answer, index) => {
+    const itemText = safeString(answer?.itemText);
+    if (!itemText) {
+      throw validationError(`itemText ของข้อที่ ${index + 1} ต้องไม่ว่าง`);
+    }
+    const rating = Number(answer?.rating);
+    if (!Number.isFinite(rating)) {
+      throw validationError(`rating ของข้อที่ ${index + 1} ต้องเป็นตัวเลข`);
+    }
+    const section = safeString(answer?.section);
+    const itemCode = safeString(answer?.itemCode);
+    return {
+      section: section || null,
+      itemCode: itemCode || null,
+      itemText,
+      rating: Math.max(0, Math.min(5, Math.round(rating))),
+    };
+  });
+};
+
 // แผนที่เดือนภาษาไทย (ย่อ/เต็ม/ไม่มีจุด) -> เดือนเลข
 const THAI_MONTHS = {
   // ย่อมีจุด
@@ -435,12 +472,7 @@ const listEvaluationSheets = async (req, res) => {
         skip,
         take: pageSize,
         orderBy: { evaluatedAt: "desc" },
-        include: {
-          answers: { orderBy: { id: "asc" } },
-          teacher: {
-            select: { id: true, firstName: true, lastName: true, rank: true },
-          },
-        },
+        include: evaluationSheetInclude,
       }),
     ]);
 
@@ -467,12 +499,7 @@ const getEvaluationSheetById = async (req, res) => {
   try {
     const sheet = await prisma.evaluationSheet.findUnique({
       where: { id: sheetId },
-      include: {
-        answers: { orderBy: { id: "asc" } },
-        teacher: {
-          select: { id: true, firstName: true, lastName: true, rank: true },
-        },
-      },
+      include: evaluationSheetInclude,
     });
     if (!sheet) {
       return res.status(404).json({ message: "ไม่พบแบบประเมิน" });
@@ -481,6 +508,135 @@ const getEvaluationSheetById = async (req, res) => {
   } catch (err) {
     res.status(500).json({
       message: "ไม่สามารถดึงข้อมูลแบบประเมินได้",
+      detail: err.message,
+    });
+  }
+};
+
+const updateEvaluationSheet = async (req, res) => {
+  const sheetId = parseNumericInput(req.params?.id);
+  if (sheetId == null) {
+    return res.status(400).json({ message: "id ต้องเป็นตัวเลข" });
+  }
+  try {
+    const existing = await prisma.evaluationSheet.findUnique({
+      where: { id: sheetId },
+      select: { id: true },
+    });
+    if (!existing) {
+      return res.status(404).json({ message: "ไม่พบแบบประเมิน" });
+    }
+
+    const payload = {};
+    if (req.body?.subject !== undefined) {
+      const subject = safeString(req.body.subject);
+      if (!subject) {
+        throw validationError("subject ต้องไม่ว่าง");
+      }
+      payload.subject = subject;
+    }
+    if (req.body?.teacherName !== undefined) {
+      const teacherName = safeString(req.body.teacherName);
+      if (!teacherName) {
+        throw validationError("teacherName ต้องไม่ว่าง");
+      }
+      payload.teacherName = teacherName;
+    }
+    if (req.body?.teacherId !== undefined) {
+      if (req.body.teacherId === null || req.body.teacherId === "") {
+        payload.teacherId = null;
+      } else {
+        const teacherId = parseNumericInput(req.body.teacherId);
+        if (teacherId == null) {
+          throw validationError("teacherId ต้องเป็นตัวเลข");
+        }
+        payload.teacherId = teacherId;
+      }
+    }
+    if (req.body?.evaluatorName !== undefined) {
+      const evaluatorName = safeString(req.body.evaluatorName);
+      if (!evaluatorName) {
+        throw validationError("evaluatorName ต้องไม่ว่าง");
+      }
+      payload.evaluatorName = evaluatorName;
+    }
+    if (req.body?.evaluatorUnit !== undefined) {
+      const evaluatorUnit = safeString(req.body.evaluatorUnit);
+      payload.evaluatorUnit = evaluatorUnit || null;
+    }
+    if (req.body?.evaluatedAt !== undefined) {
+      const evaluatedAt =
+        req.body.evaluatedAt instanceof Date
+          ? req.body.evaluatedAt
+          : new Date(req.body.evaluatedAt);
+      if (isNaN(evaluatedAt.getTime())) {
+        throw validationError("evaluatedAt ต้องอยู่ในรูปแบบวันที่ที่ถูกต้อง");
+      }
+      payload.evaluatedAt = evaluatedAt;
+    }
+    if (req.body?.notes !== undefined) {
+      const notes =
+        typeof req.body.notes === "string"
+          ? req.body.notes.trim()
+          : String(req.body.notes || "").trim();
+      payload.notes = notes || null;
+    }
+
+    let normalizedAnswers = null;
+    if (req.body?.answers !== undefined) {
+      normalizedAnswers = normalizeManualAnswers(req.body.answers);
+    }
+
+    const updatedSheet = await prisma.$transaction(async (tx) => {
+      if (Object.keys(payload).length > 0) {
+        await tx.evaluationSheet.update({
+          where: { id: sheetId },
+          data: payload,
+        });
+      }
+      if (normalizedAnswers) {
+        await tx.evaluationAnswer.deleteMany({ where: { sheetId } });
+        await tx.evaluationAnswer.createMany({
+          data: normalizedAnswers.map((answer) => ({
+            sheetId,
+            ...answer,
+          })),
+        });
+      }
+      return tx.evaluationSheet.findUnique({
+        where: { id: sheetId },
+        include: evaluationSheetInclude,
+      });
+    });
+
+    res.json({ data: updatedSheet });
+  } catch (err) {
+    if (err.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ message: err.message });
+    }
+    res.status(500).json({
+      message: "ไม่สามารถแก้ไขแบบประเมินได้",
+      detail: err.message,
+    });
+  }
+};
+
+const deleteEvaluationSheet = async (req, res) => {
+  const sheetId = parseNumericInput(req.params?.id);
+  if (sheetId == null) {
+    return res.status(400).json({ message: "id ต้องเป็นตัวเลข" });
+  }
+  try {
+    await prisma.evaluationSheet.delete({
+      where: { id: sheetId },
+    });
+    res.json({ message: "ลบแบบประเมินสำเร็จ" });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ message: "ไม่พบแบบประเมิน" });
+    }
+    res.status(500).json({
+      message: "ไม่สามารถลบแบบประเมินได้",
       detail: err.message,
     });
   }
@@ -515,5 +671,7 @@ module.exports = {
   importEvaluationExcel,
   listEvaluationSheets,
   getEvaluationSheetById,
+  updateEvaluationSheet,
+  deleteEvaluationSheet,
   downloadEvaluationTemplate,
 };

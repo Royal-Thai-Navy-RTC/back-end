@@ -380,6 +380,37 @@ Response: โปรไฟล์ล่าสุด (200)
 ### GET /api/evaluations/:id
 - คืนแบบประเมินเดี่ยวพร้อมคำตอบและข้อมูลครู (ถ้ามี)
 
+### PUT /api/evaluations/:id
+- Auth: ผู้ใช้ที่ล็อกอิน (แนะนำ ADMIN)
+- ใช้แก้ไขข้อมูลหัวกระดาษ เช่น `subject`, `teacherName`, `teacherId`, `evaluatorName`, `evaluatedAt`, `notes`
+- หากส่ง `answers` (array) จะลบและสร้างรายการคำตอบใหม่ตามข้อมูลที่ส่งมา
+
+```http
+PUT /api/evaluations/91
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "subject": "การสอนยุทธวิธีกองร้อย",
+  "teacherName": "น.ต. เอกชัย สถิตย์",
+  "evaluatorName": "แผนกตรวจการ",
+  "evaluatedAt": "2025-11-20",
+  "notes": "แก้ไขคะแนนรอบทบทวน",
+  "answers": [
+    { "section": "ด้านการสอน", "itemCode": "1", "itemText": "ความพร้อมของครู", "rating": 4 },
+    { "section": "ด้านการสอน", "itemCode": "2", "itemText": "ความเข้าใจบทเรียน", "rating": 5 }
+  ]
+}
+```
+
+**Response 200** → `{ "data": { ... } }`
+
+### DELETE /api/evaluations/:id
+- Auth: ผู้ใช้ที่ล็อกอิน (แนะนำ ADMIN)
+- ลบแบบประเมินและคำตอบทั้งหมด
+- Response: `{ "message": "ลบแบบประเมินสำเร็จ" }`
+
+
 ### GET /api/evaluations/template/download
 - คืนไฟล์ Excel เทมเพลต (สามารถใช้ `curl -OJ https://<host>/api/evaluations/template/download -H "Authorization: Bearer <token>"`)
 
