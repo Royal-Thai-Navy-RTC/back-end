@@ -414,13 +414,19 @@ module.exports = {
     const take = Math.max(1, Math.min(Number(pageSize) || 50, 200));
     const skip = Math.max(0, ((Number(page) || 1) - 1) * take);
     const where = {};
-    if (search) {
+    const normalizedSearch =
+      typeof search === "string" ? search.trim() : search ? String(search) : "";
+    if (normalizedSearch) {
+      const searchFilter = {
+        contains: normalizedSearch,
+        mode: "insensitive",
+      };
       where.OR = [
-        { username: { contains: String(search) } },
-        { firstName: { contains: String(search) } },
-        { lastName: { contains: String(search) } },
-        { email: { contains: String(search) } },
-        { phone: { contains: String(search) } },
+        { username: searchFilter },
+        { firstName: searchFilter },
+        { lastName: searchFilter },
+        { email: searchFilter },
+        { phone: searchFilter },
       ];
     }
     if (role) {
@@ -429,9 +435,11 @@ module.exports = {
       if (allowed.has(r)) where.role = r;
     }
 
-    const [itemsRaw, total] = await Promise.all([
+    const whereClause = Object.keys(where).length ? where : undefined;
+
+    const [itemsRaw, total] = await prisma.$transaction([
       prisma.user.findMany({
-        where: Object.keys(where).length ? where : undefined,
+        where: whereClause,
         skip,
         take,
         orderBy: { createdAt: "desc" },
@@ -457,7 +465,7 @@ module.exports = {
           updatedAt: true,
         },
       }),
-      prisma.user.count({ where }),
+      prisma.user.count({ where: whereClause }),
     ]);
 
     return {
