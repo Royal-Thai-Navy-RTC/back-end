@@ -36,7 +36,7 @@ module.exports = {
       if (!user || user.isActive === false) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      if (user.role !== "ADMIN") {
+      if (user.role !== "ADMIN" && user.role !== "OWNER") {
         return res.status(403).json({ message: "Admin only" });
       }
       next();
@@ -44,7 +44,7 @@ module.exports = {
       return res.status(500).json({ message: "Authorization error" });
     }
   },
-  authorizeDepartmentHead: async (req, res, next) => {
+  authorizeOwner: async (req, res, next) => {
     try {
       const user = await prisma.user.findUnique({
         where: { id: Number(req.userId) },
@@ -53,8 +53,8 @@ module.exports = {
       if (!user || user.isActive === false) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      if (user.role !== "DEPARTMENT_HEAD") {
-        return res.status(403).json({ message: "Department head only" });
+      if (user.role !== "OWNER") {
+        return res.status(403).json({ message: "Owner only" });
       }
       next();
     } catch (e) {

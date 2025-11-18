@@ -12,8 +12,8 @@ datasource db {
 // ใช้ ASCII values + map เป็น label ภาษาไทยใน DB
 // --------------------------------------------------
 enum Role {
+  OWNER   @map("Owner")
   ADMIN   @map("แอดมิน")
-  DEPARTMENT_HEAD @map("หัวหน้าแผนกศึกษา")
   TEACHER @map("ครูผู้สอน")
   STUDENT @map("นักเรียน")
 }
@@ -135,7 +135,8 @@ model User {
 
   // คำขอลาของครูฝึก
   teacherLeaves           TeacherLeave[] @relation("TeacherLeaves")
-  departmentApprovedLeaves TeacherLeave[] @relation("DepartmentApproval")
+  adminReviewedLeaves     TeacherLeave[] @relation("AdminLeaveApproval")
+  ownerApprovedLeaves     TeacherLeave[] @relation("OwnerLeaveApproval")
 
   // แบบประเมินนักเรียน
   studentEvaluationsAuthored StudentEvaluation[] @relation("StudentEvaluationEvaluator")
@@ -315,10 +316,15 @@ model TeacherLeave {
   status      LeaveStatus  @default(PENDING)
   isOfficialDuty Boolean   @default(false)
 
-  departmentApprovalStatus LeaveStatus?
-  departmentApprovalBy     Int?
-  departmentApprover       User?        @relation("DepartmentApproval", fields: [departmentApprovalBy], references: [id])
-  departmentApprovalAt     DateTime?
+  adminApprovalStatus LeaveStatus?
+  adminApprovalBy     Int?
+  adminApprover       User?        @relation("AdminLeaveApproval", fields: [adminApprovalBy], references: [id])
+  adminApprovalAt     DateTime?
+
+  ownerApprovalStatus LeaveStatus?
+  ownerApprovalBy     Int?
+  ownerApprover       User?        @relation("OwnerLeaveApproval", fields: [ownerApprovalBy], references: [id])
+  ownerApprovalAt     DateTime?
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt

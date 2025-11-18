@@ -127,4 +127,11 @@ router.patch(
   adminTeacherLeaves.updateTeacherLeaveStatus
 );
 
+router.get(
+  "/admin/teacher-leaves/current",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminTeacherLeaves.listCurrentLeaves
+);
+
 module.exports = router;

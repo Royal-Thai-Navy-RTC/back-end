@@ -2,10 +2,27 @@ const TeacherLeave = require("../models/teacherLeaveModel");
 
 const requestLeave = async (req, res) => {
   try {
+    const leaveTypeRaw = (req.body?.leaveType || "").toString().trim().toUpperCase();
+    if (leaveTypeRaw === "OFFICIAL_DUTY") {
+      const payload = {
+        ...req.body,
+        teacherId: req.userId,
+        status: "PENDING",
+        leaveType: req.body?.leaveType || "OFFICIAL_DUTY",
+        isOfficialDuty: true,
+      };
+      const leave = await TeacherLeave.createOfficialDutyLeave(payload);
+      return res.status(201).json({
+        message: "บันทึกคำขอลาไปราชการสำเร็จ",
+        leave,
+      });
+    }
+
     const payload = {
       ...req.body,
       teacherId: req.userId,
       status: "PENDING",
+      isOfficialDuty: false,
     };
     const leave = await TeacherLeave.createTeacherLeave(payload);
     res.status(201).json({
@@ -29,6 +46,7 @@ const requestOfficialDutyLeave = async (req, res) => {
       ...req.body,
       teacherId: req.userId,
       status: "PENDING",
+      leaveType: req.body?.leaveType || "OFFICIAL_DUTY",
       isOfficialDuty: true,
     };
     const leave = await TeacherLeave.createOfficialDutyLeave(payload);

@@ -11,9 +11,9 @@
 ## บทบาทและสิทธิ์
 | Role | คำอธิบาย | สิทธิ์หลัก |
 | --- | --- | --- |
-| `ADMIN` | ผู้ดูแลระบบ | จัดการผู้ใช้ทั้งหมด, ดูแดชบอร์ดรายงาน, อนุมัติคำขอลา |
+| `OWNER` | เจ้าของระบบ/ผู้บังคับบัญชาสูงสุด | เห็นทุกอย่าง, อนุมัติขั้นสุดท้ายของการลา, อนุมัติลาไปราชการ |
+| `ADMIN` | ผู้ดูแลระบบ | จัดการผู้ใช้ทั้งหมด, ดูแดชบอร์ดรายงาน, อนุมัติรอบแรกของคำขอลาทั่วไป |
 | `TEACHER` | ครูผู้สอน | ส่งยอดรายงานการฝึก, ขออนุมัติการลา/ไปราชการ |
-| `DEPARTMENT_HEAD` | หัวหน้าแผนกศึกษา | ตรวจสอบ/อนุมัติคำขอลาไปราชการ |
 | `STUDENT` | นักเรียน | ใช้งานทั่วไป, เข้าถึงเฉพาะข้อมูลตนเอง |
 
 ## รูปแบบข้อผิดพลาดที่ใช้ร่วมกัน
@@ -245,50 +245,60 @@ Response: โปรไฟล์ล่าสุด (200)
 
 ---
 
-## 5) Admin – จัดการการลาของครู
+## 5) Admin – จัดการผู้ใช้
+(เฉพาะผู้ที่ role = ADMIN เท่านั้น; OWNER ใช้ endpoint /api/owner/... สำหรับการอนุมัติขั้นสุดท้าย)
 
-### GET /api/admin/teacher-leaves/summary
-คืนภาพรวมพร้อมรายการกำลังลาปัจจุบันและประวัติล่าสุด
+### GET /api/admin/teacher-leaves
+- Query: `status` (สถานะสุดท้าย), `adminStatus` (สถานะรอบแอดมิน), `limit` (≤200), `includeOfficial` (ค่าเริ่มต้น true — ใส่ `false` หากต้องการดูเฉพาะลาทั่วไป)
+- ใช้ดูคำขอลาทั่วไปและลาไปราชการ รวมถึงค่าที่แอดมินอนุมัติไว้แล้ว (`adminApprovalStatus`)
 
+**Response 200**
 ```json
 {
-  "overview": {
-    "totalTeachers": 25,
-    "totalLeaveRequests": 48,
-    "currentOnLeave": 2,
-    "availableTeachers": 23
-  },
-  "currentLeaves": [
+  "data": [
     {
-      "id": 11,
-      "teacherName": "น.ต. เอกชัย สถิตย์",
-      "leaveType": "ลาป่วย",
-      "startDate": "2025-11-16T00:00:00.000Z",
-      "endDate": "2025-11-18T00:00:00.000Z",
-      "status": "APPROVED"
-    }
-  ],
-  "recentLeaves": [
-    {
-      "id": 15,
-      "teacherName": "น.ต. สันติ ภักดี",
+      "id": 51,
+      "teacherId": 12,
+      "teacher": { "firstName": "เอกชัย", "lastName": "สถิตย์", "rank": "นาวาโท" },
       "leaveType": "ลากิจ",
-      "status": "REJECTED"
+      "destination": "บ้านพักนครปฐม",
+      "reason": "ธุระครอบครัว",
+      "startDate": "2025-11-20T00:00:00.000Z",
+      "endDate": "2025-11-22T00:00:00.000Z",
+      "status": "PENDING",
+      "adminApprovalStatus": "APPROVED",
+      "ownerApprovalStatus": "PENDING",
+      "isOfficialDuty": false,
+      "createdAt": "2025-11-18T04:00:00.000Z"
     }
   ]
 }
 ```
 
-### GET /api/admin/teacher-leaves
-- Query: `status` (PENDING/APPROVED/REJECTED), `limit` ≤ 200
-- Response `{ "data": [ { leave }, ... ] }`
-
 ### PATCH /api/admin/teacher-leaves/:id/status
 - Body: `{ "status": "APPROVED" }` หรือ `REJECTED`
-- ใช้ได้เฉพาะคำขอลาทั่วไป (`isOfficialDuty=false`)
-- Response `{ "message": "อัปเดตสถานะการลาสำเร็จ", "leave": { ... } }`
+- ใช้สำหรับ “รอบที่ 1” เฉพาะคำขอลาทั่วไป (`isOfficialDuty=false`) ก่อนส่งต่อให้ OWNER
+- เมื่ออนุมัติแล้ว ระบบตั้ง `ownerApprovalStatus = "PENDING"` เพื่อรอเจ้าของระบบตัดสิน
 
----
+**Response 200**
+```json
+{
+  "message": "อัปเดตสถานะการลาสำเร็จ",
+  "leave": {
+    "id": 51,
+    "status": "PENDING",
+    "adminApprovalStatus": "APPROVED",
+    "ownerApprovalStatus": "PENDING"
+  }
+}
+```
+
+### GET /api/admin/teacher-leaves/current
+- คืนรายชื่อผู้ที่ “กำลังลาปัจจุบัน” (status = APPROVED และช่วงวันยังกินเวลาปัจจุบัน) ทั้งลาทั่วไปและลาไปราชการ
+- Response `{ "data": [ { leave }, ... ] }`
+
+## 6) Teacher – การรายงานการฝึก
+
 
 ## 6) Teacher – รายงานการฝึก
 
@@ -326,9 +336,11 @@ Response: โปรไฟล์ล่าสุด (200)
 - Query: `limit`
 - Response `{ "data": [ { leave }, ... ] }`
 
+> หมายเหตุ: คำขอลาทั่วไปจะเข้าสู่รอบตรวจของแอดมินก่อน (`/api/admin/teacher-leaves/:id/status`) และเมื่อแอดมินอนุมัติแล้ว Owner จะอนุมัติรอบสุดท้ายที่ `/api/owner/teacher-leaves/:id/status`
+
 ### POST /api/teacher/official-duty-leaves
 - ใช้สำหรับลาไปราชการ (`isOfficialDuty=true`)
-- Response 201: `{ "message": "บันทึกคำขอลาไปราชการสำเร็จ", "leave": { ..., "departmentApprovalStatus": "PENDING" } }`
+- Response 201: `{ "message": "บันทึกคำขอลาไปราชการสำเร็จ", "leave": { ..., "ownerApprovalStatus": "PENDING" } }`
 
 ### GET /api/teacher/official-duty-leaves
 - Query: `limit`
@@ -346,25 +358,38 @@ Response: โปรไฟล์ล่าสุด (200)
   "endDate": "2025-11-22T00:00:00.000Z",
   "status": "PENDING",
   "isOfficialDuty": true,
-  "departmentApprovalStatus": "PENDING"
+  "ownerApprovalStatus": "PENDING"
 }
 ```
 
 ---
 
-## 8) Department Head – ลาไปราชการ
+## 8) Owner – อนุมัติขั้นสุดท้าย
 
-### GET /api/department/official-duty-leaves
-- ต้องมี role DEPARTMENT_HEAD
-- Query: `status`, `limit`
-- Response `{ "data": [ { leave }, ... ] }`
+### GET /api/owner/teacher-leaves
+- Auth: OWNER
+- Query: `status` (PENDING/APPROVED/REJECTED), `limit`
+- คืนเฉพาะคำขอลาทั่วไปที่ผ่านแอดมินแล้ว (`adminApprovalStatus = APPROVED`) เพื่อตัดสินรอบสุดท้าย
 
-### PATCH /api/department/official-duty-leaves/:id/status
+### PATCH /api/owner/teacher-leaves/:id/status
 - Body: `{ "status": "APPROVED" }` หรือ `REJECTED`
-- ระบบบันทึก `departmentApprovalBy` และ `departmentApprovalAt`
+- ใช้สรุปผลรอบสุดท้ายหลังจากแอดมินอนุมัติแล้ว
+- Response `{ "message": "อัปเดตสถานะการลาสำเร็จ", "leave": { ... } }`
+
+### GET /api/owner/official-duty-leaves
+- Auth: OWNER
+- Query: `status`, `limit`
+- ใช้ตรวจคำขอลาไปราชการทั้งหมด (ไม่ต้องผ่านแอดมิน)
+
+### PATCH /api/owner/official-duty-leaves/:id/status
+- Body: `{ "status": "APPROVED" }` หรือ `REJECTED`
+- OWNER เป็นผู้ตัดสินเพียงขั้นเดียว
 - Response `{ "message": "อัปเดตสถานะลาไปราชการสำเร็จ", "leave": { ... } }`
 
 ---
+
+## 9) Evaluations – แบบประเมินครู
+
 
 ## 9) Evaluations – แบบประเมินครู
 
@@ -532,6 +557,6 @@ Content-Type: application/json
 2. เรียก `/login` แล้วเก็บ `accessToken` + `refreshToken`
 3. แนบ `Authorization: Bearer <accessToken>` กับทุกคำขอที่ต้องพิสูจน์สิทธิ์
 4. เมื่อ access token หมดอายุ (401) ให้เรียก `/refresh-token`
-5. ใช้ endpoint ตามบทบาท: ADMIN (จัดการผู้ใช้/แดชบอร์ด/คำขอลา), TEACHER (รายงาน/ลา), DEPARTMENT_HEAD (อนุมัติลาไปราชการ)
+5. ใช้ endpoint ตามบทบาท: ADMIN (จัดการผู้ใช้/แดชบอร์ด/คำขอลา), TEACHER (รายงาน/ลา), OWNER (อนุมัติขั้นสุดท้าย/ลาไปราชการ)
 
 หากเจอปัญหาให้ดูข้อความ `message`/`detail` หรือเช็ก log ฝั่งเซิร์ฟเวอร์เพิ่มเติม

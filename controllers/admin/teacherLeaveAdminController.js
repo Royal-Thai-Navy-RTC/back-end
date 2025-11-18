@@ -14,8 +14,14 @@ const getTeacherLeaveSummary = async (req, res) => {
 
 const listTeacherLeaves = async (req, res) => {
   try {
-    const { status, limit } = req.query || {};
-    const data = await TeacherLeave.listTeacherLeaves({ status, limit });
+    const { status, adminStatus, limit, includeOfficial } = req.query || {};
+    const data = await TeacherLeave.listTeacherLeaves({
+      status,
+      adminStatus,
+      limit,
+      includeOfficial:
+        includeOfficial === undefined ? true : includeOfficial === "true",
+    });
     res.json({ data });
   } catch (err) {
     if (err.code === "VALIDATION_ERROR") {
@@ -32,10 +38,18 @@ const updateTeacherLeaveStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body || {};
-    const leave = await TeacherLeave.updateTeacherLeaveStatus({
-      leaveId: id,
-      status,
-    });
+    const isOwner = req.userRole === "OWNER";
+    const leave = isOwner
+      ? await TeacherLeave.ownerUpdateGeneralLeave({
+          leaveId: id,
+          status,
+          approverId: req.userId,
+        })
+      : await TeacherLeave.updateTeacherLeaveStatus({
+          leaveId: id,
+          status,
+          approverId: req.userId,
+        });
     res.json({
       message: "อัปเดตสถานะการลาสำเร็จ",
       leave,
@@ -58,4 +72,17 @@ module.exports = {
   getTeacherLeaveSummary,
   listTeacherLeaves,
   updateTeacherLeaveStatus,
+  listCurrentLeaves: async (_req, res) => {
+    try {
+      const data = await TeacherLeave.listCurrentApprovedLeaves({
+        includeOfficial: true,
+      });
+      res.json({ data });
+    } catch (err) {
+      res.status(500).json({
+        message: "ไม่สามารถดึงข้อมูลการลาปัจจุบันได้",
+        detail: err.message,
+      });
+    }
+  },
 };

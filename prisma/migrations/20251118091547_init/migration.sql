@@ -5,7 +5,7 @@ CREATE TABLE `User` (
     `passwordHash` VARCHAR(255) NOT NULL,
     `refreshTokenHash` VARCHAR(191) NULL,
     `refreshTokenExpiresAt` DATETIME(3) NULL,
-    `role` ENUM('แอดมิน', 'หัวหน้าแผนกศึกษา', 'ครูผู้สอน', 'นักเรียน') NOT NULL DEFAULT 'นักเรียน',
+    `role` ENUM('Owner', 'แอดมิน', 'ครูผู้สอน', 'นักเรียน') NOT NULL DEFAULT 'นักเรียน',
     `isActive` BOOLEAN NOT NULL DEFAULT true,
     `firstName` VARCHAR(100) NOT NULL,
     `lastName` VARCHAR(100) NOT NULL,
@@ -108,6 +108,7 @@ CREATE TABLE `StudentEvaluation` (
     `evaluatorId` INTEGER NOT NULL,
     `companyCode` VARCHAR(32) NOT NULL,
     `battalionCode` VARCHAR(32) NOT NULL,
+    `subject` VARCHAR(191) NULL,
     `evaluationPeriod` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `summary` TEXT NULL,
     `overallScore` INTEGER NULL,
@@ -163,9 +164,12 @@ CREATE TABLE `TeacherLeave` (
     `endDate` DATETIME(3) NULL,
     `status` ENUM('PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
     `isOfficialDuty` BOOLEAN NOT NULL DEFAULT false,
-    `departmentApprovalStatus` ENUM('PENDING', 'APPROVED', 'REJECTED') NULL,
-    `departmentApprovalBy` INTEGER NULL,
-    `departmentApprovalAt` DATETIME(3) NULL,
+    `adminApprovalStatus` ENUM('PENDING', 'APPROVED', 'REJECTED') NULL,
+    `adminApprovalBy` INTEGER NULL,
+    `adminApprovalAt` DATETIME(3) NULL,
+    `ownerApprovalStatus` ENUM('PENDING', 'APPROVED', 'REJECTED') NULL,
+    `ownerApprovalBy` INTEGER NULL,
+    `ownerApprovalAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -208,4 +212,7 @@ ALTER TABLE `TrainingReport` ADD CONSTRAINT `TrainingReport_teacherId_fkey` FORE
 ALTER TABLE `TeacherLeave` ADD CONSTRAINT `TeacherLeave_teacherId_fkey` FOREIGN KEY (`teacherId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `TeacherLeave` ADD CONSTRAINT `TeacherLeave_departmentApprovalBy_fkey` FOREIGN KEY (`departmentApprovalBy`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `TeacherLeave` ADD CONSTRAINT `TeacherLeave_adminApprovalBy_fkey` FOREIGN KEY (`adminApprovalBy`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `TeacherLeave` ADD CONSTRAINT `TeacherLeave_ownerApprovalBy_fkey` FOREIGN KEY (`ownerApprovalBy`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
