@@ -3,7 +3,9 @@ CREATE TABLE `User` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `username` VARCHAR(64) NOT NULL,
     `passwordHash` VARCHAR(255) NOT NULL,
-    `role` ENUM('แอดมิน', 'ครูผู้สอน', 'นักเรียน') NOT NULL DEFAULT 'นักเรียน',
+    `refreshTokenHash` VARCHAR(191) NULL,
+    `refreshTokenExpiresAt` DATETIME(3) NULL,
+    `role` ENUM('แอดมิน', 'หัวหน้าแผนกศึกษา', 'ครูผู้สอน', 'นักเรียน') NOT NULL DEFAULT 'นักเรียน',
     `isActive` BOOLEAN NOT NULL DEFAULT true,
     `firstName` VARCHAR(100) NOT NULL,
     `lastName` VARCHAR(100) NOT NULL,
@@ -14,8 +16,8 @@ CREATE TABLE `User` (
     `position` VARCHAR(150) NULL,
     `email` VARCHAR(191) NOT NULL,
     `phone` VARCHAR(32) NOT NULL,
-    `emergencyContactName` VARCHAR(100) NOT NULL,
-    `emergencyContactPhone` VARCHAR(32) NOT NULL,
+    `emergencyContactName` VARCHAR(100) NULL,
+    `emergencyContactPhone` VARCHAR(32) NULL,
     `medicalHistory` TEXT NULL,
     `avatar` TEXT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -63,6 +65,74 @@ CREATE TABLE `EvaluationAnswer` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `StudentEvaluationTemplate` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(191) NOT NULL,
+    `description` VARCHAR(255) NULL,
+    `isActive` BOOLEAN NOT NULL DEFAULT true,
+    `createdBy` INTEGER NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `StudentEvaluationSection` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `templateId` INTEGER NOT NULL,
+    `title` VARCHAR(191) NOT NULL,
+    `description` VARCHAR(255) NULL,
+    `sectionOrder` INTEGER NOT NULL DEFAULT 0,
+
+    INDEX `StudentEvaluationSection_templateId_idx`(`templateId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `StudentEvaluationQuestion` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `sectionId` INTEGER NOT NULL,
+    `prompt` VARCHAR(255) NOT NULL,
+    `maxScore` INTEGER NOT NULL DEFAULT 5,
+    `questionOrder` INTEGER NOT NULL DEFAULT 0,
+
+    INDEX `StudentEvaluationQuestion_sectionId_idx`(`sectionId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `StudentEvaluation` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `templateId` INTEGER NOT NULL,
+    `evaluatorId` INTEGER NOT NULL,
+    `companyCode` VARCHAR(32) NOT NULL,
+    `battalionCode` VARCHAR(32) NOT NULL,
+    `evaluationPeriod` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `summary` TEXT NULL,
+    `overallScore` INTEGER NULL,
+    `submittedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `StudentEvaluation_templateId_idx`(`templateId`),
+    INDEX `StudentEvaluation_companyCode_battalionCode_idx`(`companyCode`, `battalionCode`),
+    INDEX `StudentEvaluation_evaluatorId_idx`(`evaluatorId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `StudentEvaluationAnswer` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `evaluationId` INTEGER NOT NULL,
+    `questionId` INTEGER NOT NULL,
+    `score` INTEGER NOT NULL,
+    `comment` VARCHAR(255) NULL,
+
+    INDEX `StudentEvaluationAnswer_evaluationId_idx`(`evaluationId`),
+    INDEX `StudentEvaluationAnswer_questionId_idx`(`questionId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `TrainingReport` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `teacherId` INTEGER NOT NULL,
@@ -92,10 +162,15 @@ CREATE TABLE `TeacherLeave` (
     `startDate` DATETIME(3) NOT NULL,
     `endDate` DATETIME(3) NULL,
     `status` ENUM('PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+    `isOfficialDuty` BOOLEAN NOT NULL DEFAULT false,
+    `departmentApprovalStatus` ENUM('PENDING', 'APPROVED', 'REJECTED') NULL,
+    `departmentApprovalBy` INTEGER NULL,
+    `departmentApprovalAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
     INDEX `TeacherLeave_teacherId_startDate_idx`(`teacherId`, `startDate`),
+    INDEX `TeacherLeave_isOfficialDuty_status_idx`(`isOfficialDuty`, `status`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -106,7 +181,31 @@ ALTER TABLE `EvaluationSheet` ADD CONSTRAINT `EvaluationSheet_teacherId_fkey` FO
 ALTER TABLE `EvaluationAnswer` ADD CONSTRAINT `EvaluationAnswer_sheetId_fkey` FOREIGN KEY (`sheetId`) REFERENCES `EvaluationSheet`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `StudentEvaluationTemplate` ADD CONSTRAINT `StudentEvaluationTemplate_createdBy_fkey` FOREIGN KEY (`createdBy`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `StudentEvaluationSection` ADD CONSTRAINT `StudentEvaluationSection_templateId_fkey` FOREIGN KEY (`templateId`) REFERENCES `StudentEvaluationTemplate`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `StudentEvaluationQuestion` ADD CONSTRAINT `StudentEvaluationQuestion_sectionId_fkey` FOREIGN KEY (`sectionId`) REFERENCES `StudentEvaluationSection`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `StudentEvaluation` ADD CONSTRAINT `StudentEvaluation_templateId_fkey` FOREIGN KEY (`templateId`) REFERENCES `StudentEvaluationTemplate`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `StudentEvaluation` ADD CONSTRAINT `StudentEvaluation_evaluatorId_fkey` FOREIGN KEY (`evaluatorId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `StudentEvaluationAnswer` ADD CONSTRAINT `StudentEvaluationAnswer_evaluationId_fkey` FOREIGN KEY (`evaluationId`) REFERENCES `StudentEvaluation`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `StudentEvaluationAnswer` ADD CONSTRAINT `StudentEvaluationAnswer_questionId_fkey` FOREIGN KEY (`questionId`) REFERENCES `StudentEvaluationQuestion`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `TrainingReport` ADD CONSTRAINT `TrainingReport_teacherId_fkey` FOREIGN KEY (`teacherId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `TeacherLeave` ADD CONSTRAINT `TeacherLeave_teacherId_fkey` FOREIGN KEY (`teacherId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `TeacherLeave` ADD CONSTRAINT `TeacherLeave_departmentApprovalBy_fkey` FOREIGN KEY (`departmentApprovalBy`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;

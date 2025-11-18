@@ -385,7 +385,109 @@ Response: โปรไฟล์ล่าสุด (200)
 
 ---
 
-## 10) Static Files
+## 10) Student Evaluation – แบบประเมินกองร้อย
+
+### POST /api/admin/student-evaluation-templates
+- Auth: ADMIN
+- ใช้สร้าง template สำหรับประเมิน (ระบุชื่อ, คำอธิบาย, รายการหมวด + คำถาม)
+
+```http
+POST /api/admin/student-evaluation-templates
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "name": "แบบประเมินกองร้อยประจำเดือน",
+  "description": "ใช้ทุกกองพัน",
+  "sections": [
+    {
+      "title": "หมวดวินัย (Discipline)",
+      "sectionOrder": 1,
+      "questions": [
+        { "prompt": "มาตรงเวลาและเข้าร่วมกิจกรรมครบ", "maxScore": 5 },
+        { "prompt": "ปฏิบัติตามคำสั่งผู้บังคับบัญชา", "maxScore": 5 }
+      ]
+    },
+    {
+      "title": "หมวดความร่วมมือ (Teamwork)",
+      "sectionOrder": 2,
+      "questions": [
+        { "prompt": "ทำงานร่วมกับเพื่อนได้ดี", "maxScore": 5 },
+        { "prompt": "รับฟังความคิดเห็นผู้อื่น", "maxScore": 5 }
+      ]
+    }
+  ]
+}
+```
+
+**201** → `{ "template": { id, name, sections[…questions…] } }`
+
+### GET /api/admin/student-evaluation-templates
+- Auth: ADMIN
+- Query: `includeInactive` (ค่าเริ่มต้น false), `search`
+- คืน template ทั้งหมดพร้อม sections/questions
+
+### GET /api/admin/student-evaluation-templates/:id
+- Auth: ADMIN
+- คืน template ตาม id
+
+### PUT /api/admin/student-evaluation-templates/:id
+- Auth: ADMIN
+- ใช้แก้ไขชื่อ/คำอธิบาย หรือแทนที่ sections ใหม่ (ส่ง `sections` เป็น array เต็มชุด)
+
+### DELETE /api/admin/student-evaluation-templates/:id
+- Auth: ADMIN
+- ลบ template
+
+---
+
+### POST /api/student-evaluations
+- Auth: ADMIN หรือ TEACHER
+- ใช้บันทึกผลการประเมินระดับ “กองร้อย/กองพัน” ตาม template
+- ฟิลด์สำคัญ: `templateId`, `companyCode`, `battalionCode`, `evaluationPeriod`, `summary`, `overallScore`, `answers[]` (questionId + score + comment ได้)
+
+```http
+POST /api/student-evaluations
+Authorization: Bearer <admin_or_teacher_token>
+Content-Type: application/json
+
+{
+  "templateId": 1,
+  "companyCode": "ร้อย.1",
+  "battalionCode": "พัน.ฝึก5",
+  "evaluationPeriod": "2025-11-30",
+  "summary": "ควบคุมวินัยดี แต่ต้องเพิ่มความพร้อมทางร่างกาย",
+  "overallScore": 86,
+  "answers": [
+    { "questionId": 10, "score": 5 },
+    { "questionId": 11, "score": 4, "comment": "ควรฝึกเพิ่ม" }
+  ]
+}
+```
+
+**201** → `{ "evaluation": { id, companyCode, battalionCode, template, answers… } }`
+
+### GET /api/student-evaluations
+- Auth: ADMIN หรือ TEACHER
+- Query: `templateId`, `companyCode`, `battalionCode`, `evaluatorId`
+- ใช้กรองผลตาม template/กองร้อย/กองพัน หรือ evaluator
+
+### GET /api/student-evaluations/:id
+- Auth: ADMIN หรือ TEACHER
+- คืนรายละเอียดผลการประเมินพร้อมคำตอบทุกข้อ
+
+### PUT /api/student-evaluations/:id
+- Auth: ADMIN หรือ TEACHER
+- ปรับ `summary`, `overallScore`, `companyCode`, `battalionCode`, `evaluationPeriod`
+- หากส่ง `answers` ใหม่ จะลบของเดิมแล้วเขียนทับ
+
+### DELETE /api/student-evaluations/:id
+- Auth: ADMIN หรือ TEACHER
+- ลบผลการประเมิน
+
+---
+
+## 11) Static Files
 
 ### GET /uploads/avatars/:filename
 - ไม่ต้องพิสูจน์ตัวตน

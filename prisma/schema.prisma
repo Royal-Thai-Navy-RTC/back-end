@@ -136,6 +136,10 @@ model User {
   // คำขอลาของครูฝึก
   teacherLeaves           TeacherLeave[] @relation("TeacherLeaves")
   departmentApprovedLeaves TeacherLeave[] @relation("DepartmentApproval")
+
+  // แบบประเมินนักเรียน
+  studentEvaluationsAuthored StudentEvaluation[] @relation("StudentEvaluationEvaluator")
+  studentEvaluationTemplates StudentEvaluationTemplate[] @relation("TemplateCreators")
 }
 
 // --------------------------------------------------
@@ -183,6 +187,91 @@ model EvaluationAnswer {
   rating    Int
 
   @@index([sheetId])
+}
+
+// --------------------------------------------------
+// STUDENT EVALUATION MODELS (แบบประเมินนักเรียน)
+// --------------------------------------------------
+model StudentEvaluationTemplate {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(191)
+  description String?   @db.VarChar(255)
+  isActive    Boolean   @default(true)
+
+  createdBy   Int?
+  creator     User?     @relation("TemplateCreators", fields: [createdBy], references: [id])
+
+  sections    StudentEvaluationSection[]
+  evaluations StudentEvaluation[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model StudentEvaluationSection {
+  id          Int       @id @default(autoincrement())
+  templateId  Int
+  template    StudentEvaluationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  title       String    @db.VarChar(191)
+  description String?   @db.VarChar(255)
+  sectionOrder Int      @default(0)
+
+  questions   StudentEvaluationQuestion[]
+
+  @@index([templateId])
+}
+
+model StudentEvaluationQuestion {
+  id          Int       @id @default(autoincrement())
+  sectionId   Int
+  section     StudentEvaluationSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  prompt      String    @db.VarChar(255)
+  maxScore    Int       @default(5)
+  questionOrder Int     @default(0)
+
+  answers     StudentEvaluationAnswer[]
+
+  @@index([sectionId])
+}
+
+model StudentEvaluation {
+  id           Int       @id @default(autoincrement())
+  templateId   Int
+  template     StudentEvaluationTemplate @relation(fields: [templateId], references: [id])
+
+  evaluatorId  Int
+  evaluator    User      @relation("StudentEvaluationEvaluator", fields: [evaluatorId], references: [id])
+
+  companyCode  String    @db.VarChar(32) // กองร้อย
+  battalionCode String   @db.VarChar(32) // กองพัน
+  evaluationPeriod DateTime @default(now()) // วันที่/รอบการประเมิน
+
+  summary      String?   @db.Text
+  overallScore Int?
+  submittedAt  DateTime  @default(now())
+
+  answers      StudentEvaluationAnswer[]
+
+  @@index([templateId])
+  @@index([companyCode, battalionCode])
+  @@index([evaluatorId])
+}
+
+model StudentEvaluationAnswer {
+  id           Int        @id @default(autoincrement())
+  evaluationId Int
+  evaluation   StudentEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  questionId   Int
+  question     StudentEvaluationQuestion @relation(fields: [questionId], references: [id])
+
+  score        Int
+  comment      String?    @db.VarChar(255)
+
+  @@index([evaluationId])
+  @@index([questionId])
 }
 
 // --------------------------------------------------
