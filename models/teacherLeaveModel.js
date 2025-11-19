@@ -185,7 +185,6 @@ const getAdminLeaveSummary = async () => {
     }),
     prisma.teacherLeave.findMany({
       where: {
-        isOfficialDuty: false,
         status: { in: ["PENDING", "APPROVED"] },
         startDate: { lte: now },
         OR: [{ endDate: null }, { endDate: { gte: now } }],
@@ -204,9 +203,8 @@ const getAdminLeaveSummary = async () => {
       orderBy: { startDate: "asc" },
     }),
     prisma.teacherLeave.findMany({
-      where: { isOfficialDuty: false },
       orderBy: { createdAt: "desc" },
-      take: 10,
+      take: 1,
       include: {
         teacher: {
           select: {
@@ -247,6 +245,7 @@ const getAdminLeaveSummary = async () => {
     startDate: record.startDate,
     endDate: record.endDate,
     status: record.status,
+    isOfficialDuty: record.isOfficialDuty,
   }));
 
   const recentLeaveActivities = recentLeaves.map((record) => ({
@@ -261,6 +260,7 @@ const getAdminLeaveSummary = async () => {
     endDate: record.endDate,
     status: record.status,
     createdAt: record.createdAt,
+    isOfficialDuty: record.isOfficialDuty,
   }));
 
   return {
