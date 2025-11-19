@@ -173,15 +173,16 @@ const getAdminLeaveSummary = async () => {
   const now = new Date();
   const [
     totalActiveTeachers,
-    totalLeaveRequests,
+    leaveTeacherRecords,
     currentLeaveRecords,
     recentLeaves,
+    pendingOfficialDutyRequests,
   ] = await Promise.all([
     prisma.user.count({
       where: { role: "TEACHER", isActive: true },
     }),
-    prisma.teacherLeave.count({
-      where: { isOfficialDuty: false },
+    prisma.teacherLeave.findMany({
+      select: { teacherId: true },
     }),
     prisma.teacherLeave.findMany({
       where: {
@@ -217,6 +218,12 @@ const getAdminLeaveSummary = async () => {
         },
       },
     }),
+    prisma.teacherLeave.count({
+      where: {
+        isOfficialDuty: true,
+        status: "PENDING",
+      },
+    }),
   ]);
 
   const currentOnLeaveTeacherIds = new Set(
@@ -224,11 +231,23 @@ const getAdminLeaveSummary = async () => {
   );
   const currentOnLeave = currentOnLeaveTeacherIds.size;
 
+  const currentOfficialDutyTeacherIds = new Set(
+    currentLeaveRecords
+      .filter((record) => record.isOfficialDuty)
+      .map((record) => record.teacherId)
+  );
+
+  const uniqueLeaveTeachers = new Set(
+    leaveTeacherRecords.map((record) => record.teacherId)
+  );
+
   const overview = {
     totalTeachers: totalActiveTeachers,
-    totalLeaveRequests,
+    totalLeaveRequests: uniqueLeaveTeachers.size,
     currentOnLeave,
     availableTeachers: Math.max(totalActiveTeachers - currentOnLeave, 0),
+    officialDutyOnLeave: currentOfficialDutyTeacherIds.size,
+    officialDutyPending: pendingOfficialDutyRequests,
   };
 
   const currentLeaves = currentLeaveRecords.map((record) => ({

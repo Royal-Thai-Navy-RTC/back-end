@@ -16,7 +16,7 @@ router.post(
 router.get(
   "/admin/student-evaluation-templates",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeAdminOrTeacher,
   templateController.listTemplates
 );
 
