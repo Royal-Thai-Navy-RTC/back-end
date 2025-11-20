@@ -679,6 +679,12 @@ module.exports = {
       "emergencyContactName",
       "emergencyContactPhone",
       "medicalHistory",
+      "chronicDiseases",
+      "drugAllergies",
+      "foodAllergies",
+      "religion",
+      "specialSkills",
+      "secondaryOccupation",
       "avatar",
       // "password" จะถูกแปลงเป็น passwordHash
       "password",
@@ -702,6 +708,14 @@ module.exports = {
       }
       if (k === "rank") {
         data.rank = normalizeRankValue(v);
+        continue;
+      }
+      if (
+        k === "chronicDiseases" ||
+        k === "drugAllergies" ||
+        k === "foodAllergies"
+      ) {
+        data[k] = normalizeStringList(v);
         continue;
       }
       if (k === "password") continue; // controller จะจัดการ hash
