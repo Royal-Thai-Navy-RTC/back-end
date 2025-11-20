@@ -109,28 +109,28 @@ router.get(
 router.get(
   "/admin/teacher-leaves/summary",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeGeneralLeaveApprover,
   adminTeacherLeaves.getTeacherLeaveSummary
 );
 
 router.get(
   "/admin/teacher-leaves",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeGeneralLeaveApprover,
   adminTeacherLeaves.listTeacherLeaves
 );
 
 router.patch(
   "/admin/teacher-leaves/:id/status",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeGeneralLeaveApprover,
   adminTeacherLeaves.updateTeacherLeaveStatus
 );
 
 router.get(
   "/admin/teacher-leaves/current",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeGeneralLeaveApprover,
   adminTeacherLeaves.listCurrentLeaves
 );
 

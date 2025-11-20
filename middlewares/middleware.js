@@ -3,6 +3,13 @@ const config = require("../config"); // เรียกใช้งานไฟ�
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
+const teacherRoleSet = new Set(["TEACHER", "SUB_ADMIN"]);
+const adminRoleSet = new Set(["ADMIN", "OWNER"]);
+const generalLeaveApproverRoleSet = new Set([
+  ...adminRoleSet,
+  "SUB_ADMIN",
+]);
+
 // next คือ callback function ที่ใช้ในการส่งต่อไปยัง middleware ถัดไป
 const verifyToken = (req, res, next) => {
   // middleware สำหรับตรวจสอบ token
@@ -36,7 +43,7 @@ module.exports = {
       if (!user || user.isActive === false) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      if (user.role !== "ADMIN" && user.role !== "OWNER") {
+      if (!adminRoleSet.has(user.role)) {
         return res.status(403).json({ message: "Admin only" });
       }
       next();
@@ -70,7 +77,7 @@ module.exports = {
       if (!user || user.isActive === false) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      if (!["ADMIN", "TEACHER"].includes(user.role)) {
+      if (!(adminRoleSet.has(user.role) || teacherRoleSet.has(user.role))) {
         return res.status(403).json({ message: "Admin/Teacher only" });
       }
       next();
@@ -87,8 +94,25 @@ module.exports = {
       if (!user || user.isActive === false) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      if (user.role !== "TEACHER") {
+      if (!teacherRoleSet.has(user.role)) {
         return res.status(403).json({ message: "Teacher only" });
+      }
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeGeneralLeaveApprover: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      if (!generalLeaveApproverRoleSet.has(user.role)) {
+        return res.status(403).json({ message: "Leave approver only" });
       }
       next();
     } catch (e) {

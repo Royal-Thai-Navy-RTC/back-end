@@ -179,7 +179,10 @@ const getAdminLeaveSummary = async () => {
     pendingOfficialDutyRequests,
   ] = await Promise.all([
     prisma.user.count({
-      where: { role: "TEACHER", isActive: true },
+      where: {
+        role: { in: ["TEACHER", "SUB_ADMIN"] },
+        isActive: true,
+      },
     }),
     prisma.teacherLeave.findMany({
       select: { teacherId: true },
@@ -402,7 +405,11 @@ const updateTeacherLeaveStatus = async ({ leaveId, status, approverId }) => {
 
   const existing = await prisma.teacherLeave.findUnique({
     where: { id },
-    select: { id: true, isOfficialDuty: true },
+    select: {
+      id: true,
+      isOfficialDuty: true,
+      adminApprovalStatus: true,
+    },
   });
   if (!existing) {
     const err = new Error("ไม่พบคำขอลา");
@@ -414,12 +421,27 @@ const updateTeacherLeaveStatus = async ({ leaveId, status, approverId }) => {
     err.code = "VALIDATION_ERROR";
     throw err;
   }
+  if (
+    existing.adminApprovalStatus &&
+    existing.adminApprovalStatus !== "PENDING"
+  ) {
+    const err = new Error("คำขอนี้ได้รับการพิจารณาแล้ว");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
 
   const data = {
     adminApprovalStatus: normalizedStatus,
     adminApprovalBy: approverId ? Number(approverId) : null,
     adminApprovalAt: new Date(),
   };
+  // Prevent redundant updates when leave already at the requested state
+  if (existing.adminApprovalStatus === normalizedStatus) {
+    return prisma.teacherLeave.findUnique({
+      where: { id },
+      include: leaveRelationInclude,
+    });
+  }
 
   if (normalizedStatus === "APPROVED") {
     data.status = "PENDING";

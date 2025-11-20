@@ -14,6 +14,7 @@ datasource db {
 enum Role {
   OWNER   @map("Owner")
   ADMIN   @map("แอดมิน")
+  SUB_ADMIN @map("ผู้ช่วยแอดมิน")
   TEACHER @map("ครูผู้สอน")
   STUDENT @map("นักเรียน")
 }

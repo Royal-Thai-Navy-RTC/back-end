@@ -455,7 +455,7 @@ module.exports = {
     }
     if (role) {
       const r = String(role).toUpperCase();
-      const allowed = new Set(["ADMIN", "TEACHER", "STUDENT"]);
+      const allowed = new Set(["ADMIN", "SUB_ADMIN", "TEACHER", "STUDENT"]);
       if (allowed.has(r)) where.role = r;
     }
 
