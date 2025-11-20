@@ -555,6 +555,55 @@ module.exports = {
       pageSize: take,
     };
   },
+  searchUserPersonalInfo: async ({ query, limit = 100 } = {}) => {
+    const normalizedQuery =
+      typeof query === "string" ? query.trim() : query ? String(query).trim() : "";
+    if (!normalizedQuery) {
+      const err = new Error("ต้องระบุ query สำหรับค้นหา");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+    const take = Math.max(1, Math.min(Number(limit) || 100, 200));
+    const buildContains = () => ({
+      contains: normalizedQuery,
+    });
+    const orFilters = [
+      { username: buildContains() },
+      { email: buildContains() },
+      { phone: buildContains() },
+      { firstName: buildContains() },
+      { lastName: buildContains() },
+      { fullAddress: buildContains() },
+      { education: buildContains() },
+      { position: buildContains() },
+      { medicalHistory: buildContains() },
+      { emergencyContactName: buildContains() },
+      { religion: buildContains() },
+      { specialSkills: buildContains() },
+      { secondaryOccupation: buildContains() },
+    ];
+    const jsonStringFilter = { string_contains: normalizedQuery };
+    orFilters.push({ chronicDiseases: jsonStringFilter });
+    orFilters.push({ drugAllergies: jsonStringFilter });
+    orFilters.push({ foodAllergies: jsonStringFilter });
+
+    const whereClause = { OR: orFilters };
+
+    const [itemsRaw, total] = await prisma.$transaction([
+      prisma.user.findMany({
+        where: whereClause,
+        orderBy: { updatedAt: "desc" },
+        take,
+        select: USER_PROFILE_SELECT,
+      }),
+      prisma.user.count({ where: whereClause }),
+    ]);
+
+    return {
+      items: withThaiRank(itemsRaw),
+      total,
+    };
+  },
   // ปิดการใช้งาน (soft delete) ผู้ใช้ โดยตั้ง isActive = false
   deactivateUser: async (id) => {
     const result = await prisma.user.update({

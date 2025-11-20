@@ -30,6 +30,13 @@ router.get(
   adminUser.adminGetAllUsers
 );
 
+router.get(
+  "/admin/users/personal-search",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminUser.adminSearchUserPersonalInfo
+);
+
 // Admin: list students only
 router.get(
   "/admin/users/students",

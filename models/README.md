@@ -1,4 +1,4 @@
-﻿# ระบบรายงานการฝึกและการลา – API Reference
+# ระบบรายงานการฝึกและการลา – API Reference
 
 เอกสารฉบับนี้รวบรวมรายละเอียดของทุกเส้นทาง (endpoint) ในระบบ รวมทั้งสิ่งที่ต้องส่งและตัวอย่างการตอบกลับ เพื่อให้ทีมพัฒนาหรือผู้ทดสอบสามารถใช้งาน REST API ได้อย่างถูกต้อง
 
@@ -138,6 +138,12 @@ Response: โปรไฟล์ล่าสุด (200)
   "totalPages": 4
 }
 ```
+
+### GET /api/admin/users/personal-search
+- Auth: ADMIN/OWNER
+- Query: `q` หรือ `query` (คำค้น), `limit` (สูงสุด 200)
+- ค้นหาใน username/email/phone รวมถึง medicalHistory, religion, specialSkills, chronicDiseases, drugAllergies, foodAllergies และข้อมูลที่อยู่
+- Response: `{ "data": [...], "total": 12 }`
 
 ### GET /api/admin/users/students
 เหมือน `/admin/users` แต่บังคับ role = STUDENT

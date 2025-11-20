@@ -181,6 +181,28 @@ const adminGetUserById = async (req, res) => {
   }
 };
 
+const adminSearchUserPersonalInfo = async (req, res) => {
+  const { q, query, limit } = req.query || {};
+  const keyword = q !== undefined ? q : query;
+  try {
+    const result = await User.searchUserPersonalInfo({
+      query: keyword,
+      limit,
+    });
+    res.json({
+      data: result.items,
+      total: result.total,
+    });
+  } catch (err) {
+    if (err.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ message: err.message });
+    }
+    res
+      .status(500)
+      .json({ message: "Error searching user personal info", detail: err.message });
+  }
+};
+
 const buildRoleDetailGetter =
   ({ expectRole, roleLabel, errorMessage }) =>
   async (req, res) => {
@@ -388,6 +410,7 @@ module.exports = {
   adminGetTeacherById,
   adminGetStudentById,
   adminGetUserById,
+  adminSearchUserPersonalInfo,
   adminCreateUser,
   adminDeactivateUser,
   adminActivateUser,
