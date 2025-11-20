@@ -36,6 +36,7 @@
 - Content-Type: `application/json` หรือ `multipart/form-data`
 - ต้องระบุ: `username`, `password`, `firstName`, `lastName`, `email`, `phone`
 - ฟิลด์เพิ่มเติม: `rank`, `birthDate`, `fullAddress`, `education`, `position`, `emergencyContactName`, `emergencyContactPhone`, `medicalHistory`, `role` (ค่าปริยาย STUDENT)
+- ข้อมูลส่วนตัวเพิ่มเติม (optional): `chronicDiseases[]`, `drugAllergies[]`, `foodAllergies[]`, `religion`, `specialSkills`, `secondaryOccupation`
 - แนบรูปโปรไฟล์: ฟิลด์ `avatar`/`file` หรือส่ง Base64 ใน `profileImage`
 
 ```http

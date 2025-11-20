@@ -115,7 +115,15 @@ model User {
   emergencyContactPhone String? @db.VarChar(32) // เบอร์โทรผู้ติดต่อฉุกเฉิน
 
   // --- ข้อมูลด้านการแพทย์ (Sensitive) ---
-  medicalHistory String? @db.Text // ประวัติทางการแพทย์ (ควรเข้ารหัส/จำกัดสิทธิ์)
+  medicalHistory      String? @db.Text // ประวัติทางการแพทย์ (ควรเข้ารหัส/จำกัดสิทธิ์)
+  chronicDiseases     Json?
+  drugAllergies       Json?
+  foodAllergies       Json?
+
+  // --- ข้อมูลส่วนตัวเพิ่มเติม ---
+  religion            String? @db.VarChar(100)
+  specialSkills       String? @db.VarChar(255)
+  secondaryOccupation String? @db.VarChar(255)
 
   // --- อื่น ๆ ---
   avatar String? @db.Text // URL หรือ base64 รูปโปรไฟล์

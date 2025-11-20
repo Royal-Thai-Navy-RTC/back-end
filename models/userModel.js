@@ -73,6 +73,20 @@ const withThaiRank = (payload) => {
   return payload;
 };
 
+const normalizeStringList = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const sourceArray = Array.isArray(value)
+    ? value
+    : String(value)
+        .split(/\r?\n|,/)
+        .map((entry) => entry.trim());
+  const normalized = sourceArray
+    .map((entry) => (typeof entry === "string" ? entry.trim() : String(entry || "").trim()))
+    .filter((entry) => entry.length > 0);
+  return normalized;
+};
+
 const USER_PROFILE_SELECT = {
   id: true,
   username: true,
@@ -90,6 +104,12 @@ const USER_PROFILE_SELECT = {
   emergencyContactName: true,
   emergencyContactPhone: true,
   medicalHistory: true,
+  chronicDiseases: true,
+  drugAllergies: true,
+  foodAllergies: true,
+  religion: true,
+  specialSkills: true,
+  secondaryOccupation: true,
   avatar: true,
   createdAt: true,
   updatedAt: true,
@@ -208,6 +228,9 @@ const normalizeAndValidateUserInput = (input = {}) => {
       : undefined;
 
   const rankValue = normalizeRankValue(input.rank);
+  const chronicDiseases = normalizeStringList(input.chronicDiseases);
+  const drugAllergies = normalizeStringList(input.drugAllergies);
+  const foodAllergies = normalizeStringList(input.foodAllergies);
 
   // เตรียมข้อมูลตาม schema (field ชื่อให้ตรง)
   const data = {
@@ -234,6 +257,16 @@ const normalizeAndValidateUserInput = (input = {}) => {
       ? String(input.emergencyContactPhone).trim()
       : undefined,
     medicalHistory: input.medicalHistory ?? undefined,
+    chronicDiseases,
+    drugAllergies,
+    foodAllergies,
+    religion: input.religion ? String(input.religion).trim() : undefined,
+    specialSkills: input.specialSkills
+      ? String(input.specialSkills).trim()
+      : undefined,
+    secondaryOccupation: input.secondaryOccupation
+      ? String(input.secondaryOccupation).trim()
+      : undefined,
     avatar: avatarValue,
   };
 
@@ -346,6 +379,12 @@ module.exports = {
       "emergencyContactName",
       "emergencyContactPhone",
       "medicalHistory",
+      "chronicDiseases",
+      "drugAllergies",
+      "foodAllergies",
+      "religion",
+      "specialSkills",
+      "secondaryOccupation",
       "avatar",
     ]);
 
@@ -366,6 +405,17 @@ module.exports = {
       if (k === "rank") {
         if (String(v).trim() === "") continue;
         data.rank = normalizeRankValue(v);
+        continue;
+      }
+      if (
+        k === "chronicDiseases" ||
+        k === "drugAllergies" ||
+        k === "foodAllergies"
+      ) {
+        const normalizedList = normalizeStringList(v);
+        if (normalizedList !== undefined) {
+          data[k] = normalizedList;
+        }
         continue;
       }
       data[k] = typeof v === "string" ? v.trim() : v;
@@ -484,6 +534,12 @@ module.exports = {
           emergencyContactName: true,
           emergencyContactPhone: true,
           medicalHistory: true,
+          chronicDiseases: true,
+          drugAllergies: true,
+          foodAllergies: true,
+          religion: true,
+          specialSkills: true,
+          secondaryOccupation: true,
           avatar: true,
           createdAt: true,
           updatedAt: true,
