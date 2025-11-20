@@ -6,6 +6,10 @@ const bcrypt = require("bcryptjs"); // เรียกใช้งาน bcryptj
 const config = require("../config"); // เรียกใช้งานไฟล์ config.js ที่เราสร้างไว้
 const User = require("../models/userModel"); // เรียกใช้งาน userModel.js ที่เราสร้างไว้
 const {
+  registerLoginFailure,
+  registerLoginSuccess,
+} = require("../utils/loginAttemptLimiter");
+const {
   buildUserAvatarFilename,
   tryPickupLocalFileFromBody,
 } = require("../utils/avatar");
@@ -287,18 +291,21 @@ const login = async (req, res) => {
     const user = await User.findUserByUsername(username); // ค้นหาผู้ใช้จากชื่อผู้ใช้
     if (!user) {
       // หากไม่พบผู้ใช้
+      registerLoginFailure(req);
       return res.status(401).json({ message: "Invalid username or password" });
     }
     // หากรหัสผ่านไม่ตรงกับที่เก็บไว้ในฐานข้อมูล
-  const isMatch = await bcrypt.compare(password, user.passwordHash);
-  if (!isMatch) {
-    return res.status(401).json({ message: "Invalid username or password" });
-  }
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      registerLoginFailure(req);
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
     // บล็อกผู้ใช้ที่ถูกปิดการใช้งานไม่ให้เข้าสู่ระบบ
     if (user.isActive === false) {
       return res.status(403).json({ message: "บัญชีผู้ใช้นี้ถูกปิดการใช้งาน" });
     }
     const tokens = await issueTokensForUser(user);
+    registerLoginSuccess(req);
     res.json(buildLoginResponse(user, tokens));
   } catch (err) {
     // หากเกิดข้อผิดพลาดในการเข้าสู่ระบบ

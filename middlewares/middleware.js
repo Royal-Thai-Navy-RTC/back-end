@@ -1,7 +1,11 @@
 const jwt = require("jsonwebtoken"); // เรียกใช้งาน jwt เพื่อใช้ในการตรวจสอบ token
+const rateLimit = require("express-rate-limit");
 const config = require("../config"); // เรียกใช้งานไฟล์ config.js ที่เราสร้างไว้
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
+const {
+  loginBruteForceGuard,
+} = require("../utils/loginAttemptLimiter");
 
 const teacherRoleSet = new Set(["TEACHER", "SUB_ADMIN"]);
 const adminRoleSet = new Set(["ADMIN", "OWNER"]);
@@ -31,7 +35,22 @@ const verifyToken = (req, res, next) => {
   });
 };
 
+const authRateLimiter = rateLimit({
+  windowMs: config.authRateLimitWindowMs,
+  max: config.authRateLimitMaxAttempts,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      message:
+        "มีการพยายามเข้าสู่ระบบ/ลงทะเบียนถี่เกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง",
+    });
+  },
+});
+
 module.exports = {
+  authRateLimiter,
+  loginBruteForceGuard,
   verifyToken,
   // ตรวจสอบสิทธิ์เฉพาะแอดมิน
   authorizeAdmin: async (req, res, next) => {

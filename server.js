@@ -2,8 +2,10 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const path = require("path");
+const rateLimit = require("express-rate-limit");
 const routes = require("./routes");
 const morgan = require("morgan");
+const config = require("./config");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,6 +13,18 @@ const PORT = process.env.PORT || 3000;
 // Enable CORS for all origins and standard headers/methods
 app.use(cors());
 app.use(morgan("dev"));
+
+const apiRateLimiter = rateLimit({
+  windowMs: config.rateLimitWindowMs,
+  max: config.rateLimitMaxRequests,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      message: "ขออภัย มีการส่งคำขอจำนวนมากเกินไป กรุณาลองใหม่ภายหลัง",
+    });
+  },
+});
 app.use(
   bodyParser.json({
     limit: process.env.REQUEST_BODY_LIMIT || "10mb",
@@ -41,7 +55,7 @@ app.use(
     },
   })
 );
-app.use("/api", routes);
+app.use("/api", apiRateLimiter, routes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

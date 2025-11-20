@@ -7,6 +7,10 @@
 - การพิสูจน์ตัวตน: ส่ง `Authorization: Bearer <accessToken>` ในทุก endpoint ที่มีข้อจำกัดสิทธิ์
 - Access token อายุ 24 ชั่วโมง (ตาม `/login`), ออก token ใหม่ด้วย `/refresh-token`
 - เขตเวลาในตัวอย่างใช้ `Asia/Bangkok` (UTC+7)
+- Rate Limit:
+  - ค่าเริ่มต้น 300 คำขอ / 15 นาที ต่อ IP (`RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX_REQUESTS`)
+  - `/api/auth/login` และ `/api/auth/register` มี rate limit เฉพาะ (ค่าเริ่มต้น 20 ครั้ง / 5 นาที) ปรับได้ผ่าน `AUTH_RATE_LIMIT_*`
+  - หาก Login ผิดซ้ำ ระบบจะเพิ่มเวลารอแบบทวีคูณ (ตั้งค่าได้ผ่าน `LOGIN_FAIL_THRESHOLD`, `LOGIN_FAIL_BASE_DELAY_MS`, `LOGIN_FAIL_MAX_DELAY_MS`, `LOGIN_FAIL_RESET_MS`)
 
 ## บทบาทและสิทธิ์
 | Role | คำอธิบาย | สิทธิ์หลัก |
