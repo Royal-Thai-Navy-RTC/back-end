@@ -10,7 +10,9 @@ const config = require("./config");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.set("trust proxy", true);
+// Restrict trusted proxies to avoid IP spoofing (required by express-rate-limit)
+const TRUST_PROXY = process.env.TRUST_PROXY || "loopback";
+app.set("trust proxy", TRUST_PROXY);
 
 // Enable CORS for all origins and standard headers/methods
 app.use(cors());

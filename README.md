@@ -90,6 +90,17 @@ Content-Type: application/json
 
 ---
 
+## 6) Library – คลังเอกสาร/ไฟล์
+
+- Base path `.../api/library`
+- `GET /library` — public list; query `page=1,pageSize<=100,search,category,includeInactive` (ถ้าไม่ส่ง `includeInactive` จะซ่อน `isActive=false`); คืน `{ data, page, pageSize, total, totalPages }` เรียงตาม `updatedAt desc`
+- `POST /library` (ADMIN/OWNER) — body `{ title (required), description?, category?, fileUrl?, coverUrl?, isActive? }`; คืน `{ item }`
+- `PUT /library/:id` (ADMIN/OWNER) — อัปเดตบางส่วน; ต้องไม่ส่ง `title` ว่าง; คืน `{ item }`
+- `DELETE /library/:id` (ADMIN/OWNER) — soft delete ตั้ง `isActive=false`; ตอบ 204
+- ฟิลด์หลัก: `id,title,description?,category?,fileUrl?,coverUrl?,isActive,createdAt,updatedAt`
+
+---
+
 ## 6) Admin/SUB_ADMIN – การลา (ผู้อนุมัติรอบแอดมินหรือผู้ช่วย)
 
 - `GET /admin/teacher-leaves/summary`
