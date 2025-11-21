@@ -169,11 +169,28 @@ module.exports = {
         where.AND.push({ start: { lte: end } });
       }
     }
-    return prisma.teachingSchedule.findMany({
-      where,
-      orderBy: [{ start: "asc" }, { end: "asc" }],
-      select: baseSelect,
-    });
+    const pageSize = Math.max(1, Math.min(Number(filters.pageSize) || 50, 200));
+    const page = Math.max(1, Number(filters.page) || 1);
+    const skip = (page - 1) * pageSize;
+
+    const [items, total] = await Promise.all([
+      prisma.teachingSchedule.findMany({
+        where,
+        orderBy: [{ start: "asc" }, { end: "asc" }],
+        skip,
+        take: pageSize,
+        select: baseSelect,
+      }),
+      prisma.teachingSchedule.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
   },
 
   updateSchedule: async (id, input = {}) => {

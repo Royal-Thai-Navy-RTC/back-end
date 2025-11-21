@@ -152,8 +152,6 @@ router.post(
 
 router.get(
   "/admin/teaching-schedules",
-  middleware.verifyToken,
-  middleware.authorizeAdmin,
   adminTeachingSchedule.listSchedules
 );
 

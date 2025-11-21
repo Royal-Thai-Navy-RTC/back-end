@@ -22,9 +22,21 @@ const createSchedule = async (req, res) => {
 
 const listSchedules = async (req, res) => {
   try {
-    const { start, end, teacherId } = req.query || {};
-    const schedules = await Schedule.listSchedules({ start, end, teacherId });
-    res.json({ data: schedules });
+    const { start, end, teacherId, page, pageSize } = req.query || {};
+    const result = await Schedule.listSchedules({
+      start,
+      end,
+      teacherId,
+      page,
+      pageSize,
+    });
+    res.json({
+      data: result.items,
+      page: result.page,
+      pageSize: result.pageSize,
+      total: result.total,
+      totalPages: result.totalPages,
+    });
   } catch (err) {
     handleError(err, res, "ไม่สามารถดึงตารางสอน");
   }

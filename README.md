@@ -83,7 +83,7 @@ Content-Type: application/json
   "allDay": false
 }
 ```
-- `GET /admin/teaching-schedules` — query `start,end,teacherId`; คืน `{ data: [...] }` เรียงตามเวลา (กรองช่วงวันที่เพื่อโหลดเฉพาะที่ต้องแสดง เช่น view ของ FullCalendar)  
+- `GET /admin/teaching-schedules` (เปิด public) — query `start,end,teacherId,page,pageSize<=200`; คืน `{ data, page, pageSize, total, totalPages }` เรียงตามเวลา (กรองช่วงวันที่เพื่อโหลดเฉพาะที่ต้องแสดง เช่น view ของ FullCalendar)  
   หมายเหตุ: ระบบตีความเวลาเป็น UTC+7 เสมอ (ถ้าส่งสตริงเวลาไม่ระบุ timezone จะถูกบังคับเป็น +07:00)
 - `PUT /admin/teaching-schedules/:id` — แก้ไขข้อมูลตารางสอน/กิจกรรม
 - `DELETE /admin/teaching-schedules/:id` — ลบรายการ
