@@ -42,6 +42,24 @@ const evaluationInclude = {
   },
 };
 
+// ใช้รวม logic สร้าง where สำหรับ list/summary
+const buildEvaluationWhere = (filters = {}) => {
+  const where = {};
+  if (filters.templateId) {
+    where.templateId = Number(filters.templateId);
+  }
+  if (filters.companyCode) {
+    where.companyCode = String(filters.companyCode).trim().toUpperCase();
+  }
+  if (filters.battalionCode) {
+    where.battalionCode = String(filters.battalionCode).trim().toUpperCase();
+  }
+  if (filters.evaluatorId) {
+    where.evaluatorId = Number(filters.evaluatorId);
+  }
+  return where;
+};
+
 const throwValidationError = (message) => {
   const err = new Error(message);
   err.code = "VALIDATION_ERROR";
@@ -355,24 +373,57 @@ module.exports = {
   },
 
   listEvaluations: async (filters = {}) => {
-    const where = {};
-    if (filters.templateId) {
-      where.templateId = Number(filters.templateId);
-    }
-    if (filters.companyCode) {
-      where.companyCode = String(filters.companyCode).trim().toUpperCase();
-    }
-    if (filters.battalionCode) {
-      where.battalionCode = String(filters.battalionCode).trim().toUpperCase();
-    }
-    if (filters.evaluatorId) {
-      where.evaluatorId = Number(filters.evaluatorId);
-    }
+    const where = buildEvaluationWhere(filters);
     return prisma.studentEvaluation.findMany({
       where,
       orderBy: { submittedAt: "desc" },
       include: evaluationInclude,
     });
+  },
+
+  summarizeEvaluations: async (filters = {}) => {
+    const where = buildEvaluationWhere(filters);
+    const [totalEvaluations, answerAggregate] = await Promise.all([
+      prisma.studentEvaluation.count({ where }),
+      prisma.studentEvaluationAnswer.aggregate({
+        where: { evaluation: where },
+        _sum: { score: true },
+        _count: true,
+      }),
+    ]);
+    const totalScore = answerAggregate._sum?.score || 0;
+    const totalAnswers = typeof answerAggregate._count === "number"
+      ? answerAggregate._count
+      : answerAggregate._count?._all || 0;
+    const averageScore =
+      totalAnswers > 0 ? Number((totalScore / totalAnswers).toFixed(2)) : null;
+    return { totalEvaluations, totalScore, averageScore };
+  },
+
+  summarizeByCompany: async (filters = {}) => {
+    const where = buildEvaluationWhere(filters);
+    const groups = await prisma.studentEvaluation.groupBy({
+      by: ["battalionCode", "companyCode"],
+      where,
+      _count: { _all: true },
+      _sum: { overallScore: true },
+      _avg: { overallScore: true },
+    });
+    return groups
+      .map((g) => ({
+        battalionCode: g.battalionCode,
+        companyCode: g.companyCode,
+        totalEvaluations: g._count?._all || 0,
+        totalScore: g._sum?.overallScore || 0,
+        averageOverallScore: g._avg?.overallScore || null,
+      }))
+      .sort((a, b) => {
+        const battalionCmp = (a.battalionCode || "").localeCompare(
+          b.battalionCode || ""
+        );
+        if (battalionCmp !== 0) return battalionCmp;
+        return (a.companyCode || "").localeCompare(b.companyCode || "");
+      });
   },
 
   getEvaluationById: async (id) => {

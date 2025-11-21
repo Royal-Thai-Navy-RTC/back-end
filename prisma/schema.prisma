@@ -105,6 +105,7 @@ model User {
   // --- ประวัติการศึกษา / ตำแหน่ง ---
   education String? @db.VarChar(255) // ประวัติการศึกษา (อาจไม่มี หรือใช้ “วุฒิสูงสุด”)
   position  String? @db.VarChar(150) // ตำแหน่งปัจจุบัน/ตำแหน่งงาน
+  division  String? @db.VarChar(150) // หมวดวิชา (จำเป็นสำหรับ role = TEACHER)
 
   // --- การติดต่อหลัก ---
   email String @unique @db.VarChar(191) // อีเมล (ห้ามซ้ำ)

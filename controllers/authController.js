@@ -186,6 +186,7 @@ const register = async (req, res) => {
     medicalHistory,
     avatar,
     isActive,
+    division,
   } = req.body;
 
   const localFilePath = tryPickupLocalFileFromBody(req.body);
@@ -202,6 +203,10 @@ const register = async (req, res) => {
   const missing = requiredFields
     .filter(({ value }) => value === undefined || value === null || value === "")
     .map(({ key }) => key);
+  const normalizedRole = role ? String(role).trim().toUpperCase() : "";
+  if (normalizedRole === "TEACHER" && (!division || String(division).trim() === "")) {
+    missing.push("division");
+  }
   const hasUploadedAvatar =
     Boolean(profileImage) ||
     Boolean(avatar) ||
@@ -241,6 +246,7 @@ const register = async (req, res) => {
       medicalHistory,
       avatar: avatarPayload,
       isActive,
+      division,
     });
     if (req.file) {
       try {

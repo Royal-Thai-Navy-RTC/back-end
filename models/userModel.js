@@ -99,6 +99,7 @@ const USER_PROFILE_SELECT = {
   fullAddress: true,
   education: true,
   position: true,
+  division: true,
   email: true,
   phone: true,
   emergencyContactName: true,
@@ -231,6 +232,21 @@ const normalizeAndValidateUserInput = (input = {}) => {
   const chronicDiseases = normalizeStringList(input.chronicDiseases);
   const drugAllergies = normalizeStringList(input.drugAllergies);
   const foodAllergies = normalizeStringList(input.foodAllergies);
+  const roleValueRaw =
+    input.role !== undefined && input.role !== null
+      ? String(input.role).trim()
+      : undefined;
+  const normalizedRole = roleValueRaw ? roleValueRaw.toUpperCase() : undefined;
+  const divisionValueRaw =
+    input.division !== undefined && input.division !== null
+      ? String(input.division).trim()
+      : undefined;
+
+  if (normalizedRole === "TEACHER" && !divisionValueRaw) {
+    const err = new Error("ต้องระบุ division (หมวดวิชา) สำหรับครูผู้สอน");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
 
   // เตรียมข้อมูลตาม schema (field ชื่อให้ตรง)
   const data = {
@@ -239,7 +255,7 @@ const normalizeAndValidateUserInput = (input = {}) => {
     firstName: String(input.firstName).trim(),
     lastName: String(input.lastName).trim(),
     birthDate,
-    role: input.role || undefined, // ใช้ค่า default ใน schema ถ้าไม่ส่งมา
+    role: normalizedRole || undefined, // ใช้ค่า default ใน schema ถ้าไม่ส่งมา
     isActive:
       input.isActive !== undefined ? Boolean(input.isActive) : undefined, // default true จาก schema
     rank: rankValue || undefined, // ใช้ค่า default ใน schema ถ้าไม่ส่งมา
@@ -248,6 +264,7 @@ const normalizeAndValidateUserInput = (input = {}) => {
       : "-",
     education: input.education ?? undefined,
     position: input.position ?? undefined,
+    division: divisionValueRaw || undefined,
     email: String(input.email).trim(),
     phone: input.phone ? String(input.phone).trim() : undefined,
     emergencyContactName: input.emergencyContactName
@@ -374,6 +391,7 @@ module.exports = {
       "fullAddress",
       "education",
       "position",
+      "division",
       "email",
       "phone",
       "emergencyContactName",
@@ -415,6 +433,13 @@ module.exports = {
         const normalizedList = normalizeStringList(v);
         if (normalizedList !== undefined) {
           data[k] = normalizedList;
+        }
+        continue;
+      }
+      if (k === "division") {
+        const divisionValue = String(v).trim();
+        if (divisionValue) {
+          data.division = divisionValue;
         }
         continue;
       }
@@ -529,6 +554,7 @@ module.exports = {
           fullAddress: true,
           education: true,
           position: true,
+          division: true,
           email: true,
           phone: true,
           emergencyContactName: true,
@@ -576,6 +602,7 @@ module.exports = {
       { fullAddress: buildContains() },
       { education: buildContains() },
       { position: buildContains() },
+      { division: buildContains() },
       { medicalHistory: buildContains() },
       { emergencyContactName: buildContains() },
       { religion: buildContains() },
@@ -674,6 +701,7 @@ module.exports = {
       "fullAddress",
       "education",
       "position",
+      "division",
       "email",
       "phone",
       "emergencyContactName",
@@ -718,8 +746,38 @@ module.exports = {
         data[k] = normalizeStringList(v);
         continue;
       }
+      if (k === "role") {
+        data.role = String(v).trim().toUpperCase();
+        continue;
+      }
+      if (k === "division") {
+        const divisionValue = String(v).trim();
+        if (divisionValue) {
+          data.division = divisionValue;
+        }
+        continue;
+      }
       if (k === "password") continue; // controller จะจัดการ hash
       data[k] = typeof v === "string" ? v.trim() : v;
+    }
+
+    const existing = await prisma.user.findUnique({
+      where: { id: Number(id) },
+      select: { role: true, division: true },
+    });
+    if (!existing) {
+      const err = new Error("User not found");
+      err.code = "P2025";
+      throw err;
+    }
+
+    const finalRole = data.role || existing.role;
+    const finalDivision =
+      data.division !== undefined ? data.division : existing.division;
+    if (finalRole === "TEACHER" && (!finalDivision || !String(finalDivision).trim())) {
+      const err = new Error("ครูผู้สอนต้องระบุ division (หมวดวิชา)");
+      err.code = "VALIDATION_ERROR";
+      throw err;
     }
 
     const updated = withThaiRank(
