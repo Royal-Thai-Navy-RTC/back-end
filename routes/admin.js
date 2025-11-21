@@ -151,7 +151,7 @@ router.post(
 );
 
 router.get(
-  "/admin/teaching-schedules",
+  "/teaching-schedules",
   adminTeachingSchedule.listSchedules
 );
 
