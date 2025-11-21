@@ -152,6 +152,7 @@ router.post(
 
 router.get(
   "/teaching-schedules",
+  middleware.scheduleReadRateLimiter,
   adminTeachingSchedule.listSchedules
 );
 

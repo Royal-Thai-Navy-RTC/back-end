@@ -48,8 +48,22 @@ const authRateLimiter = rateLimit({
   },
 });
 
+// สำหรับ endpoint อ่านตารางสอนแบบ public จำกัดความถี่
+const scheduleReadRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 นาที
+  max: 60, // 60 ครั้งต่อ IP ต่อ 1 นาที
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      message: "ขอดูตารางสอนถี่เกินไป กรุณารอสักครู่แล้วลองใหม่",
+    });
+  },
+});
+
 module.exports = {
   authRateLimiter,
+  scheduleReadRateLimiter,
   loginBruteForceGuard,
   verifyToken,
   // ตรวจสอบสิทธิ์เฉพาะแอดมิน
