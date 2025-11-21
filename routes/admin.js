@@ -4,6 +4,7 @@ const { avatarUploadOne } = require("../middlewares/upload");
 const adminUser = require("../controllers/admin/userAdminController");
 const adminTrainingReports = require("../controllers/admin/trainingReportAdminController");
 const adminTeacherLeaves = require("../controllers/admin/teacherLeaveAdminController");
+const adminTeachingSchedule = require("../controllers/admin/teachingScheduleAdminController");
 
 const router = express.Router();
 
@@ -139,6 +140,35 @@ router.get(
   middleware.verifyToken,
   middleware.authorizeGeneralLeaveApprover,
   adminTeacherLeaves.listCurrentLeaves
+);
+
+// Admin: ตารางสอน/กิจกรรม ครู
+router.post(
+  "/admin/teaching-schedules",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminTeachingSchedule.createSchedule
+);
+
+router.get(
+  "/admin/teaching-schedules",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminTeachingSchedule.listSchedules
+);
+
+router.put(
+  "/admin/teaching-schedules/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminTeachingSchedule.updateSchedule
+);
+
+router.delete(
+  "/admin/teaching-schedules/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminTeachingSchedule.deleteSchedule
 );
 
 module.exports = router;

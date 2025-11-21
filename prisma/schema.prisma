@@ -143,6 +143,9 @@ model User {
   // รายงานยอดนักเรียนที่ครูส่ง
   trainingReports TrainingReport[]
 
+  // ตารางสอน/กิจกรรม
+  teachingSchedules TeachingSchedule[]
+
   // คำขอลาของครูฝึก
   teacherLeaves           TeacherLeave[] @relation("TeacherLeaves")
   adminReviewedLeaves     TeacherLeave[] @relation("AdminLeaveApproval")
@@ -308,6 +311,31 @@ model TrainingReport {
   updatedAt        DateTime @updatedAt
 
   @@index([teacherId, trainingDate])
+}
+
+// --------------------------------------------------
+// TEACHING SCHEDULE (ตารางสอน/กิจกรรม)
+// --------------------------------------------------
+model TeachingSchedule {
+  id          Int      @id @default(autoincrement())
+  title       String   @db.VarChar(191)
+  description String?  @db.Text
+  location    String?  @db.VarChar(191)
+  companyCode String?  @db.VarChar(32) // กองร้อย
+  battalionCode String? @db.VarChar(32) // กองพัน
+  color       String   @db.VarChar(16) @default("#1E90FF") // สีสำหรับแสดงผลปฏิทิน (default น้ำเงิน)
+  start       DateTime
+  end         DateTime
+  allDay      Boolean  @default(false)
+
+  teacherId   Int?
+  teacher     User?    @relation(fields: [teacherId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([teacherId, start, end])
+  @@index([battalionCode, companyCode, start])
 }
 
 // --------------------------------------------------

@@ -61,7 +61,36 @@
 
 ---
 
-## 5) Admin/SUB_ADMIN – การลา (ผู้อนุมัติรอบแอดมินหรือผู้ช่วย)
+## 5) Admin – ตารางสอน/กิจกรรม (ใช้กับ FullCalendar)
+
+- `POST /admin/teaching-schedules` — body `{ title, start, end?, allDay?, description?, location?, companyCode?, battalionCode?, color?, teacherId? }` (end ไม่ส่งจะใช้ค่าเดียวกับ start; ถ้าไม่ส่ง `color` จะตั้งเป็นสีน้ำเงิน `#1E90FF`)
+- ตัวอย่าง:
+```http
+POST /api/admin/teaching-schedules
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "title": "สอนยุทธวิธีทางเรือ",
+  "start": "2025-12-01T09:00:00+07:00",
+  "end": "2025-12-01T11:00:00+07:00",
+  "location": "ห้องเรียน 2",
+  "companyCode": "ร้อย.1",
+  "battalionCode": "พัน.ฝึก",
+  "color": "#F39C12",
+  "teacherId": 12,
+  "description": "ภาคทฤษฎี + ถามตอบ",
+  "allDay": false
+}
+```
+- `GET /admin/teaching-schedules` — query `start,end,teacherId`; คืน `{ data: [...] }` เรียงตามเวลา (กรองช่วงวันที่เพื่อโหลดเฉพาะที่ต้องแสดง เช่น view ของ FullCalendar)  
+  หมายเหตุ: ระบบตีความเวลาเป็น UTC+7 เสมอ (ถ้าส่งสตริงเวลาไม่ระบุ timezone จะถูกบังคับเป็น +07:00)
+- `PUT /admin/teaching-schedules/:id` — แก้ไขข้อมูลตารางสอน/กิจกรรม
+- `DELETE /admin/teaching-schedules/:id` — ลบรายการ
+
+---
+
+## 6) Admin/SUB_ADMIN – การลา (ผู้อนุมัติรอบแอดมินหรือผู้ช่วย)
 
 - `GET /admin/teacher-leaves/summary`
 - `GET /admin/teacher-leaves` — query `status,adminStatus,limit<=200,includeOfficial`
@@ -70,14 +99,14 @@
 
 ---
 
-## 6) Teacher – รายงานการฝึก (TEACHER)
+## 7) Teacher – รายงานการฝึก (TEACHER)
 
 - `POST /teacher/training-reports`
 - `GET /teacher/training-reports/latest` — query `limit` (default 5, max 20)
 
 ---
 
-## 7) Teacher – การลา (TEACHER)
+## 8) Teacher – การลา (TEACHER)
 
 - `POST /teacher/leaves` — คำขอลาทั่วไป
 - `GET /teacher/leaves` — query `limit`
@@ -86,7 +115,7 @@
 
 ---
 
-## 8) Owner – อนุมัติขั้นสุดท้าย (OWNER)
+## 9) Owner – อนุมัติขั้นสุดท้าย (OWNER)
 
 - `GET /owner/teacher-leaves` — query `status,limit` (เฉพาะที่ admin อนุมัติแล้ว)
 - `PATCH /owner/teacher-leaves/:id/status`
@@ -95,7 +124,7 @@
 
 ---
 
-## 9) Evaluations – แบบประเมินครู
+## 10) Evaluations – แบบประเมินครู
 
 - `POST /evaluations/import` — upload Excel (`file`/`excel`/`upload`/`sheet`)
 - `GET /evaluations` — query `page,pageSize,teacherId,subject,teacherName,evaluatorName,search`
@@ -106,7 +135,7 @@
 
 ---
 
-## 10) Student Evaluations – แบบประเมินกองร้อย
+## 11) Student Evaluations – แบบประเมินกองร้อย
 
 Template (ADMIN):
 
@@ -132,7 +161,7 @@ Submission (ADMIN หรือ TEACHER):
 
 ---
 
-## 11) Static Files
+## 12) Static Files
 
 - `GET /uploads/avatars/:filename` — public
 
