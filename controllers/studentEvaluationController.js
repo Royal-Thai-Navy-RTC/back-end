@@ -25,15 +25,41 @@ const createEvaluation = async (req, res) => {
 
 const listEvaluations = async (req, res) => {
   try {
-    const { templateId, companyCode, battalionCode, evaluatorId } =
-      req.query || {};
-    const evaluations = await StudentEvaluationModel.listEvaluations({
+    const {
       templateId,
       companyCode,
       battalionCode,
       evaluatorId,
+      page,
+      pageSize,
+      includeAnswers,
+    } = req.query || {};
+
+    const filters = {
+      templateId,
+      companyCode,
+      battalionCode,
+      evaluatorId,
+      page,
+      pageSize,
+      includeAnswers: String(includeAnswers).toLowerCase() === "true",
+    };
+
+    const [listResult, summary, summaryByCompany] = await Promise.all([
+      StudentEvaluationModel.listEvaluations(filters),
+      StudentEvaluationModel.summarizeEvaluations(filters),
+      StudentEvaluationModel.summarizeByCompany(filters),
+    ]);
+
+    res.json({
+      data: listResult.items,
+      page: listResult.page,
+      pageSize: listResult.pageSize,
+      total: listResult.total,
+      totalPages: listResult.totalPages,
+      summary,
+      summaryByCompany,
     });
-    res.json({ data: evaluations });
   } catch (err) {
     handleError(err, res, "ไม่สามารถดึงผลการประเมินได้");
   }

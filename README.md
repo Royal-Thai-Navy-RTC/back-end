@@ -3,6 +3,7 @@
 เอกสารนี้สรุป endpoint ที่มีอยู่จริงในโค้ดปัจจุบันเท่านั้น (อันไหนไม่มีถูกลบออกแล้ว)
 
 ## ภาพรวมระบบ
+
 - Base: `https://<host>/api`
 - Auth: Bearer JWT ใน header `Authorization`
 - Access token อายุ 24h (`/login`), ขอใหม่ผ่าน `/refresh-token`
@@ -10,17 +11,21 @@
 - Rate limit: ทั้งระบบ 300 req/15m ต่อ IP, `/login` และ `/register` มี limit เฉพาะ (ค่าเริ่มต้น 20 ครั้ง/5m) และป้องกัน brute-force แบบหน่วงเวลา
 
 ## บทบาท
+
 `OWNER` (อนุมัติขั้นสุดท้าย/ลาไปราชการ) · `ADMIN` (จัดการผู้ใช้/แดชบอร์ด) · `SUB_ADMIN` (ช่วยอนุมัติการลา) · `TEACHER` (รายงานการฝึก/ลาราชการ) · `STUDENT`
 
 ## รูปแบบ Error ทั่วไป
+
 ```json
 { "message": "อธิบายสั้น", "detail": "ถ้ามี", "errors": ["ถ้ามี"] }
 ```
+
 สถานะที่ใช้: 400/401/403/404/409/500
 
 ---
 
 ## 1) Authentication
+
 - `POST /register` (no auth) — รับ `username,password,firstName,lastName,email,phone`; ฟิลด์เพิ่มเติม `rank,birthDate,fullAddress,education,position,medicalHistory,role,isActive`; ถ้า `role=TEACHER` ต้องส่ง `division`; แนบ avatar ได้ (multipart/base64/path)
 - `POST /login` — body `username,password`; คืน access/refresh token
 - `POST /refresh-token` — body `{refreshToken}` หรือ header `x-refresh-token`
@@ -28,6 +33,7 @@
 ---
 
 ## 2) โปรไฟล์ตนเอง (ต้องล็อกอิน)
+
 - `GET /me` — โปรไฟล์ปัจจุบัน
 - `PUT /me` — แก้ไขฟิลด์ที่อนุญาต (ชื่อ เบอร์ ที่อยู่ การแพทย์ ฯลฯ)
 - `POST /me/avatar` — upload avatar (multipart หรือ path)
@@ -36,6 +42,7 @@
 ---
 
 ## 3) Admin – จัดการผู้ใช้ (ADMIN)
+
 - `GET /admin/users` — query `page,pageSize<=200,search,role`
 - `GET /admin/users/personal-search` — ค้นข้อมูลส่วนตัว (q/query, limit<=200)
 - `GET /admin/users/students` · `GET /admin/users/teachers`
@@ -49,11 +56,13 @@
 ---
 
 ## 4) Admin – แดชบอร์ดรายงานการฝึก (ADMIN)
+
 - `GET /admin/training-reports` — query `search`; คืน overview + teacherStats + recentReports
 
 ---
 
 ## 5) Admin/SUB_ADMIN – การลา (ผู้อนุมัติรอบแอดมินหรือผู้ช่วย)
+
 - `GET /admin/teacher-leaves/summary`
 - `GET /admin/teacher-leaves` — query `status,adminStatus,limit<=200,includeOfficial`
 - `GET /admin/teacher-leaves/current` — ผู้ที่กำลังลาปัจจุบัน
@@ -62,12 +71,14 @@
 ---
 
 ## 6) Teacher – รายงานการฝึก (TEACHER)
+
 - `POST /teacher/training-reports`
 - `GET /teacher/training-reports/latest` — query `limit` (default 5, max 20)
 
 ---
 
 ## 7) Teacher – การลา (TEACHER)
+
 - `POST /teacher/leaves` — คำขอลาทั่วไป
 - `GET /teacher/leaves` — query `limit`
 - `POST /teacher/official-duty-leaves` — ลาไปราชการ
@@ -76,6 +87,7 @@
 ---
 
 ## 8) Owner – อนุมัติขั้นสุดท้าย (OWNER)
+
 - `GET /owner/teacher-leaves` — query `status,limit` (เฉพาะที่ admin อนุมัติแล้ว)
 - `PATCH /owner/teacher-leaves/:id/status`
 - `GET /owner/official-duty-leaves` — query `status,limit`
@@ -84,6 +96,7 @@
 ---
 
 ## 9) Evaluations – แบบประเมินครู
+
 - `POST /evaluations/import` — upload Excel (`file`/`excel`/`upload`/`sheet`)
 - `GET /evaluations` — query `page,pageSize,teacherId,subject,teacherName,evaluatorName,search`
 - `GET /evaluations/:id`
@@ -94,7 +107,9 @@
 ---
 
 ## 10) Student Evaluations – แบบประเมินกองร้อย
+
 Template (ADMIN):
+
 - `POST /admin/student-evaluation-templates`
 - `GET /admin/student-evaluation-templates` — query `includeInactive,search`
 - `GET /admin/student-evaluation-templates/:id`
@@ -102,8 +117,15 @@ Template (ADMIN):
 - `DELETE /admin/student-evaluation-templates/:id`
 
 Submission (ADMIN หรือ TEACHER):
+
 - `POST /student-evaluations` — ต้องมี `templateId,subject,companyCode,battalionCode,answers[]`
-- `GET /student-evaluations` — query `templateId,companyCode,battalionCode,evaluatorId`
+- `GET /student-evaluations` — query `templateId,companyCode,battalionCode,evaluatorId,page,pageSize<=200,includeAnswers`; response `{ data, page, pageSize, total, totalPages, summary, summaryByCompany }` (ค่าเริ่มต้นไม่ส่ง `answers` เพื่อความเร็ว; ส่ง `includeAnswers=true` หากต้องการรายละเอียดทุกข้อ)
+  - `summary.totalEvaluations` = จำนวนรายการที่ตรงเงื่อนไข
+  - `summary.totalScore` = ผลรวมคะแนนคำตอบทุกข้อ (ทุก evaluation ที่ตรงเงื่อนไข)
+  - `summary.averageScore` = `summary.totalScore / จำนวนคำตอบทั้งหมด` (ปัดสองทศนิยม; null ถ้าไม่มีคำตอบ)
+  - `summaryByCompany[].totalEvaluations` = จำนวน evaluation ต่อ (battalion,company)
+  - `summaryByCompany[].totalScore` = ผลรวม `overallScore` ของ evaluation ในกองพัน/กองร้อยนั้น
+  - `summaryByCompany[].averageOverallScore` = `totalScore / totalEvaluations` (ค่าเฉลี่ยคะแนนรวมของแต่ละ evaluation ในกองพัน/กองร้อยนั้น; null ถ้าไม่มีข้อมูล)
 - `GET /student-evaluations/:id`
 - `PUT /student-evaluations/:id`
 - `DELETE /student-evaluations/:id`
@@ -111,11 +133,13 @@ Submission (ADMIN หรือ TEACHER):
 ---
 
 ## 11) Static Files
+
 - `GET /uploads/avatars/:filename` — public
 
 ---
 
 ## เช็กลิสต์สั้น ๆ
+
 1. สมัครหรือให้ ADMIN สร้างบัญชี (ถ้า role=TEACHER ต้องส่ง `division`)
 2. `/login` รับ access/refresh token แล้วแนบ `Authorization: Bearer <token>`
 3. access token หมดอายุให้เรียก `/refresh-token`

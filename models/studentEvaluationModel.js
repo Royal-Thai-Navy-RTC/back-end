@@ -12,10 +12,8 @@ const templateInclude = {
   },
 };
 
-const evaluationInclude = {
-  template: {
-    select: { id: true, name: true, description: true },
-  },
+const evaluationIncludeBase = {
+  template: { select: { id: true, name: true, description: true } },
   evaluator: {
     select: {
       id: true,
@@ -25,6 +23,10 @@ const evaluationInclude = {
       role: true,
     },
   },
+};
+
+const evaluationIncludeWithAnswers = {
+  ...evaluationIncludeBase,
   answers: {
     orderBy: { id: "asc" },
     include: {
@@ -33,9 +35,7 @@ const evaluationInclude = {
           id: true,
           prompt: true,
           maxScore: true,
-          section: {
-            select: { id: true, title: true, sectionOrder: true },
-          },
+          section: { select: { id: true, title: true, sectionOrder: true } },
         },
       },
     },
@@ -368,17 +368,37 @@ module.exports = {
           })),
         },
       },
-      include: evaluationInclude,
+      include: evaluationIncludeWithAnswers,
     });
   },
 
   listEvaluations: async (filters = {}) => {
     const where = buildEvaluationWhere(filters);
-    return prisma.studentEvaluation.findMany({
-      where,
-      orderBy: { submittedAt: "desc" },
-      include: evaluationInclude,
-    });
+    const includeAnswers = filters.includeAnswers === true;
+    const pageSize = Math.max(1, Math.min(Number(filters.pageSize) || 20, 200));
+    const page = Math.max(1, Number(filters.page) || 1);
+    const skip = (page - 1) * pageSize;
+
+    const [items, total] = await Promise.all([
+      prisma.studentEvaluation.findMany({
+        where,
+        orderBy: { submittedAt: "desc" },
+        skip,
+        take: pageSize,
+        include: includeAnswers
+          ? evaluationIncludeWithAnswers
+          : evaluationIncludeBase,
+      }),
+      prisma.studentEvaluation.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
   },
 
   summarizeEvaluations: async (filters = {}) => {
