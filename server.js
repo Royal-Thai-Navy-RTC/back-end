@@ -10,6 +10,8 @@ const config = require("./config");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.set("trust proxy", true);
+
 // Enable CORS for all origins and standard headers/methods
 app.use(cors());
 app.use(morgan("dev"));
