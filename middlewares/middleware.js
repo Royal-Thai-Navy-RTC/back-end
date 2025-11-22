@@ -1,8 +1,7 @@
 const jwt = require("jsonwebtoken"); // เรียกใช้งาน jwt เพื่อใช้ในการตรวจสอบ token
 const rateLimit = require("express-rate-limit");
 const config = require("../config"); // เรียกใช้งานไฟล์ config.js ที่เราสร้างไว้
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+const prisma = require("../utils/prisma");
 const {
   loginBruteForceGuard,
 } = require("../utils/loginAttemptLimiter");
@@ -144,6 +143,8 @@ module.exports = {
       if (!user || user.isActive === false) {
         return res.status(403).json({ message: "Forbidden" });
       }
+      // Ensure downstream handlers know the actual role (JWT may be stale)
+      req.userRole = user.role;
       if (!generalLeaveApproverRoleSet.has(user.role)) {
         return res.status(403).json({ message: "Leave approver only" });
       }

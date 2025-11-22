@@ -1,8 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const XLSX = require("xlsx");
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+const prisma = require("../utils/prisma");
 
 const evaluationSheetInclude = {
   answers: { orderBy: { id: "asc" } },

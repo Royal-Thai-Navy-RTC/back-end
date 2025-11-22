@@ -1,8 +1,7 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+const prisma = require("../utils/prisma");
 
 const REQUIRED_FIELDS = ["teacherId", "leaveType", "startDate"];
-const VALID_STATUSES = new Set(["PENDING", "APPROVED", "REJECTED"]);
+const VALID_STATUSES = new Set(["PENDING", "APPROVED", "REJECTED", "CANCEL"]);
 
 const teacherSelectFields = {
   id: true,
@@ -584,6 +583,81 @@ const listCurrentApprovedLeaves = async ({ includeOfficial = false } = {}) => {
   });
 };
 
+const cancelLeaveByTeacher = async ({ leaveId, teacherId }) => {
+  const id = Number(leaveId);
+  const ownerId = Number(teacherId);
+  if (!Number.isInteger(id) || id <= 0) {
+    const err = new Error("leaveId ไม่ถูกต้อง");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  if (!Number.isInteger(ownerId) || ownerId <= 0) {
+    const err = new Error("teacherId ไม่ถูกต้อง");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const existing = await prisma.teacherLeave.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      teacherId: true,
+      status: true,
+      isOfficialDuty: true,
+      adminApprovalStatus: true,
+      ownerApprovalStatus: true,
+    },
+  });
+  if (!existing || existing.teacherId !== ownerId) {
+    const err = new Error("ไม่พบคำขอลาหรือไม่มีสิทธิ์ยกเลิก");
+    err.code = "P2025";
+    throw err;
+  }
+
+  if (existing.status !== "PENDING") {
+    const err = new Error("ไม่สามารถยกเลิกได้ คำขอถูกพิจารณาแล้ว");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  if (
+    existing.adminApprovalStatus &&
+    existing.adminApprovalStatus !== "PENDING"
+  ) {
+    const err = new Error("ไม่สามารถยกเลิกได้ คำขออยู่ระหว่างการอนุมัติ");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  if (
+    existing.ownerApprovalStatus &&
+    existing.ownerApprovalStatus !== "PENDING"
+  ) {
+    const err = new Error("ไม่สามารถยกเลิกได้ คำขอถูกพิจารณาแล้ว");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const isOfficial = existing.isOfficialDuty;
+  const now = new Date();
+  const data = {
+    status: "CANCEL",
+    // การยกเลิกโดยผู้ขอเอง ไม่ควรบันทึกว่าแอดมิน/ผู้บังคับบัญชาเป็นผู้ยกเลิก
+    adminApprovalStatus: null,
+    ownerApprovalStatus: null,
+    adminApprovalBy: null,
+    ownerApprovalBy: null,
+    adminApprovalAt: null,
+    ownerApprovalAt: null,
+    // เก็บเวลาเพื่ออ้างอิง (ใช้ timestamp เดียวกับ status)
+    updatedAt: now,
+  };
+
+  return prisma.teacherLeave.update({
+    where: { id },
+    data,
+    include: leaveRelationInclude,
+  });
+};
+
 module.exports = {
   createTeacherLeave,
   createOfficialDutyLeave,
@@ -596,4 +670,5 @@ module.exports = {
   ownerUpdateGeneralLeave,
   ownerUpdateOfficialDutyLeave,
   listCurrentApprovedLeaves,
+  cancelLeaveByTeacher,
 };

@@ -47,4 +47,11 @@ router.get(
   teacherLeaveController.listMyOfficialDutyLeaves
 );
 
+router.patch(
+  "/teacher/leaves/:id/cancel",
+  middleware.verifyToken,
+  middleware.authorizeTeacher,
+  teacherLeaveController.cancelMyLeave
+);
+
 module.exports = router;

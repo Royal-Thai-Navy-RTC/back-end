@@ -97,9 +97,31 @@ const listMyOfficialDutyLeaves = async (req, res) => {
   }
 };
 
+const cancelMyLeave = async (req, res) => {
+  try {
+    const leave = await TeacherLeave.cancelLeaveByTeacher({
+      leaveId: req.params.id,
+      teacherId: req.userId,
+    });
+    res.json({ message: "ยกเลิกการลาสำเร็จ", leave });
+  } catch (err) {
+    if (err.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ message: err.message });
+    }
+    if (err.code === "P2025") {
+      return res.status(404).json({ message: err.message });
+    }
+    res.status(500).json({
+      message: "ไม่สามารถยกเลิกการลาได้",
+      detail: err.message,
+    });
+  }
+};
+
 module.exports = {
   requestLeave,
   requestOfficialDutyLeave,
   listMyLeaves,
   listMyOfficialDutyLeaves,
+  cancelMyLeave,
 };

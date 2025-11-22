@@ -121,6 +121,7 @@ Content-Type: application/json
 
 - `POST /teacher/leaves` — คำขอลาทั่วไป
 - `GET /teacher/leaves` — query `limit`
+- `PATCH /teacher/leaves/:id/cancel` — ยกเลิกคำขอลาของตัวเอง (ได้เฉพาะสถานะ PENDING)
 - `POST /teacher/official-duty-leaves` — ลาไปราชการ
 - `GET /teacher/official-duty-leaves` — query `limit`
 
