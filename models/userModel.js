@@ -188,6 +188,110 @@ const getUserProfile = async (id, { useCache = true } = {}) => {
   return normalized ? { ...normalized } : normalized;
 };
 
+const getUserAdminDetail = async (id) => {
+  const numericId = normalizeUserId(id);
+  if (numericId === null) return null;
+
+  const profile = await getUserProfile(numericId, { useCache: false });
+  if (!profile) return null;
+
+  const [
+    evaluationAggregate,
+    leaveGroups,
+    latestLeave,
+    teacherSheetAggregate,
+    teacherRatingAggregate,
+    latestTeacherSheet,
+  ] = await Promise.all([
+    prisma.studentEvaluation.aggregate({
+      where: { evaluatorId: numericId },
+      _count: { _all: true },
+      _avg: { overallScore: true },
+      _max: { submittedAt: true },
+    }),
+    prisma.teacherLeave.groupBy({
+      by: ["status"],
+      where: { teacherId: numericId },
+      _count: { _all: true },
+    }),
+    prisma.teacherLeave.findFirst({
+      where: { teacherId: numericId },
+      orderBy: { startDate: "desc" },
+      select: {
+        id: true,
+        leaveType: true,
+        destination: true,
+        reason: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        isOfficialDuty: true,
+        adminApprovalStatus: true,
+        ownerApprovalStatus: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.evaluationSheet.aggregate({
+      where: { teacherId: numericId },
+      _count: { _all: true },
+      _max: { evaluatedAt: true },
+    }),
+    prisma.evaluationAnswer.aggregate({
+      where: { sheet: { teacherId: numericId } },
+      _avg: { rating: true },
+      _count: true,
+    }),
+    prisma.evaluationSheet.findFirst({
+      where: { teacherId: numericId },
+      orderBy: { evaluatedAt: "desc" },
+      select: {
+        id: true,
+        subject: true,
+        teacherName: true,
+        evaluatedAt: true,
+        notes: true,
+        answers: {
+          orderBy: { id: "asc" },
+          select: { id: true, section: true, itemCode: true, itemText: true, rating: true },
+        },
+      },
+    }),
+  ]);
+
+  const leaveByStatus = leaveGroups.reduce((acc, group) => {
+    acc[group.status] = group._count?._all || 0;
+    return acc;
+  }, {});
+
+  return {
+    ...profile,
+    // evaluationStats = นักเรียนประเมินครู (sheet ที่ครูเป็นผู้ถูกประเมิน)
+    studentEvaluationStats: {
+      totalSheets: teacherSheetAggregate._count?._all || 0,
+      averageRating: teacherRatingAggregate._avg?.rating ?? null,
+      totalRatings:
+        typeof teacherRatingAggregate._count === "number"
+          ? teacherRatingAggregate._count
+          : teacherRatingAggregate._count?._all || 0,
+      lastEvaluatedAt: teacherSheetAggregate._max?.evaluatedAt || null,
+      lastSheet: latestTeacherSheet || null,
+    },
+    // teacherEvaluationStats = ครูประเมินนักเรียน (evaluation ที่ครูเป็นผู้ประเมิน)
+    teacherEvaluationStats: {
+      total: evaluationAggregate._count?._all || 0,
+      averageOverallScore:
+        evaluationAggregate._avg?.overallScore ?? null,
+      lastSubmittedAt: evaluationAggregate._max?.submittedAt || null,
+    },
+    leaveStats: {
+      total: leaveGroups.reduce((sum, group) => sum + (group._count?._all || 0), 0),
+      byStatus: leaveByStatus,
+      lastLeave: latestLeave || null,
+    },
+  };
+};
+
 // ตรวจสอบและจัดรูปแบบข้อมูลให้ตรงกับ schema.prisma
 const normalizeAndValidateUserInput = (input = {}) => {
   const requiredFields = [
@@ -382,6 +486,7 @@ module.exports = {
   findUserByRefreshTokenHash,
   // เพิ่มสำหรับโปรไฟล์ตัวเอง
   getUserById: getUserProfile,
+  getUserAdminDetail,
   updateUserSelf: async (id, input) => {
     const allowed = new Set([
       "firstName",

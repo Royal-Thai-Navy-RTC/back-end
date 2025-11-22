@@ -46,7 +46,7 @@
 - `GET /admin/users` — query `page,pageSize<=200,search,role`
 - `GET /admin/users/personal-search` — ค้นข้อมูลส่วนตัว (q/query, limit<=200)
 - `GET /admin/users/students` · `GET /admin/users/teachers`
-- `GET /admin/users/:id` · `GET /admin/users/students/:id` · `GET /admin/users/teachers/:id`
+- `GET /admin/users/:id` · `GET /admin/users/students/:id` · `GET /admin/users/teachers/:id` — คืนโปรไฟล์พร้อมสรุป `evaluationStats` (สถิติ “นักเรียนประเมินครู”: จำนวนแบบ ค่าเฉลี่ย rating ใบล่าสุด), `teacherEvaluationStats` (สถิติ “ครูประเมินนักเรียน”: จำนวน/คะแนนเฉลี่ย/วันที่ส่งล่าสุด) และ `leaveStats` (ยอดการลา แยกสถานะ + รายการล่าสุดถ้ามี)
 - `POST /admin/users` — สร้างผู้ใช้ (avatar optional, ถ้า role=TEACHER ต้องมี `division`)
 - `PUT /admin/users/:id` — อัปเดตข้อมูลกว้าง (รวม role/isActive/password/division)
 - `POST /admin/users/:id/avatar` — อัปโหลดรูปแทนผู้ใช้

@@ -263,6 +263,16 @@ module.exports = {
     const normalizedSections = replaceSections
       ? normalizeSectionPayload(input.sections)
       : null;
+    if (replaceSections) {
+      const evaluationCount = await prisma.studentEvaluation.count({
+        where: { templateId },
+      });
+      if (evaluationCount > 0) {
+        throwValidationError(
+          "ไม่สามารถแก้ไขคำถามของแบบประเมินที่ถูกใช้งานแล้ว โปรดสร้างแบบใหม่หรือปิดใช้งานแทน"
+        );
+      }
+    }
 
     return prisma.$transaction(async (tx) => {
       await tx.studentEvaluationTemplate.update({
@@ -469,6 +479,7 @@ module.exports = {
       err.code = "NOT_FOUND";
       throw err;
     }
+    const data = {};
     if (input.companyCode !== undefined) {
       const companyCode =
         typeof input.companyCode === "string"
@@ -504,7 +515,6 @@ module.exports = {
       }
       data.evaluationPeriod = dt;
     }
-    const data = {};
     if (input.summary !== undefined) {
       data.summary =
         typeof input.summary === "string"

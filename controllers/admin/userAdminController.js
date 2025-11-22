@@ -173,7 +173,7 @@ const adminGetUserById = async (req, res) => {
   if (!targetId)
     return res.status(400).json({ message: "ต้องระบุ id ผู้ใช้ใน URL" });
   try {
-    const user = await User.getUserById(targetId);
+    const user = await User.getUserAdminDetail(targetId);
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
   } catch (err) {
