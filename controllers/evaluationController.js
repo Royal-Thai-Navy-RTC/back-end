@@ -43,20 +43,77 @@ const normalizeManualAnswers = (rawAnswers) => {
 // แผนที่เดือนภาษาไทย (ย่อ/เต็ม/ไม่มีจุด) -> เดือนเลข
 const THAI_MONTHS = {
   // ย่อมีจุด
-  "ม.ค.": 1, "ก.พ.": 2, "มี.ค.": 3, "เม.ย.": 4, "พ.ค.": 5, "มิ.ย.": 6,
-  "ก.ค.": 7, "ส.ค.": 8, "ก.ย.": 9, "ต.ค.": 10, "พ.ย.": 11, "ธ.ค.": 12,
+  "ม.ค.": 1,
+  "ก.พ.": 2,
+  "มี.ค.": 3,
+  "เม.ย.": 4,
+  "พ.ค.": 5,
+  "มิ.ย.": 6,
+  "ก.ค.": 7,
+  "ส.ค.": 8,
+  "ก.ย.": 9,
+  "ต.ค.": 10,
+  "พ.ย.": 11,
+  "ธ.ค.": 12,
   // ย่อไม่มีจุด
-  "ม.ค": 1, "ก.พ": 2, "มี.ค": 3, "เม.ย": 4, "พ.ค": 5, "มิ.ย": 6,
-  "ก.ค": 7, "ส.ค": 8, "ก.ย": 9, "ต.ค": 10, "พ.ย": 11, "ธ.ค": 12,
+  "ม.ค": 1,
+  "ก.พ": 2,
+  "มี.ค": 3,
+  "เม.ย": 4,
+  "พ.ค": 5,
+  "มิ.ย": 6,
+  "ก.ค": 7,
+  "ส.ค": 8,
+  "ก.ย": 9,
+  "ต.ค": 10,
+  "พ.ย": 11,
+  "ธ.ค": 12,
   // ย่อแบบตัดจุดทั้งหมด
-  "มค": 1, "กพ": 2, "มีค": 3, "เมย": 4, "พค": 5, "มิย": 6,
-  "กค": 7, "สค": 8, "กย": 9, "ตค": 10, "พย": 11, "ธค": 12,
+  มค: 1,
+  กพ: 2,
+  มีค: 3,
+  เมย: 4,
+  พค: 5,
+  มิย: 6,
+  กค: 7,
+  สค: 8,
+  กย: 9,
+  ตค: 10,
+  พย: 11,
+  ธค: 12,
   // เต็ม
-  "มกราคม": 1, "กุมภาพันธ์": 2, "มีนาคม": 3, "เมษายน": 4, "พฤษภาคม": 5, "มิถุนายน": 6,
-  "กรกฎาคม": 7, "สิงหาคม": 8, "กันยายน": 9, "ตุลาคม": 10, "พฤศจิกายน": 11, "ธันวาคม": 12,
+  มกราคม: 1,
+  กุมภาพันธ์: 2,
+  มีนาคม: 3,
+  เมษายน: 4,
+  พฤษภาคม: 5,
+  มิถุนายน: 6,
+  กรกฎาคม: 7,
+  สิงหาคม: 8,
+  กันยายน: 9,
+  ตุลาคม: 10,
+  พฤศจิกายน: 11,
+  ธันวาคม: 12,
 };
 
-const safeString = (v) => (v === undefined || v === null ? "" : thaiDigitsToArabic(String(v)).trim());
+const safeString = (v) =>
+  v === undefined || v === null ? "" : thaiDigitsToArabic(String(v)).trim();
+
+// แปลงค่า Date ที่อ่านจาก Excel ให้เป็นปี ค.ศ. ถูกต้อง (รองรับกรณี Excel ใช้ปี 2 หลัก)
+function coerceDateFromCell(val) {
+  if (!(val instanceof Date)) return null;
+  const y = val.getFullYear();
+  const m = val.getMonth();
+  const d = val.getDate();
+
+  // รับเฉพาะปี ค.ศ. ที่สมเหตุสมผล (>=2000) เพื่อลดโอกาสที่ Excel แปลงปี 2 หลักผิด
+  if (y >= 2000) {
+    return new Date(Date.UTC(y, m, d, 0, 0, 0));
+  }
+
+  // ปล่อยให้ regex ตามภาษไทยจัดการกรณีอื่น (เช่น ปี 2 หลัก/พ.ศ.)
+  return null;
+}
 
 const parseNumericInput = (value) => {
   if (value === undefined || value === null) return null;
@@ -119,10 +176,20 @@ function makeDateFromDMY(d, mToken, y) {
 }
 
 function tryParseThaiDateFromString(s) {
+  // รองรับกรณี cell เป็น Date object จาก Excel
+  if (s instanceof Date) {
+    const coerced = coerceDateFromCell(s);
+    return coerced || null;
+  }
+
   const str = thaiDigitsToArabic(safeString(s));
   // ต้องมีคำเดือนภาษาไทยอย่างน้อยหนึ่งตัว เพื่อกันชนกับข้อมูลตัวเลขอื่น
-  const hasThaiMonth = Object.keys(THAI_MONTHS).some((k) => str.includes(k.replace(/\./g, "")) || str.includes(k));
-  const m = str.match(/(\d{1,2})\s*[\/\-\s]?\s*([ก-ฮ\.]+|\d{1,2})\s*[\/\-\s]?\s*(\d{2,4})/);
+  const hasThaiMonth = Object.keys(THAI_MONTHS).some(
+    (k) => str.includes(k.replace(/\./g, "")) || str.includes(k)
+  );
+  const m = str.match(
+    /(\d{1,2})\s*[\/\-\s]?\s*([ก-ฮ\.]+|\d{1,2})\s*[\/\-\s]?\s*(\d{2,4})/
+  );
   if (!m) return null;
   // ถ้าไม่มีคำเดือนเลยและใช้เดือนเป็นตัวเลข อาจชนกับข้อมูลอื่น ให้ข้าม
   if (!hasThaiMonth && /^(\d{1,2})$/.test(m[2])) return null;
@@ -133,6 +200,9 @@ function tryParseThaiDateFromString(s) {
 function tryParseThaiDateFromRow(row) {
   const tokens = [];
   for (const cell of row || []) {
+    const dateFromCell = coerceDateFromCell(cell);
+    if (dateFromCell) return dateFromCell;
+
     const s = thaiDigitsToArabic(safeString(cell));
     if (!s) continue;
     for (const t of s.split(/[\s/\-]+/)) {
@@ -144,7 +214,8 @@ function tryParseThaiDateFromRow(row) {
     const m = tokens[i + 1];
     const y = tokens[i + 2];
     // ป้องกันชนกับตัวเลขอื่น ๆ: ถ้าเดือนไม่ใช่คำไทย ให้ยอมรับเฉพาะกรณีปี 2 หลัก
-    const monthIsThaiWord = monthToNumber(m) != null && isNaN(Number(thaiDigitsToArabic(m)));
+    const monthIsThaiWord =
+      monthToNumber(m) != null && isNaN(Number(thaiDigitsToArabic(m)));
     const yNum = Number(thaiDigitsToArabic(y));
     if (!monthIsThaiWord) {
       if (!(yNum < 100)) continue; // ปีเป็นเลขยาว 4 หลักแต่เดือนเป็นตัวเลข -> ข้าม
@@ -159,6 +230,18 @@ function pickHeaderInfo(rows) {
   // พยายามหา รายวิชา และ ครูผู้สอน จาก 15 แถวแรก (ยืดหยุ่นทั้งแบบอยู่บรรทัดเดียว/หลายเซลล์)
   let subject = "";
   let teacherName = "";
+  const extractAfterKeyword = (text, keyword) => {
+    const idx = text.indexOf(keyword);
+    if (idx === -1) return "";
+    let rest = text.slice(idx + keyword.length).trim();
+    rest = rest.replace(/^[:：\-–]+/, "").trim();
+    // ถ้ามีคำว่า "วันที่" ให้ตัดส่วนหลังออกเพื่อไม่ให้ชื่อครูติดวันที่มาด้วย
+    const dateIdx = rest.indexOf("วันที่");
+    if (dateIdx !== -1) {
+      rest = rest.slice(0, dateIdx).trim();
+    }
+    return rest;
+  };
   for (let i = 0; i < Math.min(rows.length, 15); i++) {
     const r = rows[i] || [];
     const tokens = r.map(safeString).filter(Boolean);
@@ -168,6 +251,10 @@ function pickHeaderInfo(rows) {
     if (!subject && /รายวิชา/.test(line)) {
       const m1 = line.match(/รายวิชา\s+(.+?)(?:\s+ครูผู้สอน|$)/);
       if (m1) subject = safeString(m1[1]);
+      // รองรับกรณีอยู่ในเซลล์เดียวกัน เช่น "รายวิชา การปืน ครูผู้สอน กอไข่"
+      if (!subject) {
+        subject = safeString(extractAfterKeyword(line, "รายวิชา"));
+      }
     }
     // กรณีแยกคอลัมน์: [..., 'รายวิชา', 'การปืน', 'ครูผู้สอน', 'กอไก่', 'ขอไข่']
     if (!subject && tokens.includes("รายวิชา")) {
@@ -176,33 +263,66 @@ function pickHeaderInfo(rows) {
         subject = safeString(tokens[idx + 1]);
       }
     }
+    // รายวิชาอยู่ในเซลล์เดียวกับชื่อ เช่น "รายวิชา การปืน" โดยไม่มีช่องว่างอื่น
+    if (!subject) {
+      const subjectToken = tokens.find((t) => t.includes("รายวิชา"));
+      if (subjectToken) {
+        subject = safeString(extractAfterKeyword(subjectToken, "รายวิชา"));
+      }
+    }
 
     // ดึงครูผู้สอน
     if (!teacherName && /ครูผู้สอน/.test(line)) {
       const m2 = line.match(/ครูผู้สอน\s+(.+)/);
-      if (m2) teacherName = safeString(m2[1]);
+      if (m2) teacherName = safeString(extractAfterKeyword(line, "ครูผู้สอน") || m2[1]);
     }
     if (!teacherName && tokens.includes("ครูผู้สอน")) {
       const idx2 = tokens.indexOf("ครูผู้สอน");
       if (idx2 !== -1 && tokens[idx2 + 1]) {
-        teacherName = tokens.slice(idx2 + 1).join(" ").trim();
+        teacherName = tokens
+          .slice(idx2 + 1)
+          .join(" ")
+          .trim();
+      }
+    }
+    // ครูผู้สอนอยู่ในเซลล์เดียวกัน เช่น "ครูผู้สอน กอไข่ ขอไข่"
+    if (!teacherName) {
+      const teacherToken = tokens.find((t) => t.includes("ครูผู้สอน"));
+      if (teacherToken) {
+        teacherName = safeString(extractAfterKeyword(teacherToken, "ครูผู้สอน"));
       }
     }
   }
-  return { subject: subject || "ไม่ระบุ", teacherName: teacherName || "ไม่ระบุ" };
+  return {
+    subject: subject || "ไม่ระบุ",
+    teacherName: teacherName || "ไม่ระบุ",
+  };
 }
 
 function extractDateFromTextAndClean(text) {
   const str = thaiDigitsToArabic(safeString(text));
-  const m = str.match(/(\d{1,2})\s*[\/\-\s]?\s*([ก-ฮ\.]+|\d{1,2})\s*[\/\-\s]?\s*(\d{2,4})/);
+  const m = str.match(
+    /(\d{1,2})\s*[\/\-\s]?\s*([ก-ฮ\.]+|\d{1,2})\s*[\/\-\s]?\s*(\d{2,4})/
+  );
   if (!m) return { cleaned: str, date: null };
   const dt = makeDateFromDMY(m[1], m[2], m[3]);
-  const cleaned = (str.slice(0, m.index) + str.slice(m.index + m[0].length)).trim();
+  const cleaned = (
+    str.slice(0, m.index) + str.slice(m.index + m[0].length)
+  ).trim();
   return { cleaned, date: dt };
 }
 
+function parseDateAfterKeyword(text, keyword = "วันที่") {
+  const s = safeString(text);
+  if (!s.includes(keyword)) return null;
+  let tail = s.slice(s.indexOf(keyword) + keyword.length).trim();
+  tail = tail.replace(/^[\\s:：\\-–]+/, "").trim();
+  if (!tail) return null;
+  return tryParseThaiDateFromString(tail) || tryParseThaiDateFromString(s);
+}
+
 function pickEvaluatorInfo(rows) {
-  // หาแถวที่มีคำว่า "สังกัด" และ/หรือวันที่ไทย
+  // หาแถวที่มีคำว่า "สังกัด" และ/หรือวันที่ไทย (แบบเดิม)
   let evaluatorName = "";
   let evaluatorUnit = "";
   let evaluatedAt = null;
@@ -214,21 +334,231 @@ function pickEvaluatorInfo(rows) {
       const parts = line.split(/สังกัด/);
       evaluatorName = safeString(parts[0]).trim();
       let unitRaw = safeString(parts[1]).trim();
-      // ถ้าวันที่ติดอยู่ใน unit ให้ดึงออกและตั้ง evaluatedAt พร้อมทำความสะอาด unit
       const { cleaned, date } = extractDateFromTextAndClean(unitRaw);
       evaluatorUnit = cleaned;
       if (!evaluatedAt && date) evaluatedAt = date;
     }
-    // เลือกวันที่ที่พบล่าสุด (โดยทั่วไปวันที่อยู่ท้าย ๆ เอกสาร)
     const d1 = tryParseThaiDateFromRow(r);
     const d2 = d1 || tryParseThaiDateFromString(line);
     if (d2) evaluatedAt = d2;
   }
+
+  // พยายามสแกนซ้ำเฉพาะส่วนข้อความ (เช่น "วันที่ 25 / พ.ย. / 68") ใน 5 แถวแรก
+  if (!evaluatedAt) {
+    for (let i = 0; i < Math.min(rows.length, 5); i++) {
+      for (const cell of rows[i] || []) {
+        const dt = tryParseThaiDateFromString(cell);
+        if (dt) {
+          evaluatedAt = dt;
+          break;
+        }
+      }
+      if (evaluatedAt) break;
+    }
+  }
+
+  // รูปแบบใหม่: มีหัวคอลัมน์ "รายชื่อ" แล้วแถวถัดไปเป็นชื่อผู้ประเมิน
+  if (!evaluatorName) {
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i] || [];
+      // หา column header ที่เป็น "รายชื่อ" และ "กองร้อย/กองพัน" ในแถวเดียวกัน
+      let nameCol = -1;
+      let unitCol = -1;
+      for (let c = 0; c < r.length; c++) {
+        const header = safeString(r[c]);
+        if (nameCol === -1 && header.includes("รายชื่อ")) {
+          nameCol = c;
+        }
+        if (
+          unitCol === -1 &&
+          (header.includes("กองร้อย") ||
+            header.includes("กองพัน") ||
+            header.includes("สังกัด"))
+        ) {
+          unitCol = c;
+        }
+      }
+      for (let c = 0; c < r.length; c++) {
+        if (nameCol !== -1 ? c === nameCol : safeString(r[c]) === "รายชื่อ") {
+          const nextRow = rows[i + 1] || [];
+          const name = safeString(nextRow[c]);
+          if (name) {
+            evaluatorName = name;
+            if (!evaluatorUnit) {
+              const unitCellIndex =
+                unitCol !== -1 ? unitCol : c + 1 < nextRow.length ? c + 1 : c;
+              const unitVal = safeString(nextRow[unitCellIndex]);
+              if (unitVal) evaluatorUnit = unitVal;
+            }
+            break;
+          }
+        }
+      }
+      if (evaluatorName) break;
+    }
+  }
+  evaluatedAt = tryParseThaiDateFromString(evaluatedAt) || null;
   return {
     evaluatorName: evaluatorName || "ไม่ระบุ",
     evaluatorUnit: evaluatorUnit || null,
     evaluatedAt: evaluatedAt || new Date(),
   };
+}
+
+// ตรวจว่าคะแนนเป็น 1-5 หรือไม่
+function isScore1to5(v) {
+  const n = parseNumericInput(v);
+  return n != null && n >= 1 && n <= 5;
+}
+
+// รองรับหลายผู้ประเมินแบบแนวนอน: หัวคอลัมน์เป็นรายการคำถาม และแต่ละแถวคือคนละคน
+function extractMultipleRespondentSheets(rows) {
+  // หาแถวคำถาม
+  let questionRowIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const texts = row.map(safeString);
+    const nonEmptyCount = texts.filter(Boolean).length;
+    const questionLikeCount = texts.filter((t) => /^\d+(\.\d+)?\s/.test(t)).length;
+    if (nonEmptyCount >= 3 && questionLikeCount >= 2) {
+      questionRowIdx = i;
+      break;
+    }
+  }
+  if (questionRowIdx === -1) return [];
+
+  const questionRow = rows[questionRowIdx] || [];
+  const questionCols = [];
+  let nameCol = -1;
+  let unitCol = -1;
+
+  for (let c = 0; c < questionRow.length; c++) {
+    const header = safeString(questionRow[c]);
+    if (header.includes("รายชื่อ") && nameCol === -1) {
+      nameCol = c;
+    } else if (
+      (header.includes("กองร้อย") ||
+        header.includes("กองพัน") ||
+        header.includes("สังกัด")) &&
+      unitCol === -1
+    ) {
+      unitCol = c;
+    } else if (/^\d+(\.\d+)?\s/.test(header)) {
+      questionCols.push({ col: c, text: header });
+    }
+  }
+  if (questionCols.length === 0) return [];
+
+  const sheets = [];
+  for (let r = questionRowIdx + 1; r < rows.length; r++) {
+    const row = rows[r] || [];
+    const evaluatorName = safeString(nameCol !== -1 ? row[nameCol] : row[0]);
+    const evaluatorUnit = safeString(unitCol !== -1 ? row[unitCol] : row[1]);
+
+    const answers = [];
+    let itemSeq = 1;
+    for (const q of questionCols) {
+      const scoreRaw = row[q.col];
+      if (!isScore1to5(scoreRaw)) continue;
+      const rating = Math.max(0, Math.min(5, Math.round(parseNumericInput(scoreRaw))));
+      answers.push({
+        section: null,
+        itemCode: String(itemSeq++),
+        itemText: q.text,
+        rating,
+      });
+    }
+
+    if (evaluatorName && answers.length >= Math.max(2, Math.floor(questionCols.length * 0.4))) {
+      sheets.push({
+        evaluatorName,
+        evaluatorUnit: evaluatorUnit || null,
+        answers,
+      });
+    }
+  }
+
+  return sheets;
+}
+
+// ดึงคำตอบจากรูปแบบใหม่:
+// แถวหนึ่ง: รายชื่อ | หัวข้อการประเมิน
+// แถวสอง: 1.1 ... | 1.2 ... | ...
+// แถวสาม: ชื่อผู้ประเมิน | 5 | 5 | ...
+function extractAnswersFromHorizontalSheet(rows) {
+  let questionRowIdx = -1;
+
+  // หาแถวที่น่าจะเป็นแถวคำถาม (มีข้อความหลายช่อง และมี "1." "2." ฯลฯ)
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const texts = row.map(safeString);
+    const nonEmptyCount = texts.filter(Boolean).length;
+    const questionLikeCount = texts.filter((t) =>
+      /^\d+(\.\d+)?\s/.test(t)
+    ).length;
+
+    if (nonEmptyCount >= 3 && questionLikeCount >= 2) {
+      questionRowIdx = i;
+      break;
+    }
+  }
+
+  if (questionRowIdx === -1) return [];
+
+  const questionRow = rows[questionRowIdx] || [];
+
+  // หาแถวคะแนนใต้แถวคำถาม
+  let scoreRowIdx = -1;
+  for (let i = questionRowIdx + 1; i < rows.length; i++) {
+    const row = rows[i] || [];
+    let usedCells = 0;
+    let numericCells = 0;
+
+    for (let c = 0; c < questionRow.length; c++) {
+      const qText = safeString(questionRow[c]);
+      if (!qText) continue; // เอาเฉพาะคอลัมน์ที่เป็นคำถามจริง ๆ
+      usedCells++;
+
+      if (isScore1to5(row[c])) {
+        numericCells++;
+      }
+    }
+
+    // ถ้าแถวนี้มีคะแนน 1-5 อยู่พอสมควร ให้ถือว่าเป็นแถวคะแนน
+    if (
+      usedCells > 0 &&
+      numericCells >= Math.max(2, Math.floor(usedCells * 0.5))
+    ) {
+      scoreRowIdx = i;
+      break;
+    }
+  }
+
+  if (scoreRowIdx === -1) return [];
+
+  const scoreRow = rows[scoreRowIdx] || [];
+  const answers = [];
+  let itemSeq = 1;
+
+  for (let c = 0; c < questionRow.length; c++) {
+    const itemText = safeString(questionRow[c]);
+    if (!itemText) continue; // ข้ามช่องว่าง เช่น ช่อง "รายชื่อ"
+
+    const scoreRaw = scoreRow[c];
+    if (!isScore1to5(scoreRaw)) continue;
+
+    const score = parseNumericInput(scoreRaw);
+    const rating = Math.max(0, Math.min(5, Math.round(score)));
+
+    answers.push({
+      section: null,
+      itemCode: String(itemSeq++),
+      itemText,
+      rating,
+    });
+  }
+
+  return answers;
 }
 
 /* ===================== โค้ดใหม่ที่สำคัญ: เริ่ม ===================== */
@@ -250,14 +580,18 @@ function findScaleColumns(rows) {
       const slice = norm.slice(c, c + 5);
       const nums = slice.map((x) => Number(x));
       // ต้องเป็นเลขทั้งหมด และครบ 1..5
-      if (!nums.every((n) => [1,2,3,4,5].includes(n))) continue;
+      if (!nums.every((n) => [1, 2, 3, 4, 5].includes(n))) continue;
       const set = new Set(nums);
       if (set.size !== 5) continue; // ห้ามซ้ำ
 
       const asc = nums.join(",") === "1,2,3,4,5";
       const desc = nums.join(",") === "5,4,3,2,1";
       if (asc || desc) {
-        return { headerRowIdx: r, scaleCols: [c, c+1, c+2, c+3, c+4], orderDesc: desc };
+        return {
+          headerRowIdx: r,
+          scaleCols: [c, c + 1, c + 2, c + 3, c + 4],
+          orderDesc: desc,
+        };
       }
     }
   }
@@ -276,86 +610,91 @@ function isMarked(v) {
 
 // เวอร์ชันใหม่: ยืดหยุ่นตำแหน่งหัวคอลัมน์ + รองรับติ๊ก/กรอกเลข
 function extractAnswers(rows) {
+  // พยายามใช้รูปแบบเดิมก่อน (มีหัวคอลัมน์ 1..5 / 5..1)
   const found = findScaleColumns(rows);
-  if (!found) return [];
+  if (found) {
+    const { headerRowIdx, scaleCols, orderDesc } = found;
+    const firstScoreCol = Math.min(...scaleCols);
+    const ratingsByIndex = orderDesc ? [5, 4, 3, 2, 1] : [1, 2, 3, 4, 5];
 
-  const { headerRowIdx, scaleCols, orderDesc } = found;
-  const firstScoreCol = Math.min(...scaleCols);
-  const ratingsByIndex = orderDesc ? [5,4,3,2,1] : [1,2,3,4,5];
+    const answers = [];
+    let itemSeq = 1;
 
-  const answers = [];
-  let itemSeq = 1;
+    for (let r = headerRowIdx + 1; r < rows.length; r++) {
+      const row = rows[r] || [];
+      const textPart = safeString(
+        row
+          .slice(0, firstScoreCol)
+          .map(safeString)
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim()
+      );
 
-  for (let r = headerRowIdx + 1; r < rows.length; r++) {
-    const row = rows[r] || [];
-    const textPart = safeString(
-      row
-        .slice(0, firstScoreCol)
-        .map(safeString)
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim()
-    );
+      const scoreCells = scaleCols.map((c) => row[c]);
 
-    const scoreCells = scaleCols.map((c) => row[c]);
+      const rowLooksEmpty =
+        !textPart && scoreCells.every((v) => safeString(v) === "");
+      if (rowLooksEmpty) continue;
+      if (/รวม|สรุป|เฉลี่ย/i.test(textPart)) continue;
 
-    const rowLooksEmpty = !textPart && scoreCells.every((v) => safeString(v) === "");
-    if (rowLooksEmpty) continue;
-    if (/รวม|สรุป|เฉลี่ย/i.test(textPart)) continue;
-
-    // 1) ถ้ามี "ติ๊ก" ชัดเจนอยู่คอลัมน์เดียว ให้ใช้คอลัมน์นั้น
-    let markIdx = -1;
-    const flags = scoreCells.map(isMarked);
-    if (flags.filter(Boolean).length === 1) {
-      markIdx = flags.findIndex(Boolean);
-    }
-
-    // 2) ถ้าไม่พบ "ติ๊ก" ให้ลองดูว่ามี "ตัวเลขคะแนน (1..5)" ใต้หัวเพียงคอลัมน์เดียวไหม
-    if (markIdx === -1) {
-      const nums = scoreCells.map((v) => {
-        const m = safeString(v).match(/\d+/);
-        const n = m ? Number(m[0]) : NaN;
-        return [1,2,3,4,5].includes(n) ? n : null;
-      });
-      const indicesWithNum = nums
-        .map((n, i) => (n ? i : -1))
-        .filter((i) => i !== -1);
-      if (indicesWithNum.length === 1) {
-        markIdx = indicesWithNum[0];
+      let markIdx = -1;
+      const flags = scoreCells.map(isMarked);
+      if (flags.filter(Boolean).length === 1) {
+        markIdx = flags.findIndex(Boolean);
       }
+
+      if (markIdx === -1) {
+        const nums = scoreCells.map((v) => {
+          const m = safeString(v).match(/\d+/);
+          const n = m ? Number(m[0]) : NaN;
+          return [1, 2, 3, 4, 5].includes(n) ? n : null;
+        });
+        const indicesWithNum = nums
+          .map((n, i) => (n ? i : -1))
+          .filter((i) => i !== -1);
+        if (indicesWithNum.length === 1) {
+          markIdx = indicesWithNum[0];
+        }
+      }
+
+      if (markIdx === -1) continue;
+
+      const rating = ratingsByIndex[markIdx];
+
+      let itemText = textPart;
+      if (!itemText) {
+        const pick =
+          row.slice(0, firstScoreCol).find((t) => {
+            const s = safeString(t);
+            return s && !/^\d+(\.\d+)?$/.test(s);
+          }) || "";
+        itemText = pick.toString().trim() || "ไม่ระบุหัวข้อ";
+      }
+
+      answers.push({
+        section: null,
+        itemCode: String(itemSeq++),
+        itemText,
+        rating,
+      });
     }
 
-    // 3) ถ้ายังเดาไม่ได้ ให้ข้ามแถวนี้ (ไม่ใช่แถวคำถามหรือไม่มีคะแนน)
-    if (markIdx === -1) continue;
-
-    const rating = ratingsByIndex[markIdx];
-
-    // itemText: ถ้า textPart ว่าง ลองหาคอลัมน์ก่อนหน้าที่เป็นข้อความจริง ๆ
-    let itemText = textPart;
-    if (!itemText) {
-      const pick = (row.slice(0, firstScoreCol).find((t) => {
-        const s = safeString(t);
-        return s && !/^\d+(\.\d+)?$/.test(s);
-      }) || "").toString().trim();
-      itemText = pick || "ไม่ระบุหัวข้อ";
-    }
-
-    answers.push({
-      section: null,
-      itemCode: String(itemSeq++),
-      itemText,
-      rating,
-    });
+    if (answers.length > 0) return answers;
   }
 
-  return answers;
+  // ถ้าไม่เจอรูปแบบเก่า หรือดึงไม่ได้ → ลองใช้รูปแบบใหม่ (แนวนอน)
+  return extractAnswersFromHorizontalSheet(rows);
 }
+
 /* ===================== โค้ดใหม่ที่สำคัญ: จบ ===================== */
 
 // POST /api/evaluations/import (multipart/form-data: file=.xlsx)
 const importEvaluationExcel = async (req, res) => {
   if (!req.file || !req.file.path) {
-    return res.status(400).json({ message: "กรุณาอัปโหลดไฟล์ Excel ในฟิลด์ 'file'" });
+    return res
+      .status(400)
+      .json({ message: "กรุณาอัปโหลดไฟล์ Excel ในฟิลด์ 'file'" });
   }
 
   const filePath = req.file.path;
@@ -363,27 +702,70 @@ const importEvaluationExcel = async (req, res) => {
     const wb = XLSX.readFile(filePath);
     const ws = wb.Sheets[wb.SheetNames[0]];
     // ใช้ raw:false เพื่อให้ได้ค่าข้อความตามรูปแบบที่เห็น (เช่น วันที่ภาษาไทย)
-    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false });
+    const rows = XLSX.utils.sheet_to_json(ws, {
+      header: 1,
+      defval: "",
+      raw: false,
+    });
 
     const { subject, teacherName } = pickHeaderInfo(rows);
     const { evaluatorName, evaluatorUnit, evaluatedAt } = pickEvaluatorInfo(rows);
-    const answers = extractAnswers(rows);
 
-    if (answers.length === 0) {
-      return res.status(400).json({ message: "ไม่พบรายการคำถาม/คะแนนในไฟล์ที่อัปโหลด" });
-    }
-
-    // หาก client ส่ง teacherId มา จะพยายามแนบ
+    // หาก client ส่ง teacherId มา จะพยายามแนบ (ใช้ร่วมกับทั้งหลายคนและคนเดียว)
     let teacherId = undefined;
     if (req.body && req.body.teacherId) {
-      // รองรับกรณีถูกส่งมาเป็นสตริงมีอัญประกาศ/เลขไทย เช่น "1"/'1'/"๑"
       let raw = thaiDigitsToArabic(String(req.body.teacherId)).trim();
       raw = raw.replace(/^\s*["']+|["']+\s*$/g, "");
       const idNum = Number(raw);
       if (!Number.isNaN(idNum)) {
-        const t = await prisma.user.findUnique({ where: { id: idNum }, select: { id: true } });
+        const t = await prisma.user.findUnique({
+          where: { id: idNum },
+          select: { id: true },
+        });
         if (t) teacherId = idNum;
       }
+    }
+
+    // รองรับหลายผู้ประเมินแบบแนวนอน (รายชื่อ/สังกัด + คะแนนหลายคอลัมน์)
+    const multiRespondents = extractMultipleRespondentSheets(rows);
+    if (multiRespondents.length > 0) {
+      const createdSheets = await Promise.all(
+        multiRespondents.map((resp) =>
+          prisma.evaluationSheet.create({
+            data: {
+              subject,
+              teacherName,
+              teacherId,
+              evaluatorName: resp.evaluatorName || "ไม่ระบุ",
+              evaluatorUnit: resp.evaluatorUnit || evaluatorUnit || null,
+              evaluatedAt,
+              answers: {
+                create: resp.answers.map((a) => ({
+                  section: a.section,
+                  itemCode: a.itemCode,
+                  itemText: a.itemText,
+                  rating: a.rating,
+                })),
+              },
+            },
+            include: { answers: true },
+          })
+        )
+      );
+
+      return res.status(201).json({
+        message: "นำเข้าข้อมูลแบบประเมินสำเร็จ",
+        sheets: createdSheets,
+        sheet: createdSheets[0],
+      });
+    }
+
+    const answers = extractAnswers(rows);
+
+    if (answers.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "ไม่พบรายการคำถาม/คะแนนในไฟล์ที่อัปโหลด" });
     }
 
     const created = await prisma.evaluationSheet.create({
@@ -411,7 +793,9 @@ const importEvaluationExcel = async (req, res) => {
       sheet: created,
     });
   } catch (err) {
-    res.status(500).json({ message: "นำเข้าข้อมูลล้มเหลว", detail: err.message });
+    res
+      .status(500)
+      .json({ message: "นำเข้าข้อมูลล้มเหลว", detail: err.message });
   } finally {
     try {
       fs.existsSync(filePath) && fs.unlinkSync(filePath);
@@ -653,9 +1037,7 @@ const downloadEvaluationTemplate = async (_req, res) => {
     await fs.promises.access(templatePath, fs.constants.R_OK);
     res.download(templatePath, "evaluation-template.xlsx", (err) => {
       if (err && !res.headersSent) {
-        res
-          .status(500)
-          .json({ message: "ไม่สามารถดาวน์โหลดไฟล์เทมเพลตได้" });
+        res.status(500).json({ message: "ไม่สามารถดาวน์โหลดไฟล์เทมเพลตได้" });
       }
     });
   } catch (err) {
