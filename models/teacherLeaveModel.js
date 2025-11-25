@@ -62,36 +62,19 @@ const normalizePayload = (input = {}) => {
     throw err;
   }
 
-  const endOfDay = (date) => {
-    const d = new Date(date);
-    if (Number.isNaN(d.getTime())) return null;
-    const utc = Date.UTC(
-      d.getFullYear(),
-      d.getMonth(),
-      d.getDate(),
-      23,
-      59,
-      59,
-      999
-    );
-    return new Date(utc);
-  };
-
   let endDate = null;
   if (input.endDate) {
     endDate = input.endDate instanceof Date ? input.endDate : new Date(input.endDate);
-    const normalizedEndDate = endOfDay(endDate);
-    if (!normalizedEndDate) {
+    if (Number.isNaN(endDate.getTime())) {
       const err = new Error("รูปแบบวันสิ้นสุดลาไม่ถูกต้อง");
       err.code = "VALIDATION_ERROR";
       throw err;
     }
-    if (normalizedEndDate.getTime() < startDate.getTime()) {
+    if (endDate.getTime() < startDate.getTime()) {
       const err = new Error("วันสิ้นสุดลาต้องไม่น้อยกว่าวันเริ่มลา");
       err.code = "VALIDATION_ERROR";
       throw err;
     }
-    endDate = normalizedEndDate;
   }
 
   let status = undefined;
