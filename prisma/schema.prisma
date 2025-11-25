@@ -217,6 +217,8 @@ model StudentEvaluationTemplate {
   name         String    @db.VarChar(191)
   description  String?   @db.VarChar(255)
   templateType EvaluationTemplateType
+  battalionCount Int?
+  teacherEvaluatorCount Int?
   isActive     Boolean   @default(true)
 
   createdBy   Int?

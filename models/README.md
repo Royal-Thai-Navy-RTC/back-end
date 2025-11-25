@@ -459,6 +459,7 @@ Content-Type: application/json
 - Auth: ADMIN
 - ใช้สร้าง template สำหรับประเมิน (ระบุชื่อ, คำอธิบาย, รายการหมวด + คำถาม)
 - ต้องส่ง `templateType` ชัดเจน: `BATTALION` = ประเมินกองพัน, `COMPANY` = ประเมินกองร้อย (ไม่มีค่าเริ่มต้น)
+- ถ้า `templateType = BATTALION` ต้องส่ง `battalionCount` (จำนวนกองพันที่ต้องการประเมิน) และ `teacherEvaluatorCount` (จำนวนครูผู้ประเมิน) เป็นจำนวนเต็ม > 0
 
 ```http
 POST /api/admin/student-evaluation-templates
@@ -469,6 +470,8 @@ Content-Type: application/json
   "name": "แบบประเมินกองร้อยประจำเดือน",
   "description": "ใช้ทุกกองพัน",
   "templateType": "COMPANY",
+  "battalionCount": 4,
+  "teacherEvaluatorCount": 2,
   "sections": [
     {
       "title": "หมวดวินัย (Discipline)",

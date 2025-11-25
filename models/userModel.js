@@ -284,7 +284,11 @@ const getUserAdminDetail = async (id) => {
       lastSubmittedAt: evaluationAggregate._max?.submittedAt || null,
     },
     leaveStats: {
-      total: leaveGroups.reduce((sum, group) => sum + (group._count?._all || 0), 0),
+      // total นับเฉพาะ APPROVED
+      total: leaveGroups.reduce((sum, group) => {
+        const count = group._count?._all || 0;
+        return group.status === "APPROVED" ? sum + count : sum;
+      }, 0),
       byStatus: leaveByStatus,
       lastLeave: latestLeave || null,
     },

@@ -134,6 +134,56 @@ const normalizeTemplateType = (type) => {
   return raw;
 };
 
+const parsePositiveInt = (value, fieldName) => {
+  const num = Number(value);
+  if (!Number.isInteger(num) || num <= 0) {
+    throwValidationError(`${fieldName} ต้องเป็นจำนวนเต็มมากกว่า 0`);
+  }
+  return num;
+};
+
+const normalizeCountsForCreate = (templateType, input = {}) => {
+  if (templateType === "BATTALION") {
+    return {
+      battalionCount: parsePositiveInt(
+        input.battalionCount,
+        "จำนวนกองพันที่ต้องการประเมิน"
+      ),
+      teacherEvaluatorCount: parsePositiveInt(
+        input.teacherEvaluatorCount,
+        "จำนวนครูผู้ประเมิน"
+      ),
+    };
+  }
+  return { battalionCount: null, teacherEvaluatorCount: null };
+};
+
+const normalizeCountsForUpdate = (
+  templateType,
+  input = {},
+  current = {}
+) => {
+  if (templateType === "BATTALION") {
+    const battalionCount =
+      input.battalionCount !== undefined
+        ? parsePositiveInt(input.battalionCount, "จำนวนกองพันที่ต้องการประเมิน")
+        : current.battalionCount;
+    const teacherEvaluatorCount =
+      input.teacherEvaluatorCount !== undefined
+        ? parsePositiveInt(input.teacherEvaluatorCount, "จำนวนครูผู้ประเมิน")
+        : current.teacherEvaluatorCount;
+
+    if (battalionCount == null || teacherEvaluatorCount == null) {
+      throwValidationError(
+        "ต้องระบุจำนวนกองพันที่ต้องการประเมิน และจำนวนครูผู้ประเมิน สำหรับ templateType = BATTALION"
+      );
+    }
+
+    return { battalionCount, teacherEvaluatorCount };
+  }
+  return { battalionCount: null, teacherEvaluatorCount: null };
+};
+
 const normalizeTemplateInput = (input = {}) => {
   const name = typeof input.name === "string" ? input.name.trim() : "";
   if (!name) {
@@ -144,8 +194,9 @@ const normalizeTemplateInput = (input = {}) => {
       ? input.description.trim() || null
       : null;
   const templateType = normalizeTemplateType(input.templateType);
+  const counts = normalizeCountsForCreate(templateType, input);
   const sections = normalizeSectionPayload(input.sections);
-  return { name, description, sections, templateType };
+  return { name, description, sections, templateType, ...counts };
 };
 
 const templatePayload = (sections) =>
@@ -241,12 +292,21 @@ module.exports = {
   },
 
   createTemplate: async (input = {}) => {
-    const { name, description, sections, templateType } = normalizeTemplateInput(input);
+    const {
+      name,
+      description,
+      sections,
+      templateType,
+      battalionCount,
+      teacherEvaluatorCount,
+    } = normalizeTemplateInput(input);
     return prisma.studentEvaluationTemplate.create({
       data: {
         name,
         description,
         templateType,
+        battalionCount,
+        teacherEvaluatorCount,
         createdBy: input.createdBy ? Number(input.createdBy) : null,
         sections: { create: templatePayload(sections) },
       },
@@ -259,7 +319,23 @@ module.exports = {
     if (!Number.isInteger(templateId)) {
       throwValidationError("id ต้องเป็นตัวเลข");
     }
+    const existing = await prisma.studentEvaluationTemplate.findUnique({
+      where: { id: templateId },
+      select: {
+        templateType: true,
+        battalionCount: true,
+        teacherEvaluatorCount: true,
+      },
+    });
+    if (!existing) {
+      throwValidationError("ไม่พบแบบประเมิน");
+    }
     const data = {};
+    const targetTemplateType =
+      input.templateType !== undefined
+        ? normalizeTemplateType(input.templateType)
+        : existing.templateType;
+
     if (input.name !== undefined) {
       const name = typeof input.name === "string" ? input.name.trim() : "";
       if (!name) {
@@ -276,9 +352,22 @@ module.exports = {
     if (input.isActive !== undefined) {
       data.isActive = Boolean(input.isActive);
     }
-    if (input.templateType !== undefined) {
-      data.templateType = normalizeTemplateType(input.templateType);
-    }
+    data.templateType = targetTemplateType;
+
+    const counts = normalizeCountsForUpdate(
+      targetTemplateType,
+      {
+        battalionCount: input.battalionCount,
+        teacherEvaluatorCount: input.teacherEvaluatorCount,
+      },
+      {
+        battalionCount: existing.battalionCount,
+        teacherEvaluatorCount: existing.teacherEvaluatorCount,
+      }
+    );
+    data.battalionCount = counts.battalionCount;
+    data.teacherEvaluatorCount = counts.teacherEvaluatorCount;
+
     const replaceSections = Array.isArray(input.sections);
     const normalizedSections = replaceSections
       ? normalizeSectionPayload(input.sections)
