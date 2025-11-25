@@ -81,6 +81,11 @@ enum LeaveStatus {
   CANCEL
 }
 
+enum EvaluationTemplateType {
+  COMPANY
+  BATTALION
+}
+
 // --------------------------------------------------
 // USER MODEL (บุคลากร / กำลังพล)
 // --------------------------------------------------
@@ -208,10 +213,11 @@ model EvaluationAnswer {
 // STUDENT EVALUATION MODELS (แบบประเมินนักเรียน)
 // --------------------------------------------------
 model StudentEvaluationTemplate {
-  id          Int       @id @default(autoincrement())
-  name        String    @db.VarChar(191)
-  description String?   @db.VarChar(255)
-  isActive    Boolean   @default(true)
+  id           Int       @id @default(autoincrement())
+  name         String    @db.VarChar(191)
+  description  String?   @db.VarChar(255)
+  templateType EvaluationTemplateType
+  isActive     Boolean   @default(true)
 
   createdBy   Int?
   creator     User?     @relation("TemplateCreators", fields: [createdBy], references: [id])

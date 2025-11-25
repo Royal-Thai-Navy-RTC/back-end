@@ -458,6 +458,7 @@ Content-Type: application/json
 ### POST /api/admin/student-evaluation-templates
 - Auth: ADMIN
 - ใช้สร้าง template สำหรับประเมิน (ระบุชื่อ, คำอธิบาย, รายการหมวด + คำถาม)
+- ต้องส่ง `templateType` ชัดเจน: `BATTALION` = ประเมินกองพัน, `COMPANY` = ประเมินกองร้อย (ไม่มีค่าเริ่มต้น)
 
 ```http
 POST /api/admin/student-evaluation-templates
@@ -467,6 +468,7 @@ Content-Type: application/json
 {
   "name": "แบบประเมินกองร้อยประจำเดือน",
   "description": "ใช้ทุกกองพัน",
+  "templateType": "COMPANY",
   "sections": [
     {
       "title": "หมวดวินัย (Discipline)",
@@ -493,6 +495,7 @@ Content-Type: application/json
 ### GET /api/admin/student-evaluation-templates
 - Auth: ADMIN
 - Query: `includeInactive` (ค่าเริ่มต้น false), `search`
+- แต่ละ template จะคืน `templateType` (BATTALION/COMPANY) เพื่อบ่งบอกประเภทฟอร์มประเมิน
 - คืน template ทั้งหมดพร้อม sections/questions
 
 ### GET /api/admin/student-evaluation-templates/:id

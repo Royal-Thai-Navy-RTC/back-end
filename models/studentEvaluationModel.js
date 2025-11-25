@@ -118,6 +118,22 @@ const normalizeSectionPayload = (sections) => {
   });
 };
 
+const normalizeTemplateType = (type) => {
+  const raw = typeof type === "string" ? type.trim().toUpperCase() : "";
+  const allowed = new Set(["BATTALION", "COMPANY"]);
+  if (!raw) {
+    throwValidationError(
+      "ต้องระบุ templateType (BATTALION=กองพัน, COMPANY=กองร้อย)"
+    );
+  }
+  if (!allowed.has(raw)) {
+    throwValidationError(
+      "templateType ต้องเป็น BATTALION (กองพัน) หรือ COMPANY (กองร้อย)"
+    );
+  }
+  return raw;
+};
+
 const normalizeTemplateInput = (input = {}) => {
   const name = typeof input.name === "string" ? input.name.trim() : "";
   if (!name) {
@@ -127,8 +143,9 @@ const normalizeTemplateInput = (input = {}) => {
     typeof input.description === "string"
       ? input.description.trim() || null
       : null;
+  const templateType = normalizeTemplateType(input.templateType);
   const sections = normalizeSectionPayload(input.sections);
-  return { name, description, sections };
+  return { name, description, sections, templateType };
 };
 
 const templatePayload = (sections) =>
@@ -224,11 +241,12 @@ module.exports = {
   },
 
   createTemplate: async (input = {}) => {
-    const { name, description, sections } = normalizeTemplateInput(input);
+    const { name, description, sections, templateType } = normalizeTemplateInput(input);
     return prisma.studentEvaluationTemplate.create({
       data: {
         name,
         description,
+        templateType,
         createdBy: input.createdBy ? Number(input.createdBy) : null,
         sections: { create: templatePayload(sections) },
       },
@@ -257,6 +275,9 @@ module.exports = {
     }
     if (input.isActive !== undefined) {
       data.isActive = Boolean(input.isActive);
+    }
+    if (input.templateType !== undefined) {
+      data.templateType = normalizeTemplateType(input.templateType);
     }
     const replaceSections = Array.isArray(input.sections);
     const normalizedSections = replaceSections
