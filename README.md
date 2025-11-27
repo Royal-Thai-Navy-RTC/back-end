@@ -168,6 +168,7 @@ Content-Type: application/json
 - `GET /admin/soldier-intakes/:id` (ADMIN) — ดูรายละเอียด intake
 - `PUT /admin/soldier-intakes/:id` (ADMIN) — แก้ไข intake; รองรับอัปโหลดบัตรใหม่ (multipart `file`)
 - `DELETE /admin/soldier-intakes/:id` (ADMIN) — ลบ intake
+- `GET /admin/soldier-intakes-summary` (ADMIN) — สรุปจำนวน `{ total, sixMonths, oneYear, twoYears }` อิง `serviceYears` (<=0.6,==1,==2)
 
 ---
 

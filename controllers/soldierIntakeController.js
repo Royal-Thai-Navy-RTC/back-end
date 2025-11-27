@@ -113,10 +113,21 @@ const deleteIntake = async (req, res) => {
   }
 };
 
+const summary = async (req, res) => {
+  try {
+    const data = await SoldierIntake.summary();
+    res.json({ data });
+  } catch (err) {
+    console.error("Failed to summarize soldier intake", err);
+    res.status(500).json({ message: "ไม่สามารถสรุปข้อมูลได้" });
+  }
+};
+
 module.exports = {
   createIntake,
   listIntakes,
   getIntakeById,
   updateIntake,
   deleteIntake,
+  summary,
 };

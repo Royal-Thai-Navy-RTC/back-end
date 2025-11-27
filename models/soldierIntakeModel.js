@@ -245,4 +245,21 @@ module.exports = {
     }
     await prisma.soldierIntake.delete({ where: { id: intakeId } });
   },
+
+  summary: async () => {
+    ensureModelAvailable();
+    const [total, sixMonths, oneYear, twoYears] = await Promise.all([
+      prisma.soldierIntake.count(),
+      prisma.soldierIntake.count({
+        where: { serviceYears: { lte: 0.6 } },
+      }),
+      prisma.soldierIntake.count({
+        where: { serviceYears: { equals: 1 } },
+      }),
+      prisma.soldierIntake.count({
+        where: { serviceYears: { equals: 2 } },
+      }),
+    ]);
+    return { total, sixMonths, oneYear, twoYears };
+  },
 };

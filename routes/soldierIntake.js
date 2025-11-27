@@ -42,4 +42,11 @@ router.delete(
   soldierIntakeController.deleteIntake
 );
 
+router.get(
+  "/admin/soldier-intakes-summary",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  soldierIntakeController.summary
+);
+
 module.exports = router;
