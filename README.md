@@ -94,10 +94,10 @@ Content-Type: application/json
 
 - Base path `.../api/library`
 - `GET /library` — public list; query `page=1,pageSize<=100,search,category,includeInactive` (ถ้าไม่ส่ง `includeInactive` จะซ่อน `isActive=false`); คืน `{ data, page, pageSize, total, totalPages }` เรียงตาม `updatedAt desc`
-- `POST /library` (ADMIN/OWNER) — body `{ title (required), description?, category?, fileUrl?, coverUrl?, isActive? }`; คืน `{ item }`
-- `PUT /library/:id` (ADMIN/OWNER) — อัปเดตบางส่วน; ต้องไม่ส่ง `title` ว่าง; คืน `{ item }`
+- `POST /library` (ADMIN/OWNER) — `multipart/form-data` พร้อมไฟล์หนังสือ (ฟิลด์ `file`/`book`/`document`, รองรับ PDF/EPUB ไม่เกิน 100MB); body fields `title (required), description?, category?, coverUrl?, isActive?`; ระบบจะสร้าง `fileUrl` ชี้ไปยัง `/uploads/library/...`; คืน `{ item }`
+- `PUT /library/:id` (ADMIN/OWNER) — อัปเดตบางส่วน; ถ้าแนบไฟล์ใหม่จะทับไฟล์เดิม; ต้องไม่ส่ง `title` ว่าง; คืน `{ item }`
 - `DELETE /library/:id` (ADMIN/OWNER) — soft delete ตั้ง `isActive=false`; ตอบ 204
-- ฟิลด์หลัก: `id,title,description?,category?,fileUrl?,coverUrl?,isActive,createdAt,updatedAt`
+- ฟิลด์หลัก: `id,title,description?,category?,fileUrl,coverUrl?,isActive,createdAt,updatedAt`
 
 ---
 

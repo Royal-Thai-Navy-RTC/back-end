@@ -65,11 +65,16 @@ const normalizeCreateInput = (input = {}) => {
     throw validationError("isActive ต้องเป็นค่า true/false");
   }
 
+  const fileUrl = toNullableString(input.fileUrl);
+  if (!fileUrl) {
+    throw validationError("ต้องอัปโหลดไฟล์หนังสือ");
+  }
+
   return {
     title,
     description: toNullableString(input.description),
     category: toNullableString(input.category),
-    fileUrl: toNullableString(input.fileUrl),
+    fileUrl,
     coverUrl: toNullableString(input.coverUrl),
     isActive: isActive !== undefined ? isActive : true,
   };
@@ -91,7 +96,12 @@ const normalizeUpdateInput = (input = {}) => {
   if (category !== undefined) data.category = category;
 
   const fileUrl = toNullableString(input.fileUrl);
-  if (fileUrl !== undefined) data.fileUrl = fileUrl;
+  if (fileUrl !== undefined) {
+    if (!fileUrl) {
+      throw validationError("ต้องส่งไฟล์หนังสือใหม่หรือไม่ส่งฟิลด์ fileUrl");
+    }
+    data.fileUrl = fileUrl;
+  }
 
   const coverUrl = toNullableString(input.coverUrl);
   if (coverUrl !== undefined) data.coverUrl = coverUrl;
@@ -203,5 +213,17 @@ module.exports = {
       where: { id: itemId },
       data: { isActive: false },
     });
+  },
+
+  getLibraryItemById: async (id) => {
+    const itemId = parseId(id);
+    const item = await prisma.libraryItem.findUnique({
+      where: { id: itemId },
+      select: baseSelect,
+    });
+    if (!item) {
+      throw notFoundError();
+    }
+    return item;
   },
 };

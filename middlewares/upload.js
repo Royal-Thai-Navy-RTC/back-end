@@ -11,8 +11,10 @@ const ensureDir = (dir) => {
 const uploadRoot = path.join(__dirname, "..", "uploads");
 const avatarDir = path.join(uploadRoot, "avatars");
 const excelDir = path.join(uploadRoot, "evaluations");
+const libraryDir = path.join(uploadRoot, "library");
 ensureDir(avatarDir);
 ensureDir(excelDir);
+ensureDir(libraryDir);
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -76,7 +78,73 @@ const avatarUploadOne = (req, res, next) => {
   });
 };
 
-module.exports = { avatarUpload, avatarUploadOne, uploadRoot };
+// -----------------------------
+// Library upload (book/document)
+// -----------------------------
+const bookStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, libraryDir);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase() || ".pdf";
+    const safeName =
+      path
+        .basename(file.originalname, ext)
+        .replace(/[^a-zA-Z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase() || "book";
+    const ts = Date.now();
+    cb(null, `book-${ts}-${safeName}${ext}`);
+  },
+});
+
+const bookFileFilter = (req, file, cb) => {
+  const allowedExt = new Set([".pdf", ".epub"]);
+  const allowedMime = new Set([
+    "application/pdf",
+    "application/epub+zip",
+    "application/octet-stream", // บาง client ส่งเป็น octet-stream
+  ]);
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (!allowedExt.has(ext) && !allowedMime.has(file.mimetype)) {
+    return cb(new Error("รองรับไฟล์ PDF หรือ EPUB เท่านั้น"));
+  }
+  cb(null, true);
+};
+
+const bookUploadLimits = { fileSize: 100 * 1024 * 1024 }; // 100MB
+const libraryUpload = multer({
+  storage: bookStorage,
+  fileFilter: bookFileFilter,
+  limits: bookUploadLimits,
+});
+
+// ยอมรับหลายชื่อฟิลด์และ map เป็น req.file
+const libraryUploadOne = (req, res, next) => {
+  const uploadAny = libraryUpload.any();
+  uploadAny(req, res, (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res
+          .status(400)
+          .json({ message: "ไฟล์ต้องมีขนาดไม่เกิน 100MB" });
+      }
+      return res.status(400).json({ message: err.message });
+    }
+    if (!Array.isArray(req.files)) return next();
+    const prefer = ["file", "book", "document", "upload"];
+    let picked = null;
+    for (const name of prefer) {
+      picked = req.files.find((f) => f.fieldname === name);
+      if (picked) break;
+    }
+    if (!picked) picked = req.files[0];
+    if (picked) req.file = picked;
+    next();
+  });
+};
+
+module.exports = { avatarUpload, avatarUploadOne, uploadRoot, libraryUploadOne };
 
 // -----------------------------
 // Excel upload for evaluations
