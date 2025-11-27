@@ -12,9 +12,11 @@ const uploadRoot = path.join(__dirname, "..", "uploads");
 const avatarDir = path.join(uploadRoot, "avatars");
 const excelDir = path.join(uploadRoot, "evaluations");
 const libraryDir = path.join(uploadRoot, "library");
+const idCardDir = path.join(uploadRoot, "idcards");
 ensureDir(avatarDir);
 ensureDir(excelDir);
 ensureDir(libraryDir);
+ensureDir(idCardDir);
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -198,3 +200,56 @@ const excelUploadOne = (req, res, next) => {
 };
 
 module.exports.excelUploadOne = excelUploadOne;
+
+// -----------------------------
+// ID card upload (soldier intake)
+// -----------------------------
+const idCardStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, idCardDir);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
+    const safeName =
+      path
+        .basename(file.originalname, ext)
+        .replace(/[^a-zA-Z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase() || "idcard";
+    const ts = Date.now();
+    cb(null, `idcard-${ts}-${safeName}${ext}`);
+  },
+});
+
+const idCardFileFilter = (req, file, cb) => {
+  const allowed = new Set(["image/png", "image/jpeg", "image/webp", "application/octet-stream"]);
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (!allowed.has(file.mimetype) && ![".png", ".jpg", ".jpeg", ".webp"].includes(ext)) {
+    return cb(new Error("รองรับไฟล์รูป .png .jpg .jpeg .webp เท่านั้น"));
+  }
+  cb(null, true);
+};
+
+const idCardUpload = multer({
+  storage: idCardStorage,
+  fileFilter: idCardFileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
+
+const idCardUploadOne = (req, res, next) => {
+  const uploadAny = idCardUpload.any();
+  uploadAny(req, res, (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ message: "ไฟล์ต้องไม่เกิน 10MB" });
+      }
+      return res.status(400).json({ message: err.message });
+    }
+    if (Array.isArray(req.files) && req.files.length) {
+      req.file = req.files[0];
+    }
+    next();
+  });
+};
+
+module.exports.idCardUploadOne = idCardUploadOne;

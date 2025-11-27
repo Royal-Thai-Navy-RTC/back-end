@@ -1,0 +1,45 @@
+const express = require("express");
+const middleware = require("../middlewares/middleware");
+const { idCardUploadOne } = require("../middlewares/upload");
+const soldierIntakeController = require("../controllers/soldierIntakeController");
+
+const router = express.Router();
+
+// รับข้อมูลทหารใหม่ (public form)
+router.post(
+  "/soldier-intakes",
+  idCardUploadOne,
+  soldierIntakeController.createIntake
+);
+
+// สำหรับแอดมินดูรายการ
+router.get(
+  "/admin/soldier-intakes",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  soldierIntakeController.listIntakes
+);
+
+router.get(
+  "/admin/soldier-intakes/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  soldierIntakeController.getIntakeById
+);
+
+router.put(
+  "/admin/soldier-intakes/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  idCardUploadOne,
+  soldierIntakeController.updateIntake
+);
+
+router.delete(
+  "/admin/soldier-intakes/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  soldierIntakeController.deleteIntake
+);
+
+module.exports = router;

@@ -161,7 +161,17 @@ Content-Type: application/json
 
 ---
 
-## 12) Evaluations – แบบประเมินครู
+## 12) Soldier Intake – บันทึกข้อมูลทหารใหม่
+
+- `POST /soldier-intakes` — public form + upload บัตรประชาชน (multipart ฟิลด์ไฟล์ `file`); body fields: `firstName,lastName,citizenId,birthDate` (required) และ `weightKg,heightCm,serviceYears,bloodGroup,education,previousJob,religion,canSwim,specialSkills,addressLine,province,district,subdistrict,postalCode,email,phone,emergencyName,emergencyPhone,chronicDiseases[],foodAllergies[],drugAllergies[],medicalNotes`; ระบบบันทึก `idCardImageUrl` ไปที่ `/uploads/idcards/...`
+- `GET /admin/soldier-intakes` (ADMIN) — query `page,pageSize,search` (ค้นหา firstName,lastName,citizenId,phone)
+- `GET /admin/soldier-intakes/:id` (ADMIN) — ดูรายละเอียด intake
+- `PUT /admin/soldier-intakes/:id` (ADMIN) — แก้ไข intake; รองรับอัปโหลดบัตรใหม่ (multipart `file`)
+- `DELETE /admin/soldier-intakes/:id` (ADMIN) — ลบ intake
+
+---
+
+## 13) Evaluations – แบบประเมินครู
 
 - `POST /evaluations/import` — upload Excel (`file`/`excel`/`upload`/`sheet`)
 - `GET /evaluations` — query `page,pageSize,teacherId,subject,teacherName,evaluatorName,search`
@@ -172,7 +182,7 @@ Content-Type: application/json
 
 ---
 
-## 13) Student Evaluations – แบบประเมินกองร้อย
+## 14) Student Evaluations – แบบประเมินกองร้อย
 
 Template (ADMIN):
 
