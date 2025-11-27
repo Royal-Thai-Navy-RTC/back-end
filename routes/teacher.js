@@ -2,6 +2,7 @@ const express = require("express");
 const middleware = require("../middlewares/middleware");
 const teacherReportController = require("../controllers/teacherReportController");
 const teacherLeaveController = require("../controllers/teacherLeaveController");
+const teacherNotificationController = require("../controllers/teacherNotificationController");
 
 const router = express.Router();
 
@@ -52,6 +53,20 @@ router.patch(
   middleware.verifyToken,
   middleware.authorizeTeacher,
   teacherLeaveController.cancelMyLeave
+);
+
+router.get(
+  "/teacher/notifications",
+  middleware.verifyToken,
+  middleware.authorizeTeacher,
+  teacherNotificationController.getTeacherNotifications
+);
+
+router.patch(
+  "/teacher/notifications/read",
+  middleware.verifyToken,
+  middleware.authorizeTeacher,
+  teacherNotificationController.markTeacherNotificationsRead
 );
 
 module.exports = router;

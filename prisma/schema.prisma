@@ -160,6 +160,9 @@ model User {
   // แบบประเมินนักเรียน
   studentEvaluationsAuthored StudentEvaluation[] @relation("StudentEvaluationEvaluator")
   studentEvaluationTemplates StudentEvaluationTemplate[] @relation("TemplateCreators")
+
+  // แจ้งเตือนที่อ่านแล้ว
+  notificationReads NotificationRead[]
 }
 
 // --------------------------------------------------
@@ -398,4 +401,19 @@ model LibraryItem {
   @@index([category])
   @@index([isActive])
   @@index([updatedAt])
+}
+
+// --------------------------------------------------
+// NOTIFICATION READ STATES
+// --------------------------------------------------
+model NotificationRead {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  notificationId String   @db.VarChar(255)
+  readAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, notificationId])
+  @@index([userId])
 }

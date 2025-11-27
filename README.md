@@ -114,6 +114,7 @@ Content-Type: application/json
 
 - `POST /teacher/training-reports`
 - `GET /teacher/training-reports/latest` — query `limit` (default 5, max 20)
+  - การส่งยอดต้องผูกกับตารางสอน: `subject` ต้องตรงกับ `title` ของ TeachingSchedule ของครูในวันนั้น มิฉะนั้นระบบจะไม่รับ
 
 ---
 
@@ -127,7 +128,31 @@ Content-Type: application/json
 
 ---
 
-## 9) Owner – อนุมัติขั้นสุดท้าย (OWNER)
+## 9) Teacher – แจ้งเตือนงานคาบเรียน/ประเมินผล (TEACHER)
+
+- `GET /teacher/notifications` — ต้องใช้ token ครูผู้สอน; คืน reminder อัตโนมัติ (ไม่เก็บสถานะอ่าน)
+  - ประเภท `TRAINING_REPORT_MISSING`: แจ้งเตือนส่งยอดนักเรียนก่อนเริ่มคาบ (เริ่มแจ้งล่วงหน้า 60 นาที ถ้ายังไม่มี TrainingReport ในวันเดียวกัน)
+  - ประเภท `STUDENT_EVALUATION_MISSING`: แจ้งเตือนบันทึกผลประเมินนักเรียนหลังคาบ (เริ่มแจ้งล่วงหน้า 30 นาที ก่อนจบคาบ ถ้ายังไม่มี StudentEvaluation ในวันเดียวกัน)
+  - อ้างอิงตารางสอน “วันนี้” ของครูเท่านั้น
+  - query `page=1,pageSize<=50`; คืน `{ data, page, pageSize, total, totalPages }` โดยเรียงตาม `dueAt desc`
+  - payload: `{ id,type,title,message,source,status,dueAt,schedule:{ id,title,start,end,location,companyCode,battalionCode } }` (เวลาใน response เป็น UTC+7)
+- `PATCH /teacher/notifications/read` — body `{ ids: [string] }` เพื่อทำสถานะอ่าน (บันทึกลงฐาน)
+
+---
+
+## 10) Owner – แจ้งเตือนครูที่ยังไม่ส่ง/ประเมิน (OWNER)
+
+- `GET /owner/notifications` — ต้องใช้ token OWNER; คืน reminder อัตโนมัติของคาบที่สอนเสร็จแล้วภายใน 14 วันที่ผ่านมา (มองล่วงหน้า 1 วัน)
+  - `TRAINING_REPORT_MISSING`: ครูยังไม่ส่งยอดนักเรียนในวันเดียวกับคาบสอน
+  - `STUDENT_EVALUATION_MISSING`: ครูยังไม่บันทึกผลประเมินนักเรียนในวันเดียวกับคาบสอน
+  - อ้างอิงตารางสอน “วันนี้” เท่านั้น และจะแจ้งเมื่อคาบจบแล้ว
+  - query `page=1,pageSize<=100`; คืน `{ data, page, pageSize, total, totalPages }` เรียงตาม `dueAt desc`
+  - payload: `{ id,type,title,message,source,status,dueAt,teacher:{id,name,rank},schedule:{ id,title,start,end,location,companyCode,battalionCode } }` (เวลาใน response เป็น UTC+7)
+- `PATCH /owner/notifications/read` — body `{ ids: [string] }` เพื่อทำสถานะอ่าน (บันทึกลงฐาน)
+
+---
+
+## 11) Owner – อนุมัติขั้นสุดท้าย (OWNER)
 
 - `GET /owner/teacher-leaves` — query `status,limit` (เฉพาะที่ admin อนุมัติแล้ว)
 - `PATCH /owner/teacher-leaves/:id/status`
@@ -136,7 +161,7 @@ Content-Type: application/json
 
 ---
 
-## 10) Evaluations – แบบประเมินครู
+## 12) Evaluations – แบบประเมินครู
 
 - `POST /evaluations/import` — upload Excel (`file`/`excel`/`upload`/`sheet`)
 - `GET /evaluations` — query `page,pageSize,teacherId,subject,teacherName,evaluatorName,search`
@@ -147,7 +172,7 @@ Content-Type: application/json
 
 ---
 
-## 11) Student Evaluations – แบบประเมินกองร้อย
+## 13) Student Evaluations – แบบประเมินกองร้อย
 
 Template (ADMIN):
 

@@ -65,8 +65,54 @@ const validatePayload = (input = {}) => {
   return normalized;
 };
 
+const bangkokDayRangeUtc = (date) => {
+  const d = new Date(date);
+  const offsetMs = 7 * 60 * 60 * 1000;
+  const local = new Date(d.getTime() + offsetMs);
+  const startLocal = Date.UTC(
+    local.getUTCFullYear(),
+    local.getUTCMonth(),
+    local.getUTCDate()
+  );
+  const startUtc = new Date(startLocal - offsetMs);
+  const endUtc = new Date(startUtc.getTime() + 24 * 60 * 60 * 1000);
+  return { startUtc, endUtc };
+};
+
+const findScheduleForReport = async ({ teacherId, trainingDate, subject }) => {
+  const { startUtc, endUtc } = bangkokDayRangeUtc(trainingDate);
+  return prisma.teachingSchedule.findFirst({
+    where: {
+      teacherId: teacherId,
+      start: { gte: startUtc, lt: endUtc },
+      title: { equals: subject, mode: "insensitive" },
+    },
+    select: {
+      id: true,
+      title: true,
+      start: true,
+      end: true,
+    },
+  });
+};
+
 const createTrainingReport = async (input) => {
   const data = validatePayload(input);
+  const schedule = await findScheduleForReport(data);
+  if (!schedule) {
+    const err = new Error("ไม่พบตารางสอนในระบบสำหรับวิชานี้ในวันที่ระบุ");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  // ถ้ายังไม่ได้ระบุเวลา ให้ดึงเวลาจากตารางสอนเพื่อให้ข้อมูลสม่ำเสมอ
+  if (!data.trainingTime && schedule.start) {
+    const start = new Date(schedule.start);
+    const hh = String(start.getHours()).padStart(2, "0");
+    const mm = String(start.getMinutes()).padStart(2, "0");
+    data.trainingTime = `${hh}:${mm}`;
+  }
+
   return prisma.trainingReport.create({
     data,
   });
