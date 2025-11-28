@@ -72,6 +72,18 @@ const normalizeBloodGroup = (value) => {
   return normalized;
 };
 
+const EDUCATION_OPTIONS = [
+  { value: "ปริญญาเอก", label: "ปริญญาเอก" },
+  { value: "ปริญญาโท", label: "ปริญญาโท" },
+  { value: "ปริญญาตรี", label: "ปริญญาตรี" },
+  { value: "ปวช.", label: "ปวช." },
+  { value: "ปวส.", label: "ปวส." },
+  { value: "มัธยมศึกษาปีที่ 6", label: "มัธยมศึกษาปีที่ 6" },
+  { value: "มัธยมศึกษาปีที่ 3", label: "มัธยมศึกษาปีที่ 3" },
+  { value: "ประถมศึกษาปีที่ 6", label: "ประถมศึกษาปีที่ 6" },
+  { value: "ต่ำกว่าประถมศึกษาปีที่ 6", label: "ต่ำกว่าประถมศึกษาปีที่ 6" },
+];
+
 const normalizeInput = (input = {}) => {
   const firstName = normalizeString(input.firstName);
   const lastName = normalizeString(input.lastName);
@@ -248,7 +260,7 @@ module.exports = {
 
   summary: async () => {
     ensureModelAvailable();
-    const [total, sixMonths, oneYear, twoYears] = await Promise.all([
+    const [total, sixMonths, oneYear, twoYears, educationGroups] = await Promise.all([
       prisma.soldierIntake.count(),
       prisma.soldierIntake.count({
         where: { serviceYears: { lte: 0.6 } },
@@ -259,7 +271,16 @@ module.exports = {
       prisma.soldierIntake.count({
         where: { serviceYears: { equals: 2 } },
       }),
+      prisma.soldierIntake.groupBy({
+        by: ["education"],
+        _count: { education: true },
+        where: { education: { not: null } },
+      }),
     ]);
-    return { total, sixMonths, oneYear, twoYears };
+    const educationCounts = EDUCATION_OPTIONS.map((option) => {
+      const matched = educationGroups.find((item) => item.education === option.value);
+      return { ...option, count: matched?._count.education || 0 };
+    });
+    return { total, sixMonths, oneYear, twoYears, educationCounts };
   },
 };
