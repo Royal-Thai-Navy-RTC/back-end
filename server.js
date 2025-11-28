@@ -10,11 +10,9 @@ const config = require("./config");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Restrict trusted proxies to avoid IP spoofing (required by express-rate-limit)
 const TRUST_PROXY = process.env.TRUST_PROXY || "loopback";
 app.set("trust proxy", TRUST_PROXY);
 
-// Enable CORS for all origins and standard headers/methods
 app.use(cors());
 app.use(morgan("dev"));
 
@@ -29,38 +27,43 @@ const apiRateLimiter = rateLimit({
     });
   },
 });
+
 app.use(
   bodyParser.json({
     limit: process.env.REQUEST_BODY_LIMIT || "10mb",
   })
 );
+
 app.use(
   bodyParser.urlencoded({
     limit: process.env.REQUEST_BODY_LIMIT || "10mb",
     extended: true,
   })
 );
-// Serve uploaded files publicly with aggressive caching for static assets
+
+// ---------- Static uploads ----------
 const uploadsDir = path.join(__dirname, "uploads");
 app.use(
   "/uploads",
   express.static(uploadsDir, {
     setHeaders: (res, filePath) => {
       if (/\.(png|jpe?g|webp|gif|svg)$/i.test(filePath)) {
-        // Avatar/ภาพให้ cache ยาวนาน เพื่อลดการยิงซ้ำ
-        res.setHeader(
-          "Cache-Control",
-          "public, max-age=31536000, immutable"
-        );
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
       } else {
-        // ไฟล์อื่น cache พอประมาณ
         res.setHeader("Cache-Control", "public, max-age=86400");
       }
     },
   })
 );
+
+// ---------- API ----------
 app.use("/api", apiRateLimiter, routes);
 
+// ---------- Static dist (Frontend) ----------
+const distPath = path.join(__dirname, "dist");
+app.use(express.static(distPath));
+
+// ---------- Start Server ----------
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
