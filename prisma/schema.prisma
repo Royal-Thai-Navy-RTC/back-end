@@ -84,6 +84,7 @@ enum LeaveStatus {
 enum EvaluationTemplateType {
   COMPANY
   BATTALION
+  SERVICE
 }
 
 // --------------------------------------------------
@@ -274,6 +275,8 @@ model StudentEvaluation {
   battalionCode String   @db.VarChar(32) // กองพัน
   subject      String?   @db.VarChar(191) // วิชาที่ใช้ประเมิน
   evaluationPeriod DateTime @default(now()) // วันที่/รอบการประเมิน
+  evaluationRound String? @db.VarChar(100) // รอบการประเมิน (เช่น ไตรมาส 1/2568)
+  evaluatorName  String?  @db.VarChar(150) // ชื่อผู้ประเมิน (สำหรับ SERVICE)
 
   summary      String?   @db.Text
   overallScore Int?

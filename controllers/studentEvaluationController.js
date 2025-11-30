@@ -16,6 +16,7 @@ const createEvaluation = async (req, res) => {
     const evaluation = await StudentEvaluationModel.createEvaluation({
       ...req.body,
       evaluatorId: req.userId,
+      evaluatorRole: req.userRole,
     });
     res.status(201).json({ evaluation });
   } catch (err) {
@@ -83,7 +84,7 @@ const updateEvaluation = async (req, res) => {
   try {
     const evaluation = await StudentEvaluationModel.updateEvaluation(
       req.params.id,
-      req.body
+      { ...req.body, evaluatorRole: req.userRole }
     );
     res.json({ evaluation });
   } catch (err) {

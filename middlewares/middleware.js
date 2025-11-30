@@ -112,6 +112,8 @@ module.exports = {
       if (!(adminRoleSet.has(user.role) || teacherRoleSet.has(user.role))) {
         return res.status(403).json({ message: "Admin/Teacher only" });
       }
+      // Attach latest role for downstream handlers/validators
+      req.userRole = user.role;
       next();
     } catch (e) {
       return res.status(500).json({ message: "Authorization error" });

@@ -120,15 +120,15 @@ const normalizeSectionPayload = (sections) => {
 
 const normalizeTemplateType = (type) => {
   const raw = typeof type === "string" ? type.trim().toUpperCase() : "";
-  const allowed = new Set(["BATTALION", "COMPANY"]);
+  const allowed = new Set(["BATTALION", "COMPANY", "SERVICE"]);
   if (!raw) {
     throwValidationError(
-      "ต้องระบุ templateType (BATTALION=กองพัน, COMPANY=กองร้อย)"
+      "ต้องระบุ templateType (BATTALION=กองพัน, COMPANY=กองร้อย, SERVICE=ราชการ/รายบุคคล)"
     );
   }
   if (!allowed.has(raw)) {
     throwValidationError(
-      "templateType ต้องเป็น BATTALION (กองพัน) หรือ COMPANY (กองร้อย)"
+      "templateType ต้องเป็น BATTALION (กองพัน), COMPANY (กองร้อย) หรือ SERVICE (ราชการ/รายบุคคล)"
     );
   }
   return raw;
@@ -430,24 +430,63 @@ module.exports = {
     if (!template.isActive) {
       throwValidationError("แบบประเมินนี้ถูกปิดการใช้งาน");
     }
+    if (template.templateType === "SERVICE" && input.evaluatorRole !== "OWNER") {
+      throwValidationError("แบบประเมินนี้อนุญาตให้ OWNER ส่งผลเท่านั้น");
+    }
+    const isServiceTemplate = template.templateType === "SERVICE";
     const subject =
       typeof input.subject === "string" ? input.subject.trim() : "";
     if (!subject) {
       throwValidationError("ต้องระบุวิชาที่ประเมิน");
     }
-    const companyCode =
-      typeof input.companyCode === "string"
-        ? input.companyCode.trim().toUpperCase()
-        : "";
-    const battalionCode =
-      typeof input.battalionCode === "string"
-        ? input.battalionCode.trim().toUpperCase()
-        : "";
+    const companyCode = (() => {
+      const val =
+        typeof input.companyCode === "string"
+          ? input.companyCode.trim().toUpperCase()
+          : "";
+      if (isServiceTemplate) return val || "SERVICE";
+      return val;
+    })();
+    const battalionCode = (() => {
+      const val =
+        typeof input.battalionCode === "string"
+          ? input.battalionCode.trim().toUpperCase()
+          : "";
+      if (isServiceTemplate) return val || "SERVICE";
+      return val;
+    })();
     if (!companyCode) {
       throwValidationError("ต้องระบุรหัสกองร้อย");
     }
     if (!battalionCode) {
       throwValidationError("ต้องระบุรหัสกองพัน");
+    }
+    const evaluationPeriod = (() => {
+      if (input.evaluationPeriod) {
+        const dt = new Date(input.evaluationPeriod);
+        if (Number.isNaN(dt.getTime())) {
+          throwValidationError("รูปแบบวันที่ประเมินไม่ถูกต้อง");
+        }
+        return dt;
+      }
+      if (isServiceTemplate) {
+        throwValidationError("ต้องระบุวันที่ประเมินสำหรับเทมเพลต SERVICE");
+      }
+      return new Date();
+    })();
+    const evaluationRound =
+      typeof input.evaluationRound === "string"
+        ? input.evaluationRound.trim()
+        : "";
+    if (isServiceTemplate && !evaluationRound) {
+      throwValidationError("ต้องระบุรอบการประเมินสำหรับเทมเพลต SERVICE");
+    }
+    const evaluatorName =
+      typeof input.evaluatorName === "string"
+        ? input.evaluatorName.trim()
+        : "";
+    if (isServiceTemplate && !evaluatorName) {
+      throwValidationError("ต้องระบุชื่อผู้ประเมินสำหรับเทมเพลต SERVICE");
     }
     const questionMap = new Map();
     template.sections.forEach((section) => {
@@ -471,9 +510,9 @@ module.exports = {
         companyCode,
         battalionCode,
         subject,
-        evaluationPeriod: input.evaluationPeriod
-          ? new Date(input.evaluationPeriod)
-          : new Date(),
+        evaluationPeriod,
+        evaluationRound: evaluationRound || null,
+        evaluatorName: evaluatorName || null,
         summary:
           typeof input.summary === "string"
             ? input.summary.trim() || null
@@ -588,6 +627,12 @@ module.exports = {
       err.code = "NOT_FOUND";
       throw err;
     }
+    if (
+      existing.template?.templateType === "SERVICE" &&
+      input.evaluatorRole !== "OWNER"
+    ) {
+      throwValidationError("แบบประเมินนี้อนุญาตให้ OWNER ส่งผลเท่านั้น");
+    }
     const data = {};
     if (input.companyCode !== undefined) {
       const companyCode =
@@ -623,6 +668,26 @@ module.exports = {
         throwValidationError("รูปแบบวันที่ประเมินไม่ถูกต้อง");
       }
       data.evaluationPeriod = dt;
+    }
+    if (input.evaluationRound !== undefined) {
+      const round =
+        typeof input.evaluationRound === "string"
+          ? input.evaluationRound.trim()
+          : "";
+      if (existing.template?.templateType === "SERVICE" && !round) {
+        throwValidationError("รอบการประเมินต้องไม่ว่างสำหรับเทมเพลต SERVICE");
+      }
+      data.evaluationRound = round || null;
+    }
+    if (input.evaluatorName !== undefined) {
+      const evaluatorName =
+        typeof input.evaluatorName === "string"
+          ? input.evaluatorName.trim()
+          : "";
+      if (existing.template?.templateType === "SERVICE" && !evaluatorName) {
+        throwValidationError("ชื่อผู้ประเมินต้องไม่ว่างสำหรับเทมเพลต SERVICE");
+      }
+      data.evaluatorName = evaluatorName || null;
     }
     if (input.summary !== undefined) {
       data.summary =

@@ -187,7 +187,9 @@ Content-Type: application/json
 
 Template (ADMIN):
 
-- `POST /admin/student-evaluation-templates`
+- `POST /admin/student-evaluation-templates` — body `{ name, description?, templateType (BATTALION|COMPANY|SERVICE), battalionCount?, teacherEvaluatorCount?, sections[] }`
+  - `templateType = SERVICE` สำหรับแบบประเมินราชการ/รายบุคคล (ไม่ต้องส่ง battalionCount/teacherEvaluatorCount)
+  - `templateType = BATTALION` ต้องส่ง `battalionCount, teacherEvaluatorCount` เป็นจำนวนเต็ม > 0
 - `GET /admin/student-evaluation-templates` — query `includeInactive,search`
 - `GET /admin/student-evaluation-templates/:id`
 - `PUT /admin/student-evaluation-templates/:id`
@@ -196,6 +198,16 @@ Template (ADMIN):
 Submission (ADMIN หรือ TEACHER):
 
 - `POST /student-evaluations` — ต้องมี `templateId,subject,companyCode,battalionCode,answers[]`
+  - หากใช้ templateType = `SERVICE` ให้ใส่ `templateId` ของเทมเพลต SERVICE แล้วส่งค่า:
+    - `subject`: หัวข้อ/ชื่อการตรวจ (เช่น “ติดตามผลการฝึก” หรือ “ประเมินรายบุคคล”)
+    - `companyCode`, `battalionCode`: ถ้าไม่ระบุจะใช้ค่าเริ่มต้น `SERVICE` ให้เอง; ถ้าต้องระบุหน่วย สามารถตั้งเป็นรหัสสั้นได้ เช่น `SRV01`, `UNITA`
+    - `evaluationPeriod`: วันที่ตรวจ (ต้องส่งสำหรับ SERVICE)
+    - `evaluationRound`: รอบการประเมิน (เช่น `ไตรมาส 1/2568`) — จำเป็นสำหรับ SERVICE
+    - `evaluatorName`: ชื่อผู้ประเมิน — จำเป็นสำหรับ SERVICE
+    - `summary`: หมายเหตุรวม
+    - `overallScore`: คะแนนรวม (ถ้าไม่ส่ง ระบบจะรวมจากคะแนนแต่ละข้อ)
+    - `answers[]`: `{ questionId, score, comment? }` ตามคำถามในเทมเพลต
+    - ผู้ส่งผลต้องเป็น OWNER เท่านั้น (admin/teacher ไม่สามารถส่งผลของเทมเพลต SERVICE)
 - `GET /student-evaluations` — query `templateId,companyCode,battalionCode,evaluatorId,page,pageSize<=200,includeAnswers`; response `{ data, page, pageSize, total, totalPages, summary, summaryByCompany }` (ค่าเริ่มต้นไม่ส่ง `answers` เพื่อความเร็ว; ส่ง `includeAnswers=true` หากต้องการรายละเอียดทุกข้อ)
   - `summary.totalEvaluations` = จำนวนรายการที่ตรงเงื่อนไข
   - `summary.totalScore` = ผลรวมคะแนนคำตอบทุกข้อ (ทุก evaluation ที่ตรงเงื่อนไข)
