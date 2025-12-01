@@ -22,6 +22,15 @@ const evaluationIncludeBase = {
       role: true,
     },
   },
+  evaluatedPersonUser: {
+    select: {
+      id: true,
+      username: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+    },
+  },
 };
 
 const evaluationIncludeWithAnswers = {
@@ -47,6 +56,11 @@ const buildEvaluationWhere = (filters = {}) => {
   if (filters.templateId) {
     where.templateId = Number(filters.templateId);
   }
+   if (filters.templateType) {
+     where.template = {
+       templateType: normalizeTemplateType(filters.templateType),
+     };
+   }
   if (filters.companyCode) {
     where.companyCode = String(filters.companyCode).trim().toUpperCase();
   }
@@ -262,6 +276,30 @@ const normalizeEvaluationAnswers = (answers, questionMap) => {
           : null,
     };
   });
+};
+
+const resolveEvaluatedPersonId = async (rawName) => {
+  const name = typeof rawName === "string" ? rawName.trim() : "";
+  if (!name) return null;
+  // ลองจับคู่ username ก่อน
+  const byUsername = await prisma.user.findFirst({
+    where: { username: name },
+    select: { id: true },
+  });
+  if (byUsername) return byUsername.id;
+
+  // ถ้าระบุชื่อ-นามสกุล แยกเพื่อจับคู่แบบ exact
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const lastName = parts.pop();
+    const firstName = parts.join(" ");
+    const byFullName = await prisma.user.findFirst({
+      where: { firstName: firstName, lastName: lastName },
+      select: { id: true },
+    });
+    if (byFullName) return byFullName.id;
+  }
+  return null;
 };
 
 module.exports = {
@@ -491,6 +529,28 @@ module.exports = {
     if (isServiceTemplate && !evaluatorName) {
       throwValidationError("ต้องระบุชื่อผู้ประเมินสำหรับเทมเพลต SERVICE");
     }
+    let evaluatedPersonId =
+      input.evaluatedPersonId !== undefined
+        ? Number(input.evaluatedPersonId)
+        : null;
+    if (
+      evaluatedPersonId !== null &&
+      (!Number.isInteger(evaluatedPersonId) || evaluatedPersonId <= 0)
+    ) {
+      throwValidationError("evaluatedPersonId ต้องเป็นตัวเลข id ของผู้ใช้");
+    }
+    const evaluatedPerson =
+      typeof input.evaluatedPerson === "string"
+        ? input.evaluatedPerson.trim()
+        : "";
+    if (!evaluatedPersonId && evaluatedPerson) {
+      evaluatedPersonId = await resolveEvaluatedPersonId(evaluatedPerson);
+    }
+    if (isServiceTemplate && !evaluatedPerson && !evaluatedPersonId) {
+      throwValidationError(
+        "ต้องระบุชื่อผู้ถูกรับการประเมินหรือ evaluatedPersonId สำหรับเทมเพลต SERVICE"
+      );
+    }
     const questionMap = new Map();
     template.sections.forEach((section) => {
       section.questions.forEach((question) => {
@@ -501,10 +561,14 @@ module.exports = {
       input.answers,
       questionMap
     );
-    const totalScore =
-      input.overallScore != null
-        ? Math.round(Number(input.overallScore))
-        : normalizedAnswers.reduce((sum, answer) => sum + answer.score, 0);
+    const totalScore = normalizedAnswers.reduce(
+      (sum, answer) => sum + answer.score,
+      0
+    );
+    const averageScore =
+      normalizedAnswers.length > 0
+        ? totalScore / normalizedAnswers.length
+        : 0;
 
     return prisma.studentEvaluation.create({
       data: {
@@ -516,11 +580,13 @@ module.exports = {
         evaluationPeriod,
         evaluationRound: evaluationRound || null,
         evaluatorName: evaluatorName || null,
+        evaluatedPersonId: evaluatedPersonId || null,
+        evaluatedPerson: evaluatedPerson || null,
         summary:
           typeof input.summary === "string"
             ? input.summary.trim() || null
             : null,
-        overallScore: totalScore,
+        overallScore: averageScore,
         answers: {
           create: normalizedAnswers.map((answer) => ({
             questionId: answer.questionId,
@@ -573,15 +639,30 @@ module.exports = {
       }),
     ]);
     const totalScore = answerAggregate._sum?.score || 0;
-    const totalAnswers = typeof answerAggregate._count === "number"
-      ? answerAggregate._count
-      : answerAggregate._count?._all || 0;
+    const totalAnswers =
+      typeof answerAggregate._count === "number"
+        ? answerAggregate._count
+        : answerAggregate._count?._all || 0;
     const averageScore =
-      totalAnswers > 0 ? Number((totalScore / totalAnswers).toFixed(2)) : null;
+      totalAnswers > 0 ? totalScore / totalAnswers : null;
     return { totalEvaluations, totalScore, averageScore };
   },
 
   summarizeByCompany: async (filters = {}) => {
+    const templateTypeFilter = filters.templateType
+      ? normalizeTemplateType(filters.templateType)
+      : null;
+    if (templateTypeFilter === "SERVICE") return [];
+
+    // ถ้าระบุ templateId ให้ตัดทอน summaryByCompany สำหรับเทมเพลต SERVICE
+    if (!templateTypeFilter && filters.templateId) {
+      const tpl = await prisma.studentEvaluationTemplate.findUnique({
+        where: { id: Number(filters.templateId) },
+        select: { templateType: true },
+      });
+      if (tpl?.templateType === "SERVICE") return [];
+    }
+
     const where = buildEvaluationWhere(filters);
     const groups = await prisma.studentEvaluation.groupBy({
       by: ["battalionCode", "companyCode"],
@@ -610,7 +691,7 @@ module.exports = {
   getEvaluationById: async (id) => {
     return prisma.studentEvaluation.findUnique({
       where: { id: Number(id) },
-      include: evaluationInclude,
+      include: evaluationIncludeWithAnswers,
     });
   },
 
@@ -692,6 +773,39 @@ module.exports = {
       }
       data.evaluatorName = evaluatorName || null;
     }
+    if (input.evaluatedPersonId !== undefined) {
+      const evaluatedPersonId =
+        input.evaluatedPersonId !== null ? Number(input.evaluatedPersonId) : null;
+      if (
+        evaluatedPersonId !== null &&
+        (!Number.isInteger(evaluatedPersonId) || evaluatedPersonId <= 0)
+      ) {
+        throwValidationError("evaluatedPersonId ต้องเป็นตัวเลข id ของผู้ใช้");
+      }
+      data.evaluatedPersonId = evaluatedPersonId;
+    }
+    if (input.evaluatedPerson !== undefined) {
+      const evaluatedPerson =
+        typeof input.evaluatedPerson === "string"
+          ? input.evaluatedPerson.trim()
+          : "";
+      if (existing.template?.templateType === "SERVICE" && !evaluatedPerson) {
+        throwValidationError(
+          "ชื่อผู้ถูกรับการประเมินต้องไม่ว่างสำหรับเทมเพลต SERVICE"
+        );
+      }
+      data.evaluatedPerson = evaluatedPerson || null;
+    }
+    if (
+      data.evaluatedPersonId === undefined &&
+      data.evaluatedPerson &&
+      !existing.evaluatedPersonId
+    ) {
+      const resolvedId = await resolveEvaluatedPersonId(data.evaluatedPerson);
+      if (resolvedId) {
+        data.evaluatedPersonId = resolvedId;
+      }
+    }
     if (input.summary !== undefined) {
       data.summary =
         typeof input.summary === "string"
@@ -710,13 +824,15 @@ module.exports = {
         input.answers,
         questionMap
       );
-      const totalScore =
-        input.overallScore != null
-          ? Math.round(Number(input.overallScore))
-          : normalizedAnswers.reduce((sum, answer) => sum + answer.score, 0);
-      data.overallScore = totalScore;
-    } else if (input.overallScore !== undefined) {
-      data.overallScore = Math.round(Number(input.overallScore) || 0);
+      const totalScore = normalizedAnswers.reduce(
+        (sum, answer) => sum + answer.score,
+        0
+      );
+      const averageScore =
+        normalizedAnswers.length > 0
+          ? totalScore / normalizedAnswers.length
+          : 0;
+      data.overallScore = averageScore;
     }
 
     return prisma.$transaction(async (tx) => {
@@ -739,7 +855,7 @@ module.exports = {
       }
       return tx.studentEvaluation.findUnique({
         where: { id: evaluationId },
-        include: evaluationInclude,
+        include: evaluationIncludeWithAnswers,
       });
     });
   },

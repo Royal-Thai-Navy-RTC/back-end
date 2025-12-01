@@ -1,5 +1,22 @@
 const StudentEvaluationModel = require("../models/studentEvaluationModel");
 
+const formatOverallScore = (value) => {
+  if (typeof value !== "number") return value;
+  return Number(value.toFixed(2));
+};
+
+const formatEvaluation = (evaluation) => {
+  if (!evaluation) return evaluation;
+  const formatted = { ...evaluation };
+  if (formatted.overallScore !== undefined) {
+    formatted.overallScore = formatOverallScore(formatted.overallScore);
+  }
+  return formatted;
+};
+
+const formatEvaluationList = (items) =>
+  Array.isArray(items) ? items.map(formatEvaluation) : items;
+
 const handleError = (err, res, actionMessage = "ไม่สามารถดำเนินการได้") => {
   if (err.code === "VALIDATION_ERROR") {
     return res.status(400).json({ message: err.message });
@@ -18,7 +35,7 @@ const createEvaluation = async (req, res) => {
       evaluatorId: req.userId,
       evaluatorRole: req.userRole,
     });
-    res.status(201).json({ evaluation });
+    res.status(201).json({ evaluation: formatEvaluation(evaluation) });
   } catch (err) {
     handleError(err, res, "ไม่สามารถบันทึกผลการประเมินได้");
   }
@@ -34,6 +51,7 @@ const listEvaluations = async (req, res) => {
       page,
       pageSize,
       includeAnswers,
+      templateType,
     } = req.query || {};
 
     const filters = {
@@ -44,6 +62,7 @@ const listEvaluations = async (req, res) => {
       page,
       pageSize,
       includeAnswers: String(includeAnswers).toLowerCase() === "true",
+      templateType,
     };
 
     const [listResult, summary, summaryByCompany] = await Promise.all([
@@ -53,7 +72,7 @@ const listEvaluations = async (req, res) => {
     ]);
 
     res.json({
-      data: listResult.items,
+      data: formatEvaluationList(listResult.items),
       page: listResult.page,
       pageSize: listResult.pageSize,
       total: listResult.total,
@@ -74,7 +93,7 @@ const getEvaluationById = async (req, res) => {
     if (!evaluation) {
       return res.status(404).json({ message: "ไม่พบข้อมูลการประเมิน" });
     }
-    res.json({ evaluation });
+    res.json({ evaluation: formatEvaluation(evaluation) });
   } catch (err) {
     handleError(err, res, "ไม่สามารถดึงข้อมูลการประเมินได้");
   }
@@ -86,7 +105,7 @@ const updateEvaluation = async (req, res) => {
       req.params.id,
       { ...req.body, evaluatorRole: req.userRole }
     );
-    res.json({ evaluation });
+    res.json({ evaluation: formatEvaluation(evaluation) });
   } catch (err) {
     handleError(err, res, "ไม่สามารถแก้ไขผลการประเมินได้");
   }

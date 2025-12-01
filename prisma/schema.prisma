@@ -161,6 +161,7 @@ model User {
   // แบบประเมินนักเรียน
   studentEvaluationsAuthored StudentEvaluation[] @relation("StudentEvaluationEvaluator")
   studentEvaluationTemplates StudentEvaluationTemplate[] @relation("TemplateCreators")
+  studentEvaluationsEvaluated StudentEvaluation[] @relation("StudentEvaluationEvaluatedPerson")
 
   // แจ้งเตือนที่อ่านแล้ว
   notificationReads NotificationRead[]
@@ -277,9 +278,12 @@ model StudentEvaluation {
   evaluationPeriod DateTime @default(now()) // วันที่/รอบการประเมิน
   evaluationRound String? @db.VarChar(100) // รอบการประเมิน (เช่น ไตรมาส 1/2568)
   evaluatorName  String?  @db.VarChar(150) // ชื่อผู้ประเมิน (สำหรับ SERVICE)
+  evaluatedPersonId Int? // ผู้ถูกรับการประเมิน (user id ถ้ามี)
+  evaluatedPersonUser   User? @relation("StudentEvaluationEvaluatedPerson", fields: [evaluatedPersonId], references: [id])
+  evaluatedPerson String? @db.VarChar(191) // ผู้ถูกประเมิน/รับบริการ (SERVICE)
 
   summary      String?   @db.Text
-  overallScore Int?
+  overallScore Float?
   submittedAt  DateTime  @default(now())
 
   answers      StudentEvaluationAnswer[]
