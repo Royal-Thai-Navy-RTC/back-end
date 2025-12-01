@@ -55,6 +55,7 @@ const validatePayload = (input = {}) => {
     participantCount: Math.round(participantCount),
     company: input.company ? String(input.company).trim() : null,
     battalion: input.battalion ? String(input.battalion).trim() : null,
+    division: input.division ? String(input.division).trim() : null,
     trainingDate,
     trainingTime: input.trainingTime ? String(input.trainingTime).trim() : null,
     location: input.location ? String(input.location).trim() : null,
@@ -85,7 +86,8 @@ const findScheduleForReport = async ({ teacherId, trainingDate, subject }) => {
     where: {
       teacherId: teacherId,
       start: { gte: startUtc, lt: endUtc },
-      title: { equals: subject, mode: "insensitive" },
+      // MySQL collation is case-insensitive by default, so equals is enough
+      title: { equals: subject },
     },
     select: {
       id: true,
@@ -99,14 +101,9 @@ const findScheduleForReport = async ({ teacherId, trainingDate, subject }) => {
 const createTrainingReport = async (input) => {
   const data = validatePayload(input);
   const schedule = await findScheduleForReport(data);
-  if (!schedule) {
-    const err = new Error("ไม่พบตารางสอนในระบบสำหรับวิชานี้ในวันที่ระบุ");
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
 
   // ถ้ายังไม่ได้ระบุเวลา ให้ดึงเวลาจากตารางสอนเพื่อให้ข้อมูลสม่ำเสมอ
-  if (!data.trainingTime && schedule.start) {
+  if (!data.trainingTime && schedule?.start) {
     const start = new Date(schedule.start);
     const hh = String(start.getHours()).padStart(2, "0");
     const mm = String(start.getMinutes()).padStart(2, "0");
@@ -203,6 +200,7 @@ const getAdminTrainingReportSummary = async ({ search } = {}) => {
       totalParticipants: agg._sum.participantCount || 0,
       company: latest?.company || null,
       battalion: latest?.battalion || null,
+      division: latest?.division || null,
       latestSubject: latest?.subject || null,
       latestTrainingDate: latest?.trainingDate || null,
       latestReportAt: latest?.createdAt || null,
@@ -258,6 +256,7 @@ const getAdminTrainingReportSummary = async ({ search } = {}) => {
     participantCount: report.participantCount,
     company: report.company,
     battalion: report.battalion,
+    division: report.division,
     trainingDate: report.trainingDate,
     trainingTime: report.trainingTime,
     location: report.location,

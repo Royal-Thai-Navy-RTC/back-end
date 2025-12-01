@@ -25,10 +25,11 @@ const createTemplate = async (req, res) => {
 
 const listTemplates = async (req, res) => {
   try {
-    const { includeInactive, search } = req.query || {};
+    const { includeInactive, search, templateType } = req.query || {};
     const templates = await StudentEvaluationModel.listTemplates({
       includeInactive: includeInactive === "true",
       search,
+      templateType,
     });
     res.json({ data: templates });
   } catch (err) {

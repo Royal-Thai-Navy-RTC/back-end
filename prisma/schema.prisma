@@ -316,6 +316,7 @@ model TrainingReport {
   participantCount Int
   company          String?  @db.VarChar(150) // ร้อยฝึกที่
   battalion        String?  @db.VarChar(150) // พันฝึกที่
+  division         String?  @db.VarChar(150) // หมวด/กองร้อยต้นสังกัด
   trainingDate     DateTime
   trainingTime     String?  @db.VarChar(16) // HH:mm
   location         String?  @db.VarChar(191)

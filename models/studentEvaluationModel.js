@@ -265,10 +265,13 @@ const normalizeEvaluationAnswers = (answers, questionMap) => {
 };
 
 module.exports = {
-  listTemplates: async ({ includeInactive = false, search } = {}) => {
+  listTemplates: async ({ includeInactive = false, search, templateType } = {}) => {
     const where = {};
     if (!includeInactive) {
       where.isActive = true;
+    }
+    if (templateType !== undefined) {
+      where.templateType = normalizeTemplateType(templateType);
     }
     const keyword = typeof search === "string" ? search.trim() : "";
     if (keyword) {
