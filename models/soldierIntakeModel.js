@@ -171,6 +171,8 @@ module.exports = {
           { lastName: { contains: q } },
           { citizenId: { contains: q } },
           { phone: { contains: q } },
+          { religion: { contains: q } },
+          { education: { contains: q } },
         ];
       }
     }

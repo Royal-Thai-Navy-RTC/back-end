@@ -23,35 +23,35 @@ router.get(
 router.post(
   "/teacher/leaves",
   middleware.verifyToken,
-  middleware.authorizeTeacher,
+  middleware.authorizeAdminOrTeacher,
   teacherLeaveController.requestLeave
 );
 
 router.get(
   "/teacher/leaves",
   middleware.verifyToken,
-  middleware.authorizeTeacher,
+  middleware.authorizeAdminOrTeacher,
   teacherLeaveController.listMyLeaves
 );
 
 router.post(
   "/teacher/official-duty-leaves",
   middleware.verifyToken,
-  middleware.authorizeTeacher,
+  middleware.authorizeAdminOrTeacher,
   teacherLeaveController.requestOfficialDutyLeave
 );
 
 router.get(
   "/teacher/official-duty-leaves",
   middleware.verifyToken,
-  middleware.authorizeTeacher,
+  middleware.authorizeAdminOrTeacher,
   teacherLeaveController.listMyOfficialDutyLeaves
 );
 
 router.patch(
   "/teacher/leaves/:id/cancel",
   middleware.verifyToken,
-  middleware.authorizeTeacher,
+  middleware.authorizeAdminOrTeacher,
   teacherLeaveController.cancelMyLeave
 );
 

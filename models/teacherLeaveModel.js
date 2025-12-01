@@ -155,10 +155,15 @@ const getAdminLeaveSummary = async () => {
   const now = new Date();
   const [
     totalActiveTeachers,
+    totalActiveAdmins,
+    totalActiveOwners,
+    totalActiveSubAdmins,
     leaveTeacherRecords,
+    commanderLeaveRecords,
     currentLeaveRecords,
     recentLeaves,
     pendingOfficialDutyRequests,
+    pendingOfficialDutyCommanderRequests,
   ] = await Promise.all([
     prisma.user.count({
       where: {
@@ -166,7 +171,20 @@ const getAdminLeaveSummary = async () => {
         isActive: true,
       },
     }),
+    prisma.user.count({
+      where: { role: "ADMIN", isActive: true },
+    }),
+    prisma.user.count({
+      where: { role: "OWNER", isActive: true },
+    }),
+    prisma.user.count({
+      where: { role: "SUB_ADMIN", isActive: true },
+    }),
     prisma.teacherLeave.findMany({
+      select: { teacherId: true },
+    }),
+    prisma.teacherLeave.findMany({
+      where: { teacher: { role: { in: ["ADMIN", "OWNER", "SUB_ADMIN"] } } },
       select: { teacherId: true },
     }),
     prisma.teacherLeave.findMany({
@@ -183,6 +201,7 @@ const getAdminLeaveSummary = async () => {
             lastName: true,
             rank: true,
             position: true,
+            role: true,
           },
         },
       },
@@ -199,6 +218,7 @@ const getAdminLeaveSummary = async () => {
             lastName: true,
             rank: true,
             position: true,
+            role: true,
           },
         },
       },
@@ -207,6 +227,13 @@ const getAdminLeaveSummary = async () => {
       where: {
         isOfficialDuty: true,
         status: "PENDING",
+      },
+    }),
+    prisma.teacherLeave.count({
+      where: {
+        isOfficialDuty: true,
+        status: "PENDING",
+        teacher: { role: { in: ["ADMIN", "OWNER", "SUB_ADMIN"] } },
       },
     }),
   ]);
@@ -226,6 +253,28 @@ const getAdminLeaveSummary = async () => {
     leaveTeacherRecords.map((record) => record.teacherId)
   );
 
+  const totalActiveCommanders =
+    totalActiveAdmins + totalActiveOwners + totalActiveSubAdmins;
+  const uniqueLeaveCommanders = new Set(
+    commanderLeaveRecords.map((record) => record.teacherId)
+  );
+  const commanderCurrentOnLeaveIds = new Set(
+    currentLeaveRecords
+      .filter((record) =>
+        ["ADMIN", "OWNER", "SUB_ADMIN"].includes(record.teacher?.role)
+      )
+      .map((record) => record.teacherId)
+  );
+  const commanderOfficialDutyOnLeaveIds = new Set(
+    currentLeaveRecords
+      .filter(
+        (record) =>
+          record.isOfficialDuty &&
+          ["ADMIN", "OWNER", "SUB_ADMIN"].includes(record.teacher?.role)
+      )
+      .map((record) => record.teacherId)
+  );
+
   const overview = {
     totalTeachers: totalActiveTeachers,
     totalLeaveRequests: uniqueLeaveTeachers.size,
@@ -233,6 +282,24 @@ const getAdminLeaveSummary = async () => {
     availableTeachers: Math.max(totalActiveTeachers - currentOnLeave, 0),
     officialDutyOnLeave: currentOfficialDutyTeacherIds.size,
     officialDutyPending: pendingOfficialDutyRequests,
+  };
+
+  const commanderOverview = {
+    totalCommanders: totalActiveCommanders,
+    totalLeaveRequests: uniqueLeaveCommanders.size,
+    currentOnLeave: commanderCurrentOnLeaveIds.size,
+    availableCommanders: Math.max(
+      totalActiveCommanders - commanderCurrentOnLeaveIds.size,
+      0
+    ),
+    officialDutyOnLeave: commanderOfficialDutyOnLeaveIds.size,
+    officialDutyPending: pendingOfficialDutyCommanderRequests,
+  };
+
+  const commanderRoles = {
+    admin: totalActiveAdmins,
+    owner: totalActiveOwners,
+    subAdmin: totalActiveSubAdmins,
   };
 
   const currentLeaves = currentLeaveRecords.map((record) => ({
@@ -269,6 +336,8 @@ const getAdminLeaveSummary = async () => {
 
   return {
     overview,
+    commanderOverview,
+    commanderRoles,
     currentLeaves,
     recentLeaves: recentLeaveActivities,
   };
