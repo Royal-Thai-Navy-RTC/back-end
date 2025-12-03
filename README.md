@@ -103,7 +103,7 @@ Content-Type: application/json
 
 ## 6) Admin/SUB_ADMIN – การลา (ผู้อนุมัติรอบแอดมินหรือผู้ช่วย)
 
-- `GET /admin/teacher-leaves/summary`
+- `GET /admin/teacher-leaves/summary` — overview ฝั่งครู นับเฉพาะผู้ใช้ role = TEACHER
 - `GET /admin/teacher-leaves` — query `status,adminStatus,limit<=200,includeOfficial`
 - `GET /admin/teacher-leaves/current` — ผู้ที่กำลังลาปัจจุบัน
 - `PATCH /admin/teacher-leaves/:id/status` — อนุมัติ/ปฏิเสธรอบแอดมิน
