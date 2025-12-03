@@ -695,15 +695,18 @@ module.exports = {
     if (templateTypeFilter === "SERVICE")
       return { battalions: [], companies: [] };
 
+    const isServiceCode = (code) =>
+      typeof code === "string" && code.trim().toUpperCase() === "SERVICE";
+
     const battalionCodesList = Array.isArray(filters.battalionCodesList)
       ? filters.battalionCodesList.map((c) =>
           typeof c === "string" ? c.trim().toUpperCase() : null
-        ).filter(Boolean)
+        ).filter((c) => c && !isServiceCode(c))
       : [];
     const companyCodesList = Array.isArray(filters.companyCodesList)
       ? filters.companyCodesList.map((c) =>
           typeof c === "string" ? c.trim().toUpperCase() : null
-        ).filter(Boolean)
+        ).filter((c) => c && !isServiceCode(c))
       : [];
 
     if (!templateTypeFilter && filters.templateId) {
@@ -735,6 +738,10 @@ module.exports = {
     ]);
 
     const companies = companyGroups
+      .filter(
+        (g) =>
+          !isServiceCode(g.battalionCode) && !isServiceCode(g.companyCode)
+      )
       .map((g) => ({
         battalionCode: g.battalionCode,
         companyCode: g.companyCode,
@@ -820,6 +827,7 @@ module.exports = {
     });
 
     const battalions = battalionGroups
+      .filter((g) => !isServiceCode(g.battalionCode))
       .map((g) => {
         const avg =
           typeof g._avg?.overallScore === "number"
