@@ -220,8 +220,8 @@ module.exports = {
     const where = {};
     if (search) {
       where.OR = [
-        { fullName: { contains: search, mode: "insensitive" } },
-        { unit: { contains: search, mode: "insensitive" } },
+        { fullName: { contains: search } },
+        { unit: { contains: search } },
         { navyNumber: { contains: search } },
       ];
     }
@@ -229,7 +229,7 @@ module.exports = {
       where.navyNumber = { contains: navyNumber };
     }
     if (unit) {
-      where.unit = { contains: unit, mode: "insensitive" };
+      where.unit = { contains: unit };
     }
 
     const sortRaw = safeString(filters.sort).toLowerCase();
