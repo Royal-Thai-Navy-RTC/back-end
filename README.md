@@ -163,6 +163,8 @@ Content-Type: application/json
 
 ## 12) Soldier Intake – บันทึกข้อมูลทหารใหม่
 
+- `GET /public/soldier-intake/status` — ตรวจสอบว่าเปิดรับแบบฟอร์มอยู่หรือไม่ (ไม่ต้อง login)
+- `PATCH /admin/soldier-intake/status` — body `{ enabled: boolean }` เปิด/ปิดแบบฟอร์ม (ADMIN)
 - `POST /soldier-intakes` — public form + upload บัตรประชาชน (multipart ฟิลด์ไฟล์ `file`); body fields: `firstName,lastName,citizenId,birthDate` (required) และ `weightKg,heightCm,serviceYears,bloodGroup,education,previousJob,religion,canSwim,specialSkills,addressLine,province,district,subdistrict,postalCode,email,phone,emergencyName,emergencyPhone,chronicDiseases[],foodAllergies[],drugAllergies[],medicalNotes`; ระบบบันทึก `idCardImageUrl` ไปที่ `/uploads/idcards/...`
 - `GET /admin/soldier-intakes` (ADMIN) — query `page,pageSize,search` (ค้นหา firstName,lastName,citizenId,phone)
 - `GET /admin/soldier-intakes/:id` (ADMIN) — ดูรายละเอียด intake
