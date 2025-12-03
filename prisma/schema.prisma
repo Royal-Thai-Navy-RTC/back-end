@@ -163,6 +163,9 @@ model User {
   studentEvaluationTemplates StudentEvaluationTemplate[] @relation("TemplateCreators")
   studentEvaluationsEvaluated StudentEvaluation[] @relation("StudentEvaluationEvaluatedPerson")
 
+  // ผลสอบที่นำเข้าจากไฟล์ Excel
+  examResultsImported     ExamResult[]
+
   // แจ้งเตือนที่อ่านแล้ว
   notificationReads NotificationRead[]
 }
@@ -306,6 +309,29 @@ model StudentEvaluationAnswer {
 
   @@index([evaluationId])
   @@index([questionId])
+}
+
+// --------------------------------------------------
+// EXAM RESULTS (คะแนนสอบจากการนำเข้าไฟล์ Excel)
+// --------------------------------------------------
+model ExamResult {
+  id            Int      @id @default(autoincrement())
+  timestamp     DateTime // ประทับเวลาจากไฟล์
+  scoreText     String?  @db.VarChar(64) // raw text เช่น "32 / 40"
+  scoreValue    Float?   // คะแนนที่ทำได้
+  scoreTotal    Float?   // คะแนนเต็ม (ถ้าพบ)
+  fullName      String   @db.VarChar(191) // ยศ - ชื่อ - สกุล
+  navyNumber    String?  @db.VarChar(32) // หมายเลข ทร. 5 ตัว
+  unit          String?  @db.VarChar(191) // สังกัด/หน่วย
+
+  importedById  Int?
+  importedBy    User?    @relation(fields: [importedById], references: [id])
+
+  createdAt     DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([navyNumber])
+  @@unique([timestamp, navyNumber, fullName, scoreText])
 }
 
 // --------------------------------------------------

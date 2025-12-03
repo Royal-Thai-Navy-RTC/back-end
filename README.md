@@ -225,7 +225,16 @@ Submission (ADMIN หรือ TEACHER):
 
 ---
 
-## 12) Static Files
+## 15) Exam Results – นำเข้าคะแนนสอบ
+
+- `POST /exam-results/import` — upload Excel (`file`/`excel`/`upload`/`sheet`) ต้องมีคอลัมน์อย่างน้อย: `ประทับเวลา`, `คะแนน`, `ยศ - ชื่อ - สกุล`; รองรับ `หมายเลข ทร. 5 ตัว`, `สังกัด` ถ้ามี
+- `GET /exam-results` — query `page,pageSize,search,unit,navyNumber,sort`; คืน `{ items, page, pageSize, total, totalPages }`
+  - `sort`: รองรับ `id`, `-id`, `timestamp`, `-timestamp` (ค่าเริ่มต้น `-timestamp`)
+- `GET /exam-results/summary` — query `battalionCodes,companyCodes` (comma separated); คืน `{ battalions: [{ battalionCode, averageScore, total, companies: [{ battalionCode, companyCode, averageScore, total }] }] }` (ค่าเริ่มต้น battalion=1-4, company=1-5)
+
+---
+
+## 16) Static Files
 
 - `GET /uploads/avatars/:filename` — public
 
