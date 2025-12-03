@@ -1,4 +1,5 @@
 const fs = require("fs");
+const XLSX = require("xlsx");
 const ExamModel = require("../models/examModel");
 
 const handleError = (err, res, actionMessage = "ดำเนินการไม่สำเร็จ") => {
@@ -7,6 +8,29 @@ const handleError = (err, res, actionMessage = "ดำเนินการไ�
   }
   console.error(actionMessage, err);
   return res.status(500).json({ message: actionMessage, detail: err.message });
+};
+
+const formatDateTime = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
+const autoFitColumns = (rows) => {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const headers = Object.keys(rows[0]);
+  const widths = headers.map((h) => Math.max(h.length, 8));
+  rows.forEach((row) => {
+    headers.forEach((h, idx) => {
+      const len = row[h] != null ? String(row[h]).length : 0;
+      if (len > widths[idx]) widths[idx] = len;
+    });
+  });
+  return widths.map((w) => ({ wch: w + 2 }));
 };
 
 const importExamExcel = async (req, res) => {
@@ -100,6 +124,47 @@ const getExamOverview = async (_req, res) => {
   }
 };
 
+const exportExamResults = async (_req, res) => {
+  try {
+    const groups = await ExamModel.getExamResultsForExport();
+    if (!groups.length) {
+      return res.status(404).json({ message: "ไม่มีข้อมูลผลสอบสำหรับส่งออก" });
+    }
+
+    const wb = XLSX.utils.book_new();
+    groups.forEach((group) => {
+      const rows = group.items.map((item) => ({
+        "ประทับเวลา": formatDateTime(item.timestamp),
+        "คะแนน": item.scoreText || "",
+        "คะแนนที่ได้": item.scoreValue ?? "",
+        "คะแนนรวม": item.scoreTotal ?? "",
+        "ยศ-ชื่อ-นามสกุล": item.fullName || "",
+        "เลขประจำตัว": item.navyNumber || "",
+        "สังกัด": item.unit || "",
+      }));
+      const sheetName = `ร้อย.${group.companyCode} พัน.${group.battalionCode}`.slice(0, 31);
+      const ws =
+        rows.length > 0
+          ? XLSX.utils.json_to_sheet(rows)
+          : XLSX.utils.aoa_to_sheet([["ไม่มีข้อมูล"]]);
+      if (rows.length > 0) {
+        ws["!cols"] = autoFitColumns(rows);
+      }
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    const buffer = XLSX.write(wb, { bookType: "xlsx", type: "buffer" });
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", 'attachment; filename="exam-results.xlsx"');
+    return res.send(buffer);
+  } catch (err) {
+    return handleError(err, res, "ไม่สามารถส่งออกผลสอบได้");
+  }
+};
+
 module.exports = {
   importExamExcel,
   listExamResults,
@@ -107,4 +172,5 @@ module.exports = {
   deleteExamResult,
   deleteAllExamResults,
   getExamOverview,
+  exportExamResults,
 };

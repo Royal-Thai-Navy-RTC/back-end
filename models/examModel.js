@@ -367,4 +367,28 @@ module.exports = {
       latest: latest || null,
     };
   },
+
+  getExamResultsForExport: async () => {
+    const rows = await prisma.examResult.findMany({
+      orderBy: [{ timestamp: "desc" }, { id: "desc" }],
+    });
+
+    const key = (b, c) => `${b || ""}__${c || ""}`;
+    const groups = new Map();
+    rows.forEach((row) => {
+      const { battalionCode, companyCode } = parseUnitCodes(row.unit);
+      if (!battalionCode || !companyCode) return;
+      const k = key(battalionCode, companyCode);
+      if (!groups.has(k)) {
+        groups.set(k, { battalionCode, companyCode, items: [] });
+      }
+      groups.get(k).items.push(row);
+    });
+
+    return Array.from(groups.values()).sort((a, b) => {
+      const battalionCmp = String(a.battalionCode).localeCompare(String(b.battalionCode));
+      if (battalionCmp !== 0) return battalionCmp;
+      return String(a.companyCode).localeCompare(String(b.companyCode));
+    });
+  },
 };

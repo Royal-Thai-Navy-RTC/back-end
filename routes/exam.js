@@ -53,4 +53,12 @@ router.get(
   examController.getExamOverview
 );
 
+// ส่งออกผลสอบเป็นไฟล์ Excel (แยก sheet ตามกองร้อย)
+router.get(
+  "/exam-results/export",
+  middleware.verifyToken,
+  middleware.authorizeAdminOrTeacher,
+  examController.exportExamResults
+);
+
 module.exports = router;

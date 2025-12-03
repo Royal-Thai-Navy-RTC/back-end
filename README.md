@@ -234,6 +234,7 @@ Submission (ADMIN หรือ TEACHER):
 - `DELETE /api/exam-results/:id` — ลบรายการผลสอบ
 - `DELETE /api/exam-results` — ลบผลสอบทั้งหมด
 - `GET /api/exam-results/overview` — สรุปจำนวนทั้งหมด ค่าเฉลี่ยคะแนน และรายการล่าสุด `{ overview: { total, averageScore, latest } }`
+- `GET /api/exam-results/export` — ส่งออกไฟล์ Excel แยก sheet ตามกองร้อย (ดึงจากสังกัดรูปแบบ `ร้อย.<เลข> พัน.<เลข>`)
 
 ---
 
