@@ -215,6 +215,10 @@ Submission (ADMIN หรือ TEACHER):
   - `summaryByCompany[].totalEvaluations` = จำนวน evaluation ต่อ (battalion,company)
   - `summaryByCompany[].totalScore` = ผลรวม `overallScore` ของ evaluation ในกองพัน/กองร้อยนั้น
   - `summaryByCompany[].averageOverallScore` = `totalScore / totalEvaluations` (ค่าเฉลี่ยคะแนนรวมของแต่ละ evaluation ในกองพัน/กองร้อยนั้น; null ถ้าไม่มีข้อมูล)
+- `GET /student-evaluations/comparison` — คืนข้อมูลเปรียบเทียบคะแนนเฉลี่ยสำหรับทำกราฟ (กรองด้วย `templateId,companyCode,battalionCode,evaluatorId,templateType` ได้ ยกเว้น templateType=SERVICE)
+  - response `{ comparison: { battalions: [{ battalionCode,totalEvaluations,totalScore,averageOverallScore,companies:[{ battalionCode,companyCode,totalEvaluations,totalScore,averageOverallScore }] }], companies:[...] } }`
+  - รายการถูกจัดอันดับตาม `averageOverallScore` จากมากไปน้อย (ค่าเฉลี่ยปัดสองทศนิยม)
+  - ส่ง `battalionCodes` และ `companyCodes` (คั่น comma) เพื่อให้ผลลัพธ์เติมชุดข้อมูลครบทุกกองพัน/กองร้อยแม้ยังไม่มีคะแนน เช่น `?battalionCodes=พัน1,พัน2,พัน3,พัน4&companyCodes=ร้อย1,ร้อย2,ร้อย3,ร้อย4,ร้อย5`
 - `GET /student-evaluations/:id`
 - `PUT /student-evaluations/:id`
 - `DELETE /student-evaluations/:id`

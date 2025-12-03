@@ -57,6 +57,13 @@ router.get(
 );
 
 router.get(
+  "/student-evaluations/comparison",
+  middleware.verifyToken,
+  middleware.authorizeAdminOrTeacher,
+  evaluationController.getEvaluationComparison
+);
+
+router.get(
   "/student-evaluations/:id",
   middleware.verifyToken,
   middleware.authorizeAdminOrTeacher,
