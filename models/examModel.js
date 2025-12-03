@@ -329,4 +329,42 @@ module.exports = {
 
     return { battalions };
   },
+
+  deleteExamResult: async (id) => {
+    const examId = Number(id);
+    if (!Number.isInteger(examId) || examId <= 0) {
+      const err = new Error("id ต้องเป็นตัวเลข");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+    return prisma.examResult.delete({
+      where: { id: examId },
+    });
+  },
+
+  deleteAllExamResults: async () => {
+    const res = await prisma.examResult.deleteMany({});
+    return { deleted: res.count };
+  },
+
+  getExamOverview: async () => {
+    const [aggregate, latest] = await Promise.all([
+      prisma.examResult.aggregate({
+        _count: true,
+        _avg: { scoreValue: true },
+      }),
+      prisma.examResult.findFirst({
+        orderBy: { timestamp: "desc" },
+        select: { id: true, timestamp: true },
+      }),
+    ]);
+    return {
+      total: aggregate?._count || 0,
+      averageScore:
+        typeof aggregate?._avg?.scoreValue === "number"
+          ? Number(aggregate._avg.scoreValue.toFixed(2))
+          : null,
+      latest: latest || null,
+    };
+  },
 };

@@ -70,4 +70,41 @@ const summarizeExamResults = async (req, res) => {
   }
 };
 
-module.exports = { importExamExcel, listExamResults, summarizeExamResults };
+const deleteExamResult = async (req, res) => {
+  try {
+    await ExamModel.deleteExamResult(req.params.id);
+    return res.json({ message: "ลบข้อมูลสอบสำเร็จ" });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ message: "ไม่พบข้อมูลสอบ" });
+    }
+    return handleError(err, res, "ไม่สามารถลบข้อมูลสอบได้");
+  }
+};
+
+const deleteAllExamResults = async (_req, res) => {
+  try {
+    const result = await ExamModel.deleteAllExamResults();
+    return res.json({ message: "ลบข้อมูลสอบทั้งหมดสำเร็จ", deleted: result.deleted });
+  } catch (err) {
+    return handleError(err, res, "ไม่สามารถลบข้อมูลสอบทั้งหมดได้");
+  }
+};
+
+const getExamOverview = async (_req, res) => {
+  try {
+    const overview = await ExamModel.getExamOverview();
+    return res.json({ overview });
+  } catch (err) {
+    return handleError(err, res, "ไม่สามารถดึงสรุปผลสอบได้");
+  }
+};
+
+module.exports = {
+  importExamExcel,
+  listExamResults,
+  summarizeExamResults,
+  deleteExamResult,
+  deleteAllExamResults,
+  getExamOverview,
+};

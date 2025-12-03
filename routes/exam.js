@@ -30,4 +30,27 @@ router.get(
   examController.summarizeExamResults
 );
 
+router.delete(
+  "/exam-results/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdminOrTeacher,
+  examController.deleteExamResult
+);
+
+// ลบผลสอบทั้งหมด
+router.delete(
+  "/exam-results",
+  middleware.verifyToken,
+  middleware.authorizeAdminOrTeacher,
+  examController.deleteAllExamResults
+);
+
+// สรุปภาพรวม (จำนวนทั้งหมด, ค่าเฉลี่ย, รายการล่าสุด)
+router.get(
+  "/exam-results/overview",
+  middleware.verifyToken,
+  middleware.authorizeAdminOrTeacher,
+  examController.getExamOverview
+);
+
 module.exports = router;
