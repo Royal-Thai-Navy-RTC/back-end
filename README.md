@@ -12,7 +12,7 @@
 
 ## บทบาท
 
-`OWNER` (อนุมัติขั้นสุดท้าย/ลาไปราชการ) · `ADMIN` (จัดการผู้ใช้/แดชบอร์ด) · `SUB_ADMIN` (ช่วยอนุมัติการลา) · `TEACHER` (รายงานการฝึก/ลาราชการ) · `STUDENT`
+`OWNER` (อนุมัติขั้นสุดท้าย/ลาไปราชการ) · `ADMIN` (จัดการผู้ใช้/แดชบอร์ด) · `SUB_ADMIN` (ช่วยอนุมัติการลา) · `SCHEDULE_ADMIN` (จัดการตารางสอน/กิจกรรมเท่านั้น) · `TEACHER` (รายงานการฝึก/ลาราชการ) · `STUDENT`
 
 ## รูปแบบ Error ทั่วไป
 
@@ -61,8 +61,9 @@
 
 ---
 
-## 5) Admin – ตารางสอน/กิจกรรม (ใช้กับ FullCalendar)
+## 5) Admin/Schedule – ตารางสอน/กิจกรรม (ใช้กับ FullCalendar)
 
+- Auth: `ADMIN`/`OWNER`/`SCHEDULE_ADMIN` สำหรับ endpoint /admin/...
 - `POST /admin/teaching-schedules` — body `{ title, start, end?, allDay?, description?, location?, companyCode?, battalionCode?, color?, teacherId? }` (end ไม่ส่งจะใช้ค่าเดียวกับ start; ถ้าไม่ส่ง `color` จะตั้งเป็นสีน้ำเงิน `#1E90FF`)
 - ตัวอย่าง:
 ```http
@@ -118,7 +119,7 @@ Content-Type: application/json
 
 ---
 
-## 8) Teacher – การลา (TEACHER)
+## 8) Teacher/Schedule Admin – การลา (TEACHER, SCHEDULE_ADMIN)
 
 - `POST /teacher/leaves` — คำขอลาทั่วไป
 - `GET /teacher/leaves` — query `limit`

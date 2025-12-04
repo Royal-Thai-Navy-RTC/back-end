@@ -146,7 +146,7 @@ router.get(
 router.post(
   "/admin/teaching-schedules",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeScheduleManager,
   adminTeachingSchedule.createSchedule
 );
 
@@ -159,14 +159,14 @@ router.get(
 router.put(
   "/admin/teaching-schedules/:id",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeScheduleManager,
   adminTeachingSchedule.updateSchedule
 );
 
 router.delete(
   "/admin/teaching-schedules/:id",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeScheduleManager,
   adminTeachingSchedule.deleteSchedule
 );
 

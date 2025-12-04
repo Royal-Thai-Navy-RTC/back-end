@@ -12,6 +12,12 @@ const generalLeaveApproverRoleSet = new Set([
   ...adminRoleSet,
   "SUB_ADMIN",
 ]);
+const scheduleManagerRoleSet = new Set([...adminRoleSet, "SCHEDULE_ADMIN"]);
+const leaveRequesterRoleSet = new Set([
+  ...adminRoleSet,
+  ...teacherRoleSet,
+  "SCHEDULE_ADMIN",
+]);
 
 const normalizeRole = (role) =>
   typeof role === "string" ? role.trim().toUpperCase() : "";
@@ -118,10 +124,29 @@ module.exports = {
       }
       const role = normalizeRole(user.role);
       req.userRole = role;
-      if (!(adminRoleSet.has(role) || teacherRoleSet.has(role))) {
+      if (!leaveRequesterRoleSet.has(role)) {
         return res.status(403).json({ message: "Admin/Teacher only" });
       }
       // Attach latest role for downstream handlers/validators
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeScheduleManager: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!scheduleManagerRoleSet.has(role)) {
+        return res.status(403).json({ message: "Schedule manager only" });
+      }
       next();
     } catch (e) {
       return res.status(500).json({ message: "Authorization error" });
