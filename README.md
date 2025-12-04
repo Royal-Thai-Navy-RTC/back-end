@@ -129,14 +129,15 @@ Content-Type: application/json
 
 ---
 
-## 9) Teacher – แจ้งเตือนงานคาบเรียน/ประเมินผล (TEACHER)
+## 9) Notifications – แจ้งเตือนงานคาบเรียน/ประเมินผล/งานมอบหมาย (ทุกบทบาทยกเว้น STUDENT)
 
-- `GET /teacher/notifications` — ต้องใช้ token ครูผู้สอน; คืน reminder อัตโนมัติ (ไม่เก็บสถานะอ่าน)
+- `GET /teacher/notifications` — ต้องใช้ token (ยกเว้น STUDENT); คืน reminder อัตโนมัติ (ไม่เก็บสถานะอ่าน)
   - ประเภท `TRAINING_REPORT_MISSING`: แจ้งเตือนส่งยอดนักเรียนก่อนเริ่มคาบ (เริ่มแจ้งล่วงหน้า 60 นาที ถ้ายังไม่มี TrainingReport ในวันเดียวกัน)
   - ประเภท `STUDENT_EVALUATION_MISSING`: แจ้งเตือนบันทึกผลประเมินนักเรียนหลังคาบ (เริ่มแจ้งล่วงหน้า 30 นาที ก่อนจบคาบ ถ้ายังไม่มี StudentEvaluation ในวันเดียวกัน)
+  - ประเภท `TASK_ASSIGNED`: แจ้งงานที่ได้รับมอบหมายใหม่ (มีฟิลด์ `task` แนบข้อมูลงานและ `noteToAssignee` ถ้ามี)
   - อ้างอิงตารางสอน “วันนี้” ของครูเท่านั้น
   - query `page=1,pageSize<=50`; คืน `{ data, page, pageSize, total, totalPages }` โดยเรียงตาม `dueAt desc`
-  - payload: `{ id,type,title,message,source,status,dueAt,schedule:{ id,title,start,end,location,companyCode,battalionCode } }` (เวลาใน response เป็น UTC+7)
+  - payload: `{ id,type,title,message,source,status,dueAt,schedule:{ id,title,start,end,location,companyCode,battalionCode },task:{ id,title,description,noteToAssignee,startDate,dueDate,priority,status,creator:{id,firstName,lastName,role} } }` (เวลาใน response เป็น UTC+7)
 - `PATCH /teacher/notifications/read` — body `{ ids: [string] }` เพื่อทำสถานะอ่าน (บันทึกลงฐาน)
 
 ---
@@ -241,7 +242,34 @@ Submission (ADMIN หรือ TEACHER):
 
 ---
 
-## 16) Static Files
+## 16) Owner – มอบหมายงาน / ติดตามสถานะ
+
+- `POST /admin/tasks` (OWNER) — body `{ title (required), assigneeId (required), startDate (required), durationDays?, dueDate?, priority? (HIGH|MEDIUM|LOW), description?, noteToAssignee?, status? }`  
+  - ถ้าไม่ส่ง `dueDate` ให้ระบุ `durationDays` ระบบจะคำนวณกำหนดส่งจาก startDate  
+  - ตัวอย่าง:
+```http
+POST /api/admin/tasks
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "title": "จัดทำแผนฝึกประจำสัปดาห์",
+  "assigneeId": 12,
+  "startDate": "2025-12-04",
+  "durationDays": 3,
+  "priority": "HIGH",
+  "description": "สรุปขั้นตอน เป้าหมาย และเอกสารแนบ",
+  "noteToAssignee": "ขออัปเดตความคืบหน้าทุก 2 วัน"
+}
+```
+- `GET /admin/tasks` (ทุก role ยกเว้น STUDENT; OWNER/ADMIN เห็นทั้งหมด, ผู้รับเห็นของตัวเอง) — query `assigneeId,createdById,status,priority`; คืน `{ data: [...] }`
+- `PATCH /admin/tasks/:id` (ทุก role ยกเว้น STUDENT) — ส่ง `{ status, submissionNote }`; ผู้รับงานอัปเดตสถานะของตนเองได้, OWNER/ADMIN อัปเดตได้ทุกงาน  
+  - ลำดับสถานะเดินหน้าเท่านั้น: `PENDING -> IN_PROGRESS -> DONE` (หรือ `CANCELLED` เพื่อยุติงาน); ไม่สามารถย้อนกลับไปสถานะก่อนหน้าได้ และงานที่ปิด (DONE/CANCELLED) แก้ไขไม่ได้
+- `DELETE /admin/tasks/:id` (OWNER) — ลบงาน
+
+---
+
+## 17) Static Files
 
 - `GET /uploads/avatars/:filename` — public
 

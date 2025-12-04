@@ -88,6 +88,12 @@ enum EvaluationTemplateType {
   SERVICE
 }
 
+enum TaskPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
 // --------------------------------------------------
 // USER MODEL (บุคลากร / กำลังพล)
 // --------------------------------------------------
@@ -172,6 +178,11 @@ model User {
 
   // แจ้งเตือนที่อ่านแล้ว
   notificationReads NotificationRead[]
+
+  // งานที่ได้รับมอบหมาย
+  taskAssignments TaskAssignment[] @relation("TaskAssignee")
+  // งานที่สร้าง/มอบหมายให้คนอื่น
+  tasksCreated    TaskAssignment[] @relation("TaskCreator")
 }
 
 // --------------------------------------------------
@@ -457,6 +468,37 @@ model LibraryItem {
   @@index([category])
   @@index([isActive])
   @@index([updatedAt])
+}
+
+// --------------------------------------------------
+// TASK ASSIGNMENTS (มอบหมายงาน)
+// --------------------------------------------------
+model TaskAssignment {
+  id           Int          @id @default(autoincrement())
+  title        String       @db.VarChar(191)
+  description  String?      @db.Text
+  noteToAssignee String?    @db.Text
+
+  startDate    DateTime
+  dueDate      DateTime
+  durationDays Int?
+  priority     TaskPriority @default(MEDIUM)
+  status       String       @db.VarChar(32) @default("PENDING")
+  submissionNote String?    @db.Text
+  submittedAt   DateTime?
+
+  assigneeId   Int
+  assignee     User         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  createdById  Int
+  creator      User         @relation("TaskCreator", fields: [createdById], references: [id])
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([assigneeId])
+  @@index([createdById])
+  @@index([dueDate])
 }
 
 // --------------------------------------------------

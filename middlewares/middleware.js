@@ -18,6 +18,13 @@ const leaveRequesterRoleSet = new Set([
   ...teacherRoleSet,
   "SCHEDULE_ADMIN",
 ]);
+const nonStudentRoleSet = new Set([
+  "OWNER",
+  "ADMIN",
+  "SUB_ADMIN",
+  "SCHEDULE_ADMIN",
+  "TEACHER",
+]);
 
 const normalizeRole = (role) =>
   typeof role === "string" ? role.trim().toUpperCase() : "";
@@ -165,6 +172,25 @@ module.exports = {
       req.userRole = role;
       if (!teacherRoleSet.has(role)) {
         return res.status(403).json({ message: "Teacher only" });
+      }
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeNonStudent: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!nonStudentRoleSet.has(role)) {
+        return res.status(403).json({ message: "Non-student only" });
       }
       next();
     } catch (e) {
