@@ -262,7 +262,14 @@ module.exports = {
 
   summary: async () => {
     ensureModelAvailable();
-    const [total, sixMonths, oneYear, twoYears, educationGroups] = await Promise.all([
+    const [
+      total,
+      sixMonths,
+      oneYear,
+      twoYears,
+      educationGroups,
+      religionGroups,
+    ] = await Promise.all([
       prisma.soldierIntake.count(),
       prisma.soldierIntake.count({
         where: { serviceYears: { lte: 0.6 } },
@@ -278,11 +285,24 @@ module.exports = {
         _count: { education: true },
         where: { education: { not: null } },
       }),
+      prisma.soldierIntake.groupBy({
+        by: ["religion"],
+        _count: { religion: true },
+        where: { religion: { not: null } },
+      }),
     ]);
     const educationCounts = EDUCATION_OPTIONS.map((option) => {
       const matched = educationGroups.find((item) => item.education === option.value);
       return { ...option, count: matched?._count.education || 0 };
     });
-    return { total, sixMonths, oneYear, twoYears, educationCounts };
+    const religionCounts = religionGroups
+      .filter((item) => item.religion)
+      .map((item) => ({
+        value: item.religion,
+        label: item.religion,
+        count: item._count.religion || 0,
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    return { total, sixMonths, oneYear, twoYears, educationCounts, religionCounts };
   },
 };
