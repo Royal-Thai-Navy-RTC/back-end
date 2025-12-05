@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const XLSX = require("xlsx");
 const SoldierIntake = require("../models/soldierIntakeModel");
 const FeatureToggle = require("../models/featureToggleModel");
 
@@ -154,6 +155,80 @@ const setIntakePublicStatus = async (req, res) => {
   }
 };
 
+const importUnitAssignments = async (req, res) => {
+  const uploaded = req.file;
+  if (!uploaded?.path) {
+    return res.status(400).json({ message: "กรุณาอัปโหลดไฟล์ Excel" });
+  }
+
+  const cleanup = () => {
+    try {
+      if (fs.existsSync(uploaded.path)) {
+        fs.unlinkSync(uploaded.path);
+      }
+    } catch {}
+  };
+
+  try {
+    const workbook = XLSX.readFile(uploaded.path);
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) {
+      cleanup();
+      return res.status(400).json({ message: "ไฟล์ไม่มีชีตข้อมูล" });
+    }
+    const sheet = workbook.Sheets[firstSheetName];
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+    const normalizeNumber = (val) => {
+      if (val === null || val === undefined || val === "") return undefined;
+      const num = Number(val);
+      return Number.isFinite(num) ? num : undefined;
+    };
+    const normalizeString = (val) => {
+      if (val === null || val === undefined) return undefined;
+      const text = String(val).trim();
+      return text || undefined;
+    };
+    const normalizeCitizenId = (val) => {
+      const text = typeof val === "string" || typeof val === "number" ? String(val) : "";
+      const digits = text.replace(/\D/g, "").trim();
+      return digits || undefined;
+    };
+
+    const records = rawRows.map((row) => ({
+      battalionCode:
+        normalizeNumber(row["กองพัน"]) ?? normalizeNumber(row["battalion"]) ?? normalizeString(row["กองพัน"]),
+      companyCode:
+        normalizeNumber(row["กองร้อย"]) ?? normalizeNumber(row["company"]) ?? normalizeString(row["กองร้อย"]),
+      platoonCode:
+        normalizeNumber(row["หมวด"]) ?? normalizeNumber(row["platoon"]) ?? normalizeString(row["หมวด"]),
+      sequenceNumber:
+        normalizeNumber(row["ลำดับ"]) ?? normalizeNumber(row["seq"]) ?? normalizeNumber(row["sequence"]),
+      citizenId: normalizeCitizenId(row["เลขบัตรประชาชน"] ?? row["citizenId"]),
+      firstName: normalizeString(row["ชื่อ"] ?? row["firstName"]),
+      lastName: normalizeString(row["สกุล"] ?? row["lastName"]),
+      registrationId: normalizeString(row["ทะเบียน"] ?? row["registration"]),
+      birthDate: normalizeString(row["วันเกิด"] ?? row["birthDate"]),
+    }));
+
+    const filteredRecords = records.filter((r) => r.citizenId);
+    if (!filteredRecords.length) {
+      cleanup();
+      return res.status(400).json({ message: "ไม่พบเลขบัตรประชาชนในไฟล์" });
+    }
+
+    const result = await SoldierIntake.importUnitAssignments(filteredRecords);
+    cleanup();
+    res.json({ message: "อัปเดตข้อมูลสำเร็จ", result });
+  } catch (err) {
+    cleanup();
+    console.error("Failed to import soldier intake assignments", err);
+    res
+      .status(500)
+      .json({ message: "ไม่สามารถนำเข้าไฟล์ได้", detail: err.message });
+  }
+};
+
 module.exports = {
   createIntake,
   listIntakes,
@@ -163,4 +238,5 @@ module.exports = {
   summary,
   getIntakePublicStatus,
   setIntakePublicStatus,
+  importUnitAssignments,
 };

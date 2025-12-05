@@ -1,6 +1,6 @@
 const express = require("express");
 const middleware = require("../middlewares/middleware");
-const { idCardUploadOne } = require("../middlewares/upload");
+const { idCardUploadOne, excelUploadOne } = require("../middlewares/upload");
 const soldierIntakeController = require("../controllers/soldierIntakeController");
 
 const router = express.Router();
@@ -61,6 +61,15 @@ router.get(
   middleware.verifyToken,
   middleware.authorizeAdmin,
   soldierIntakeController.summary
+);
+
+// Import/update unit assignment from Excel (ADMIN)
+router.post(
+  "/admin/soldier-intakes/import",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  excelUploadOne,
+  soldierIntakeController.importUnitAssignments
 );
 
 module.exports = router;
