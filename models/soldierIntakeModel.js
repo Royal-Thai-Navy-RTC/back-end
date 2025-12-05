@@ -374,4 +374,71 @@ module.exports = {
       religionCounts,
     };
   },
+
+  importUnitAssignments: async (records = []) => {
+    ensureModelAvailable();
+    if (!Array.isArray(records) || records.length === 0) {
+      const err = new Error("ไม่พบข้อมูลในไฟล์");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+
+    const result = { updated: 0, notFound: 0, skipped: 0 };
+
+    for (const row of records) {
+      const citizenId =
+        typeof row.citizenId === "string" || typeof row.citizenId === "number"
+          ? String(row.citizenId).trim()
+          : "";
+      if (!citizenId) {
+        result.skipped += 1;
+        continue;
+      }
+      const target = await prisma.soldierIntake.findFirst({
+        where: { citizenId },
+        select: { id: true },
+      });
+      if (!target) {
+        result.notFound += 1;
+        continue;
+      }
+
+      const data = {};
+      if (row.battalionCode !== undefined && row.battalionCode !== null && row.battalionCode !== "") {
+        data.battalionCode = String(row.battalionCode).trim();
+      }
+      if (row.companyCode !== undefined && row.companyCode !== null && row.companyCode !== "") {
+        data.companyCode = String(row.companyCode).trim();
+      }
+      if (row.platoonCode !== undefined && row.platoonCode !== null && row.platoonCode !== "") {
+        const platoon = Number(row.platoonCode);
+        if (!Number.isInteger(platoon) || platoon <= 0) {
+          result.skipped += 1;
+          continue;
+        }
+        data.platoonCode = platoon;
+      }
+      if (row.sequenceNumber !== undefined && row.sequenceNumber !== null && row.sequenceNumber !== "") {
+        const seq = Number(row.sequenceNumber);
+        if (!Number.isInteger(seq) || seq <= 0) {
+          result.skipped += 1;
+          continue;
+        }
+        data.sequenceNumber = seq;
+      }
+
+      if (Object.keys(data).length === 0) {
+        result.skipped += 1;
+        continue;
+      }
+
+      await prisma.soldierIntake.update({
+        where: { id: target.id },
+        data,
+      });
+      result.updated += 1;
+    }
+
+    return result;
+  },
 };
