@@ -538,6 +538,8 @@ model SoldierIntake {
   bloodGroup       String?  @db.VarChar(8)
   battalionCode    String?  @db.VarChar(50)
   companyCode      String?  @db.VarChar(50)
+  platoonCode      Int?
+  sequenceNumber   Int?
   addressLine      String?  @db.VarChar(255)
   province         String?  @db.VarChar(100)
   district         String?  @db.VarChar(100)

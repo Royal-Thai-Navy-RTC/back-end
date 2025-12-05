@@ -84,6 +84,17 @@ const EDUCATION_OPTIONS = [
   { value: "ต่ำกว่าประถมศึกษาปีที่ 6", label: "ต่ำกว่าประถมศึกษาปีที่ 6" },
 ];
 
+const normalizePositiveInt = (value, field) => {
+  if (value === undefined || value === null || value === "") return undefined;
+  const num = Number(value);
+  if (!Number.isInteger(num) || num <= 0) {
+    const err = new Error(`${field} ต้องเป็นจำนวนเต็มบวก`);
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  return num;
+};
+
 const normalizeInput = (input = {}) => {
   const firstName = normalizeString(input.firstName);
   const lastName = normalizeString(input.lastName);
@@ -101,6 +112,8 @@ const normalizeInput = (input = {}) => {
   const canSwim = normalizeBool(input.canSwim);
   const serviceYears = normalizeFloat(input.serviceYears, "อายุรับราชการทหาร");
   const bloodGroup = normalizeBloodGroup(input.bloodGroup);
+  const sequenceNumber = normalizePositiveInt(input.sequenceNumber, "sequenceNumber");
+  const platoonCode = normalizePositiveInt(input.platoonCode, "platoonCode");
 
   return {
     firstName,
@@ -113,6 +126,8 @@ const normalizeInput = (input = {}) => {
     bloodGroup,
     battalionCode: normalizeString(input.battalionCode),
     companyCode: normalizeString(input.companyCode),
+    platoonCode,
+    sequenceNumber,
     education: normalizeString(input.education),
     previousJob: normalizeString(input.previousJob),
     religion: normalizeString(input.religion),
