@@ -17,6 +17,7 @@ enum Role {
   SUB_ADMIN @map("ผู้ช่วยแอดมิน")
   SCHEDULE_ADMIN @map("ผู้ดูแลตารางสอน")
   FORM_CREATOR @map("ผู้สร้างแบบฟอร์ม")
+  EXAM_UPLOADER @map("ผู้อัปโหลดคะแนนสอบ")
   TEACHER @map("ครูผู้สอน")
   STUDENT @map("นักเรียน")
 }

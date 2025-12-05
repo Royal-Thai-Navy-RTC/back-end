@@ -12,7 +12,7 @@
 
 ## บทบาท
 
-`OWNER` (อนุมัติขั้นสุดท้าย/ลาไปราชการ) · `ADMIN` (จัดการผู้ใช้/แดชบอร์ด) · `SUB_ADMIN` (ช่วยอนุมัติการลา) · `SCHEDULE_ADMIN` (จัดการตารางสอน/กิจกรรมเท่านั้น) · `FORM_CREATOR` (สร้าง/แก้ไขแบบฟอร์มประเมินเท่านั้น) · `TEACHER` (รายงานการฝึก/ลาราชการ) · `STUDENT`
+`OWNER` (อนุมัติขั้นสุดท้าย/ลาไปราชการ) · `ADMIN` (จัดการผู้ใช้/แดชบอร์ด) · `SUB_ADMIN` (ช่วยอนุมัติการลา) · `SCHEDULE_ADMIN` (จัดการตารางสอน/กิจกรรมเท่านั้น) · `FORM_CREATOR` (สร้าง/แก้ไขแบบฟอร์มประเมินเท่านั้น) · `EXAM_UPLOADER` (ส่ง/จัดการไฟล์คะแนนสอบเท่านั้น) · `TEACHER` (รายงานการฝึก/ลาราชการ) · `STUDENT`
 
 ## รูปแบบ Error ทั่วไป
 
@@ -119,7 +119,7 @@ Content-Type: application/json
 
 ---
 
-## 8) Teacher/Schedule Admin/Form Creator – การลา (TEACHER, SCHEDULE_ADMIN, FORM_CREATOR)
+## 8) Teacher/Schedule Admin/Form Creator/Exam Uploader – การลา (TEACHER, SCHEDULE_ADMIN, FORM_CREATOR, EXAM_UPLOADER)
 
 - `POST /teacher/leaves` — คำขอลาทั่วไป
 - `GET /teacher/leaves` — query `limit`
@@ -229,9 +229,9 @@ Submission (ADMIN หรือ TEACHER):
 
 ---
 
-## 15) Exam Results – นำเข้าคะแนนสอบ
+## 15) Exam Results – นำเข้าคะแนนสอบ (ADMIN/OWNER/TEACHER/SUB_ADMIN/SCHEDULE_ADMIN/FORM_CREATOR/EXAM_UPLOADER)
 
-- `POST /api/exam-results/import` — upload Excel (`file`/`excel`/`upload`/`sheet`) ต้องมีคอลัมน์อย่างน้อย: `ประทับเวลา`, `คะแนน`, `ยศ - ชื่อ - สกุล`; รองรับ `หมายเลข ทร. 5 ตัว`, `สังกัด` ถ้ามี
+- `POST /api/exam-results/import` (รวม `EXAM_UPLOADER`) — upload Excel (`file`/`excel`/`upload`/`sheet`) ต้องมีคอลัมน์อย่างน้อย: `ประทับเวลา`, `คะแนน`, `ยศ - ชื่อ - สกุล`; รองรับ `หมายเลข ทร. 5 ตัว`, `สังกัด` ถ้ามี
 - `GET /api/exam-results` — query `page,pageSize,search,unit,navyNumber,sort`; คืน `{ items, page, pageSize, total, totalPages }`
   - `sort`: รองรับ `id`, `-id`, `timestamp`, `-timestamp` (ค่าเริ่มต้น `-timestamp`)
 - `GET /api/exam-results/summary` — query `battalionCodes,companyCodes` (comma separated); คืน `{ battalions: [{ battalionCode, averageScore, total, companies: [{ battalionCode, companyCode, averageScore, total }] }] }` (ค่าเริ่มต้น battalion=1-4, company=1-5)

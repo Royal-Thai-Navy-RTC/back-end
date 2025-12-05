@@ -9,7 +9,7 @@ const router = express.Router();
 router.post(
   "/exam-results/import",
   middleware.verifyToken,
-  middleware.authorizeAdminOrTeacher,
+  middleware.authorizeExamAccess,
   excelUploadOne,
   examController.importExamExcel
 );
@@ -18,7 +18,7 @@ router.post(
 router.get(
   "/exam-results",
   middleware.verifyToken,
-  middleware.authorizeAdminOrTeacher,
+  middleware.authorizeExamAccess,
   examController.listExamResults
 );
 
@@ -26,14 +26,14 @@ router.get(
 router.get(
   "/exam-results/summary",
   middleware.verifyToken,
-  middleware.authorizeAdminOrTeacher,
+  middleware.authorizeExamAccess,
   examController.summarizeExamResults
 );
 
 router.delete(
   "/exam-results/:id",
   middleware.verifyToken,
-  middleware.authorizeAdminOrTeacher,
+  middleware.authorizeExamAccess,
   examController.deleteExamResult
 );
 
@@ -41,7 +41,7 @@ router.delete(
 router.delete(
   "/exam-results",
   middleware.verifyToken,
-  middleware.authorizeAdminOrTeacher,
+  middleware.authorizeExamAccess,
   examController.deleteAllExamResults
 );
 
@@ -49,7 +49,7 @@ router.delete(
 router.get(
   "/exam-results/overview",
   middleware.verifyToken,
-  middleware.authorizeAdminOrTeacher,
+  middleware.authorizeExamAccess,
   examController.getExamOverview
 );
 
@@ -57,7 +57,7 @@ router.get(
 router.get(
   "/exam-results/export",
   middleware.verifyToken,
-  middleware.authorizeAdminOrTeacher,
+  middleware.authorizeExamAccess,
   examController.exportExamResults
 );
 

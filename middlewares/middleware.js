@@ -20,11 +20,19 @@ const templateViewerRoleSet = new Set([
   "SCHEDULE_ADMIN",
   "TEACHER",
 ]);
+const examAccessRoleSet = new Set([
+  ...adminRoleSet,
+  ...teacherRoleSet,
+  "SCHEDULE_ADMIN",
+  "FORM_CREATOR",
+  "EXAM_UPLOADER",
+]);
 const leaveRequesterRoleSet = new Set([
   ...adminRoleSet,
   ...teacherRoleSet,
   "SCHEDULE_ADMIN",
   "FORM_CREATOR",
+  "EXAM_UPLOADER",
 ]);
 const nonStudentRoleSet = new Set([
   "OWNER",
@@ -32,6 +40,7 @@ const nonStudentRoleSet = new Set([
   "SUB_ADMIN",
   "SCHEDULE_ADMIN",
   "FORM_CREATOR",
+  "EXAM_UPLOADER",
   "TEACHER",
 ]);
 
@@ -144,6 +153,25 @@ module.exports = {
         return res.status(403).json({ message: "Admin/Teacher only" });
       }
       // Attach latest role for downstream handlers/validators
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeExamAccess: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!examAccessRoleSet.has(role)) {
+        return res.status(403).json({ message: "Exam uploader only" });
+      }
       next();
     } catch (e) {
       return res.status(500).json({ message: "Authorization error" });

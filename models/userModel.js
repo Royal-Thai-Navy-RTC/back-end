@@ -643,6 +643,7 @@ module.exports = {
         "SUB_ADMIN",
         "SCHEDULE_ADMIN",
         "FORM_CREATOR",
+        "EXAM_UPLOADER",
         "TEACHER",
         "STUDENT",
       ]);
