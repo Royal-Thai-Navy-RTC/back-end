@@ -2,16 +2,11 @@ const jwt = require("jsonwebtoken"); // เรียกใช้งาน jwt �
 const rateLimit = require("express-rate-limit");
 const config = require("../config"); // เรียกใช้งานไฟล์ config.js ที่เราสร้างไว้
 const prisma = require("../utils/prisma");
-const {
-  loginBruteForceGuard,
-} = require("../utils/loginAttemptLimiter");
+const { loginBruteForceGuard } = require("../utils/loginAttemptLimiter");
 
 const teacherRoleSet = new Set(["TEACHER", "SUB_ADMIN"]);
 const adminRoleSet = new Set(["ADMIN", "OWNER"]);
-const generalLeaveApproverRoleSet = new Set([
-  ...adminRoleSet,
-  "SUB_ADMIN",
-]);
+const generalLeaveApproverRoleSet = new Set([...adminRoleSet, "SUB_ADMIN"]);
 const scheduleManagerRoleSet = new Set([...adminRoleSet, "SCHEDULE_ADMIN"]);
 const templateManagerRoleSet = new Set([...adminRoleSet, "FORM_CREATOR"]);
 const templateViewerRoleSet = new Set([
@@ -42,6 +37,14 @@ const nonStudentRoleSet = new Set([
   "FORM_CREATOR",
   "EXAM_UPLOADER",
   "TEACHER",
+]);
+const companyRoleSet = new Set([
+  ...adminRoleSet, 
+  ...teacherRoleSet, 
+  "BAT1_COM1", "BAT1_COM2", "BAT1_COM3", "BAT1_COM4", "BAT1_COM5",
+  "BAT2_COM1", "BAT2_COM2", "BAT2_COM3", "BAT2_COM4", "BAT2_COM5",
+  "BAT3_COM1", "BAT3_COM2", "BAT3_COM3", "BAT3_COM4", "BAT3_COM5",
+  "BAT4_COM1", "BAT4_COM2", "BAT4_COM3", "BAT4_COM4", "BAT4_COM5",
 ]);
 
 const normalizeRole = (role) =>
@@ -287,6 +290,30 @@ module.exports = {
       if (!generalLeaveApproverRoleSet.has(role)) {
         return res.status(403).json({ message: "Leave approver only" });
       }
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeSoldierData: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+
+      if (!companyRoleSet.has(role)) {
+        return res.status(403).json({
+          message: "Allowed only for staff / company roles",
+        });
+      }
+
       next();
     } catch (e) {
       return res.status(500).json({ message: "Authorization error" });

@@ -49,9 +49,30 @@ const createIntake = async (req, res) => {
   }
 };
 
+const mapRoleToUnitFilter = (role) => {
+  if (!role || typeof role !== "string") return null;
+
+  const match = /^BAT(\d+)_COM(\d+)$/.exec(role);
+  if (!match) return null;
+
+  return {
+    battalionCode: String(Number(match[1])), 
+    companyCode: String(Number(match[2])),   
+  };
+};
+
 const listIntakes = async (req, res) => {
   try {
-    const result = await SoldierIntake.listIntakes(req.query || {});
+    // เอา query จาก client มาก่อน
+    const filters = { ...(req.query || {}) };
+    const unitFilter = mapRoleToUnitFilter(req.userRole);
+
+    if (unitFilter) {
+      filters.battalionCode = unitFilter.battalionCode;
+      filters.companyCode = unitFilter.companyCode;
+    }
+
+    const result = await SoldierIntake.listIntakes(filters);
     res.json({
       data: result.items,
       page: result.page,
@@ -64,6 +85,7 @@ const listIntakes = async (req, res) => {
     res.status(500).json({ message: "ไม่สามารถดึงข้อมูลได้" });
   }
 };
+
 
 const getIntakeById = async (req, res) => {
   try {

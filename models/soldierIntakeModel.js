@@ -63,7 +63,20 @@ const normalizeBloodGroup = (value) => {
   const val = normalizeString(value);
   if (!val) return val;
   const normalized = val.toUpperCase();
-  const allowed = new Set(["A", "B", "AB", "O", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]);
+  const allowed = new Set([
+    "A",
+    "B",
+    "AB",
+    "O",
+    "A+",
+    "A-",
+    "B+",
+    "B-",
+    "AB+",
+    "AB-",
+    "O+",
+    "O-",
+  ]);
   if (!allowed.has(normalized)) {
     const err = new Error("หมู่เลือดไม่ถูกต้อง (ระบุเป็น A/B/AB/O หรือมี +/-)");
     err.code = "VALIDATION_ERROR";
@@ -112,7 +125,10 @@ const normalizeInput = (input = {}) => {
   const canSwim = normalizeBool(input.canSwim);
   const serviceYears = normalizeFloat(input.serviceYears, "อายุรับราชการทหาร");
   const bloodGroup = normalizeBloodGroup(input.bloodGroup);
-  const sequenceNumber = normalizePositiveInt(input.sequenceNumber, "sequenceNumber");
+  const sequenceNumber = normalizePositiveInt(
+    input.sequenceNumber,
+    "sequenceNumber"
+  );
   const platoonCode = normalizePositiveInt(input.platoonCode, "platoonCode");
 
   return {
@@ -152,7 +168,9 @@ const normalizeInput = (input = {}) => {
 
 const ensureModelAvailable = () => {
   if (!prisma.soldierIntake) {
-    const err = new Error("โมเดล SoldierIntake ยังไม่พร้อม (รัน prisma migrate/generate ก่อน)");
+    const err = new Error(
+      "โมเดล SoldierIntake ยังไม่พร้อม (รัน prisma migrate/generate ก่อน)"
+    );
     err.code = "MIGRATION_REQUIRED";
     throw err;
   }
@@ -179,7 +197,30 @@ module.exports = {
     const pageSize = Math.max(1, Math.min(Number(filters.pageSize) || 20, 100));
     const page = Math.max(1, Number(filters.page) || 1);
     const skip = (page - 1) * pageSize;
+
     const where = {};
+
+    const battalionCode = normalizeString(filters.battalionCode);
+    if (battalionCode) {
+      where.battalionCode = battalionCode;
+    }
+
+    const companyCode = normalizeString(filters.companyCode);
+    if (companyCode) {
+      where.companyCode = companyCode;
+    }
+
+    if (
+      filters.platoonCode !== undefined &&
+      filters.platoonCode !== null &&
+      String(filters.platoonCode).trim() !== ""
+    ) {
+      const p = Number(filters.platoonCode);
+      if (Number.isInteger(p) && p > 0) {
+        where.platoonCode = p;
+      }
+    }
+
     if (filters.search) {
       const q = String(filters.search).trim();
       if (q) {
@@ -193,6 +234,7 @@ module.exports = {
         ];
       }
     }
+
     const [items, total] = await Promise.all([
       prisma.soldierIntake.findMany({
         where,
@@ -202,6 +244,7 @@ module.exports = {
       }),
       prisma.soldierIntake.count({ where }),
     ]);
+
     return {
       items,
       total,
@@ -309,7 +352,9 @@ module.exports = {
       }),
     ]);
     const educationCounts = EDUCATION_OPTIONS.map((option) => {
-      const matched = educationGroups.find((item) => item.education === option.value);
+      const matched = educationGroups.find(
+        (item) => item.education === option.value
+      );
       return { ...option, count: matched?._count.education || 0 };
     });
     const religionCounts = religionGroups
@@ -320,6 +365,13 @@ module.exports = {
         count: item._count.religion || 0,
       }))
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-    return { total, sixMonths, oneYear, twoYears, educationCounts, religionCounts };
+    return {
+      total,
+      sixMonths,
+      oneYear,
+      twoYears,
+      educationCounts,
+      religionCounts,
+    };
   },
 };

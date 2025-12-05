@@ -30,21 +30,21 @@ router.post(
 router.get(
   "/admin/soldier-intakes",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeSoldierData,
   soldierIntakeController.listIntakes
 );
 
 router.get(
   "/admin/soldier-intakes/:id",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeSoldierData,
   soldierIntakeController.getIntakeById
 );
 
 router.put(
   "/admin/soldier-intakes/:id",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeSoldierData,
   idCardUploadOne,
   soldierIntakeController.updateIntake
 );
@@ -52,14 +52,14 @@ router.put(
 router.delete(
   "/admin/soldier-intakes/:id",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeSoldierData,
   soldierIntakeController.deleteIntake
 );
 
 router.get(
   "/admin/soldier-intakes-summary",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeSoldierData,
   soldierIntakeController.summary
 );
 
