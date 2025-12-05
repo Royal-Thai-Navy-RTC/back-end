@@ -638,7 +638,15 @@ module.exports = {
     }
     if (role) {
       const r = String(role).toUpperCase();
-      const allowed = new Set(["ADMIN", "SUB_ADMIN", "TEACHER", "STUDENT"]);
+      const allowed = new Set([
+        "ADMIN",
+        "SUB_ADMIN",
+        "SCHEDULE_ADMIN",
+        "FORM_CREATOR",
+        "EXAM_UPLOADER",
+        "TEACHER",
+        "STUDENT",
+      ]);
       if (allowed.has(r)) where.role = r;
     }
 

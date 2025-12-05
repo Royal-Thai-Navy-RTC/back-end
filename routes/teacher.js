@@ -58,14 +58,14 @@ router.patch(
 router.get(
   "/teacher/notifications",
   middleware.verifyToken,
-  middleware.authorizeTeacher,
+  middleware.authorizeNonStudent,
   teacherNotificationController.getTeacherNotifications
 );
 
 router.patch(
   "/teacher/notifications/read",
   middleware.verifyToken,
-  middleware.authorizeTeacher,
+  middleware.authorizeNonStudent,
   teacherNotificationController.markTeacherNotificationsRead
 );
 

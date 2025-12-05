@@ -688,6 +688,196 @@ module.exports = {
       });
   },
 
+  compareAverages: async (filters = {}) => {
+    const templateTypeFilter = filters.templateType
+      ? normalizeTemplateType(filters.templateType)
+      : null;
+    if (templateTypeFilter === "SERVICE")
+      return { battalions: [], companies: [] };
+
+    const isServiceCode = (code) =>
+      typeof code === "string" && code.trim().toUpperCase() === "SERVICE";
+
+    const battalionCodesList = Array.isArray(filters.battalionCodesList)
+      ? filters.battalionCodesList.map((c) =>
+          typeof c === "string" ? c.trim().toUpperCase() : null
+        ).filter((c) => c && !isServiceCode(c))
+      : [];
+    const companyCodesList = Array.isArray(filters.companyCodesList)
+      ? filters.companyCodesList.map((c) =>
+          typeof c === "string" ? c.trim().toUpperCase() : null
+        ).filter((c) => c && !isServiceCode(c))
+      : [];
+
+    if (!templateTypeFilter && filters.templateId) {
+      const tpl = await prisma.studentEvaluationTemplate.findUnique({
+        where: { id: Number(filters.templateId) },
+        select: { templateType: true },
+      });
+      if (tpl?.templateType === "SERVICE") {
+        return { battalions: [], companies: [] };
+      }
+    }
+
+    const where = buildEvaluationWhere(filters);
+    const [companyGroups, battalionGroups] = await Promise.all([
+      prisma.studentEvaluation.groupBy({
+        by: ["battalionCode", "companyCode"],
+        where,
+        _count: { _all: true },
+        _sum: { overallScore: true },
+        _avg: { overallScore: true },
+      }),
+      prisma.studentEvaluation.groupBy({
+        by: ["battalionCode"],
+        where,
+        _count: { _all: true },
+        _sum: { overallScore: true },
+        _avg: { overallScore: true },
+      }),
+    ]);
+
+    const companies = companyGroups
+      .filter(
+        (g) =>
+          !isServiceCode(g.battalionCode) && !isServiceCode(g.companyCode)
+      )
+      .map((g) => ({
+        battalionCode: g.battalionCode,
+        companyCode: g.companyCode,
+        totalEvaluations: g._count?._all || 0,
+        totalScore: g._sum?.overallScore || 0,
+        averageOverallScore: g._avg?.overallScore || null,
+      }))
+      .sort((a, b) => {
+        const avgA = Number.isFinite(a.averageOverallScore)
+          ? a.averageOverallScore
+          : -Infinity;
+        const avgB = Number.isFinite(b.averageOverallScore)
+          ? b.averageOverallScore
+          : -Infinity;
+        if (avgA !== avgB) return avgB - avgA;
+        const battalionCmp = (a.battalionCode || "").localeCompare(
+          b.battalionCode || ""
+        );
+        if (battalionCmp !== 0) return battalionCmp;
+        return (a.companyCode || "").localeCompare(b.companyCode || "");
+      });
+
+    const battalionOrder = new Map(
+      battalionCodesList.map((code, idx) => [code, idx])
+    );
+    const companyOrder = new Map(
+      companyCodesList.map((code, idx) => [code, idx])
+    );
+
+    const companiesGrid =
+      battalionCodesList.length > 0 && companyCodesList.length > 0
+        ? battalionCodesList.flatMap((bCode) =>
+            companyCodesList.map((cCode) => ({
+              battalionCode: bCode,
+              companyCode: cCode,
+            }))
+          )
+        : [];
+
+    const companyKey = (bCode, cCode) => `${bCode || ""}__${cCode || ""}`;
+    const companyMap = new Map(
+      companies.map((c) => [companyKey(c.battalionCode, c.companyCode), c])
+    );
+
+    if (companiesGrid.length) {
+      companiesGrid.forEach(({ battalionCode, companyCode }) => {
+        const key = companyKey(battalionCode, companyCode);
+        if (!companyMap.has(key)) {
+          companyMap.set(key, {
+            battalionCode,
+            companyCode,
+            totalEvaluations: 0,
+            totalScore: 0,
+            averageOverallScore: null,
+          });
+        }
+      });
+      companies.length = 0;
+      companies.push(...companyMap.values());
+    }
+
+    companies.sort((a, b) => {
+      const avgA = Number.isFinite(a.averageOverallScore)
+        ? a.averageOverallScore
+        : -Infinity;
+      const avgB = Number.isFinite(b.averageOverallScore)
+        ? b.averageOverallScore
+        : -Infinity;
+      if (avgA !== avgB) return avgB - avgA;
+      const battalionCmp =
+        battalionOrder.has(a.battalionCode) || battalionOrder.has(b.battalionCode)
+          ? (battalionOrder.get(a.battalionCode) ?? Infinity) -
+            (battalionOrder.get(b.battalionCode) ?? Infinity)
+          : (a.battalionCode || "").localeCompare(b.battalionCode || "");
+      if (battalionCmp !== 0) return battalionCmp;
+      if (companyOrder.has(a.companyCode) || companyOrder.has(b.companyCode)) {
+        return (
+          (companyOrder.get(a.companyCode) ?? Infinity) -
+          (companyOrder.get(b.companyCode) ?? Infinity)
+        );
+      }
+      return (a.companyCode || "").localeCompare(b.companyCode || "");
+    });
+
+    const battalions = battalionGroups
+      .filter((g) => !isServiceCode(g.battalionCode))
+      .map((g) => {
+        const avg =
+          typeof g._avg?.overallScore === "number"
+            ? g._avg.overallScore
+            : null;
+        return {
+          battalionCode: g.battalionCode,
+          totalEvaluations: g._count?._all || 0,
+          totalScore: g._sum?.overallScore || 0,
+          averageOverallScore: avg,
+        };
+      })
+      .concat(
+        battalionCodesList
+          .filter(
+            (code) => !battalionGroups.some((b) => b.battalionCode === code)
+          )
+          .map((code) => ({
+            battalionCode: code,
+            totalEvaluations: 0,
+            totalScore: 0,
+            averageOverallScore: null,
+          }))
+      )
+      .map((battalion) => ({
+        ...battalion,
+        companies: companies.filter(
+          (c) => c.battalionCode === battalion.battalionCode
+        ),
+      }))
+      .sort((a, b) => {
+        const avgA = Number.isFinite(a.averageOverallScore)
+          ? a.averageOverallScore
+          : -Infinity;
+        const avgB = Number.isFinite(b.averageOverallScore)
+          ? b.averageOverallScore
+          : -Infinity;
+        if (avgA !== avgB) return avgB - avgA;
+        if (battalionOrder.has(a.battalionCode) || battalionOrder.has(b.battalionCode)) {
+          return (
+            (battalionOrder.get(a.battalionCode) ?? Infinity) -
+            (battalionOrder.get(b.battalionCode) ?? Infinity)
+          );
+        }
+        return (a.battalionCode || "").localeCompare(b.battalionCode || "");
+      });
+
+    return { battalions, companies };
+  },
+
   getEvaluationById: async (id) => {
     return prisma.studentEvaluation.findUnique({
       where: { id: Number(id) },

@@ -18,6 +18,9 @@
 | `OWNER` | เจ้าของระบบ/ผู้บังคับบัญชาสูงสุด | เห็นทุกอย่าง, อนุมัติขั้นสุดท้ายของการลา, อนุมัติลาไปราชการ |
 | `ADMIN` | ผู้ดูแลระบบ | จัดการผู้ใช้ทั้งหมด, ดูแดชบอร์ดรายงาน, อนุมัติรอบแรกของคำขอลาทั่วไป |
 | `SUB_ADMIN` | ผู้ช่วยแอดมิน | ทำหน้าที่เหมือนครูผู้สอน + อนุมัติการลาทั่วไป |
+| `SCHEDULE_ADMIN` | ผู้ดูแลตารางสอน | จัดการตารางสอน/กิจกรรม และส่งคำขอลา/ลาไปราชการได้ (ไม่อนุมัติผู้ใต้บังคับบัญชา) |
+| `FORM_CREATOR` | ผู้สร้างแบบฟอร์ม | สร้าง/แก้ไขแบบประเมิน (template) เท่านั้น |
+| `EXAM_UPLOADER` | ผู้อัปโหลดคะแนนสอบ | นำเข้า/จัดการผลสอบจากไฟล์ Excel |
 | `TEACHER` | ครูผู้สอน | ส่งยอดรายงานการฝึก, ขออนุมัติการลา/ไปราชการ |
 | `STUDENT` | นักเรียน | ใช้งานทั่วไป, เข้าถึงเฉพาะข้อมูลตนเอง |
 
@@ -546,6 +549,14 @@ Content-Type: application/json
 - Auth: ADMIN หรือ TEACHER
 - Query: `templateId`, `companyCode`, `battalionCode`, `evaluatorId`
 - ใช้กรองผลตาม template/กองร้อย/กองพัน หรือ evaluator
+
+### GET /api/student-evaluations/comparison
+- Auth: ADMIN หรือ TEACHER
+- Query: `templateId`, `companyCode`, `battalionCode`, `evaluatorId`, `templateType` (ยกเว้น `SERVICE`)
+- Response สำหรับสร้างกราฟเปรียบเทียบคะแนนเฉลี่ย:  
+`{ "comparison": { "battalions": [{ "battalionCode": "...", "averageOverallScore": 4.25, "totalEvaluations": 6, "totalScore": 25.5, "companies": [{ "companyCode": "...", "averageOverallScore": 4.3 }] }], "companies": [...] } }`
+- ลำดับเรียงจากคะแนนเฉลี่ยมาก → น้อย
+- ถ้าต้องการให้รายการเติมครบทุกกองพัน/กองร้อย (แม้ยังไม่มีผล) ให้ส่ง `battalionCodes` และ `companyCodes` คั่น comma เช่น `?battalionCodes=พัน1,พัน2,พัน3,พัน4&companyCodes=ร้อย1,ร้อย2,ร้อย3,ร้อย4,ร้อย5`
 
 ### GET /api/student-evaluations/:id
 - Auth: ADMIN หรือ TEACHER

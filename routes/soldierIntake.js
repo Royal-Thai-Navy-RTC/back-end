@@ -5,6 +5,20 @@ const soldierIntakeController = require("../controllers/soldierIntakeController"
 
 const router = express.Router();
 
+// ตรวจสอบสถานะเปิด/ปิดฟอร์ม (public)
+router.get(
+  "/public/soldier-intake/status",
+  soldierIntakeController.getIntakePublicStatus
+);
+
+// อัปเดตสถานะฟอร์ม (ADMIN)
+router.patch(
+  "/admin/soldier-intake/status",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  soldierIntakeController.setIntakePublicStatus
+);
+
 // รับข้อมูลทหารใหม่ (public form)
 router.post(
   "/soldier-intakes",

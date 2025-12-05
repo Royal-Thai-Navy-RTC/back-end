@@ -37,6 +37,7 @@ const buildNotification = ({
   message,
   source,
   schedule,
+  task,
   dueAt,
   status = "unread",
 }) => ({
@@ -58,6 +59,26 @@ const buildNotification = ({
         battalionCode: schedule.battalionCode,
       }
     : null,
+  task: task
+    ? {
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        noteToAssignee: task.noteToAssignee,
+        startDate: task.startDate,
+        dueDate: task.dueDate,
+        priority: task.priority,
+        status: task.status,
+        creator: task.creator
+          ? {
+              id: task.creator.id,
+              firstName: task.creator.firstName,
+              lastName: task.creator.lastName,
+              role: task.creator.role,
+            }
+          : null,
+      }
+    : null,
 });
 
 const getTeacherNotifications = async (req, res) => {
@@ -74,7 +95,7 @@ const getTeacherNotifications = async (req, res) => {
           })
         : Promise.resolve([]);
 
-    const [schedules, reports, evaluations, readStates] = await Promise.all([
+    const [schedules, reports, evaluations, readStates, tasks] = await Promise.all([
       prisma.teachingSchedule.findMany({
         where: {
           teacherId,
@@ -108,6 +129,26 @@ const getTeacherNotifications = async (req, res) => {
         select: { id: true, evaluationPeriod: true },
       }),
       safeReadStatesPromise,
+      prisma.taskAssignment.findMany({
+        where: {
+          assigneeId: teacherId,
+          status: { notIn: ["DONE", "CANCELLED", "CANCELED"] },
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          noteToAssignee: true,
+          startDate: true,
+          dueDate: true,
+          priority: true,
+          status: true,
+          creator: {
+            select: { id: true, firstName: true, lastName: true, role: true },
+          },
+        },
+      }),
     ]);
 
     const readSet = new Set(readStates.map((r) => r.notificationId));
@@ -173,6 +214,30 @@ const getTeacherNotifications = async (req, res) => {
       }
     }
 
+    for (const task of tasks) {
+      const dueAt = task.dueDate || task.startDate || new Date();
+      const notifId = `task-${task.id}`;
+      notifications.push(
+        buildNotification({
+          id: notifId,
+          type: "TASK_ASSIGNED",
+          title: task.title || "งานที่ได้รับมอบหมาย",
+          message:
+            task.noteToAssignee ||
+            task.description ||
+            "มีงานใหม่ที่ได้รับมอบหมาย",
+          source: task.creator
+            ? task.creator.firstName
+              ? `${task.creator.firstName} ${task.creator.lastName || ""}`.trim()
+              : "ผู้มอบหมาย"
+            : "ผู้มอบหมาย",
+          task,
+          dueAt,
+          status: readSet.has(notifId) ? "read" : "unread",
+        })
+      );
+    }
+
     // เรียงใหม่: ตาม dueAt ล่าสุด -> เก่าสุด
     notifications.sort(
       (a, b) => new Date(b.dueAt).getTime() - new Date(a.dueAt).getTime()
@@ -192,6 +257,13 @@ const getTeacherNotifications = async (req, res) => {
               ...n.schedule,
               start: toBangkokISOString(n.schedule.start),
               end: toBangkokISOString(n.schedule.end),
+            }
+          : null,
+        task: n.task
+          ? {
+              ...n.task,
+              startDate: toBangkokISOString(n.task.startDate),
+              dueDate: toBangkokISOString(n.task.dueDate),
             }
           : null,
       })),

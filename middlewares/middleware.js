@@ -12,6 +12,40 @@ const generalLeaveApproverRoleSet = new Set([
   ...adminRoleSet,
   "SUB_ADMIN",
 ]);
+const scheduleManagerRoleSet = new Set([...adminRoleSet, "SCHEDULE_ADMIN"]);
+const templateManagerRoleSet = new Set([...adminRoleSet, "FORM_CREATOR"]);
+const templateViewerRoleSet = new Set([
+  ...templateManagerRoleSet,
+  "SUB_ADMIN",
+  "SCHEDULE_ADMIN",
+  "TEACHER",
+]);
+const examAccessRoleSet = new Set([
+  ...adminRoleSet,
+  ...teacherRoleSet,
+  "SCHEDULE_ADMIN",
+  "FORM_CREATOR",
+  "EXAM_UPLOADER",
+]);
+const leaveRequesterRoleSet = new Set([
+  ...adminRoleSet,
+  ...teacherRoleSet,
+  "SCHEDULE_ADMIN",
+  "FORM_CREATOR",
+  "EXAM_UPLOADER",
+]);
+const nonStudentRoleSet = new Set([
+  "OWNER",
+  "ADMIN",
+  "SUB_ADMIN",
+  "SCHEDULE_ADMIN",
+  "FORM_CREATOR",
+  "EXAM_UPLOADER",
+  "TEACHER",
+]);
+
+const normalizeRole = (role) =>
+  typeof role === "string" ? role.trim().toUpperCase() : "";
 
 // next คือ callback function ที่ใช้ในการส่งต่อไปยัง middleware ถัดไป
 const verifyToken = (req, res, next) => {
@@ -29,7 +63,7 @@ const verifyToken = (req, res, next) => {
       return res.status(500).json({ message: "Failed to authenticate token" }); // หากไม่สามารถตรวจสอบ token ได้ให้ส่งข้อความกลับไปว่าไม่สามารถตรวจสอบ token ได้
 
     req.userId = decoded.id; // ถ้าตรวจสอบ token สำเร็จ ให้เก็บ id ของผู้ใช้ไว้ใน req.userId
-    if (decoded.role) req.userRole = decoded.role; // แนบ role จาก token (ถ้ามี)
+    if (decoded.role) req.userRole = normalizeRole(decoded.role); // แนบ role จาก token (ถ้ามี)
     next(); // ส่งต่อไปยัง middleware ถัดไป
   });
 };
@@ -75,7 +109,9 @@ module.exports = {
       if (!user || user.isActive === false) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      if (!adminRoleSet.has(user.role)) {
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!adminRoleSet.has(role)) {
         return res.status(403).json({ message: "Admin only" });
       }
       next();
@@ -92,7 +128,9 @@ module.exports = {
       if (!user || user.isActive === false) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      if (user.role !== "OWNER") {
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (role !== "OWNER") {
         return res.status(403).json({ message: "Owner only" });
       }
       next();
@@ -109,11 +147,88 @@ module.exports = {
       if (!user || user.isActive === false) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      if (!(adminRoleSet.has(user.role) || teacherRoleSet.has(user.role))) {
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!leaveRequesterRoleSet.has(role)) {
         return res.status(403).json({ message: "Admin/Teacher only" });
       }
       // Attach latest role for downstream handlers/validators
-      req.userRole = user.role;
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeExamAccess: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!examAccessRoleSet.has(role)) {
+        return res.status(403).json({ message: "Exam uploader only" });
+      }
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeTemplateManager: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!templateManagerRoleSet.has(role)) {
+        return res.status(403).json({ message: "Template creator only" });
+      }
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeTemplateViewer: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!templateViewerRoleSet.has(role)) {
+        return res.status(403).json({ message: "Template access restricted" });
+      }
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeScheduleManager: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!scheduleManagerRoleSet.has(role)) {
+        return res.status(403).json({ message: "Schedule manager only" });
+      }
       next();
     } catch (e) {
       return res.status(500).json({ message: "Authorization error" });
@@ -128,8 +243,29 @@ module.exports = {
       if (!user || user.isActive === false) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      if (!teacherRoleSet.has(user.role)) {
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!teacherRoleSet.has(role)) {
         return res.status(403).json({ message: "Teacher only" });
+      }
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeNonStudent: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!nonStudentRoleSet.has(role)) {
+        return res.status(403).json({ message: "Non-student only" });
       }
       next();
     } catch (e) {
@@ -146,8 +282,9 @@ module.exports = {
         return res.status(403).json({ message: "Forbidden" });
       }
       // Ensure downstream handlers know the actual role (JWT may be stale)
-      req.userRole = user.role;
-      if (!generalLeaveApproverRoleSet.has(user.role)) {
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!generalLeaveApproverRoleSet.has(role)) {
         return res.status(403).json({ message: "Leave approver only" });
       }
       next();

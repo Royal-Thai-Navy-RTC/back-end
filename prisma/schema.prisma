@@ -15,6 +15,9 @@ enum Role {
   OWNER   @map("Owner")
   ADMIN   @map("แอดมิน")
   SUB_ADMIN @map("ผู้ช่วยแอดมิน")
+  SCHEDULE_ADMIN @map("ผู้ดูแลตารางสอน")
+  FORM_CREATOR @map("ผู้สร้างแบบฟอร์ม")
+  EXAM_UPLOADER @map("ผู้อัปโหลดคะแนนสอบ")
   TEACHER @map("ครูผู้สอน")
   STUDENT @map("นักเรียน")
 }
@@ -85,6 +88,12 @@ enum EvaluationTemplateType {
   COMPANY
   BATTALION
   SERVICE
+}
+
+enum TaskPriority {
+  HIGH
+  MEDIUM
+  LOW
 }
 
 // --------------------------------------------------
@@ -163,8 +172,19 @@ model User {
   studentEvaluationTemplates StudentEvaluationTemplate[] @relation("TemplateCreators")
   studentEvaluationsEvaluated StudentEvaluation[] @relation("StudentEvaluationEvaluatedPerson")
 
+  // ผลสอบที่นำเข้าจากไฟล์ Excel
+  examResultsImported     ExamResult[]
+
+  // ฟีเจอร์ท็อกเกิลที่เคยอัปเดต
+  featureTogglesUpdated FeatureToggle[] @relation("FeatureToggleUpdatedBy")
+
   // แจ้งเตือนที่อ่านแล้ว
   notificationReads NotificationRead[]
+
+  // งานที่ได้รับมอบหมาย
+  taskAssignments TaskAssignment[] @relation("TaskAssignee")
+  // งานที่สร้าง/มอบหมายให้คนอื่น
+  tasksCreated    TaskAssignment[] @relation("TaskCreator")
 }
 
 // --------------------------------------------------
@@ -309,6 +329,47 @@ model StudentEvaluationAnswer {
 }
 
 // --------------------------------------------------
+// EXAM RESULTS (คะแนนสอบจากการนำเข้าไฟล์ Excel)
+// --------------------------------------------------
+model ExamResult {
+  id            Int      @id @default(autoincrement())
+  timestamp     DateTime // ประทับเวลาจากไฟล์
+  scoreText     String?  @db.VarChar(64) // raw text เช่น "32 / 40"
+  scoreValue    Float?   // คะแนนที่ทำได้
+  scoreTotal    Float?   // คะแนนเต็ม (ถ้าพบ)
+  fullName      String   @db.VarChar(191) // ยศ - ชื่อ - สกุล
+  navyNumber    String?  @db.VarChar(32) // หมายเลข ทร. 5 ตัว
+  unit          String?  @db.VarChar(191) // สังกัด/หน่วย
+
+  importedById  Int?
+  importedBy    User?    @relation(fields: [importedById], references: [id])
+
+  createdAt     DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([navyNumber])
+  @@unique([timestamp, navyNumber, fullName, scoreText])
+}
+
+// --------------------------------------------------
+// FEATURE TOGGLES (เปิด/ปิดฟีเจอร์ เช่น ฟอร์มรับทหารใหม่)
+// --------------------------------------------------
+model FeatureToggle {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique @db.VarChar(64)
+  isEnabled   Boolean  @default(false)
+  description String?  @db.VarChar(255)
+
+  updatedById Int?
+  updatedBy   User?    @relation("FeatureToggleUpdatedBy", fields: [updatedById], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+}
+
+// --------------------------------------------------
 // TRAINING REPORTS (ยอดนักเรียน/รายงานการฝึกของครู)
 // --------------------------------------------------
 model TrainingReport {
@@ -412,6 +473,37 @@ model LibraryItem {
 }
 
 // --------------------------------------------------
+// TASK ASSIGNMENTS (มอบหมายงาน)
+// --------------------------------------------------
+model TaskAssignment {
+  id           Int          @id @default(autoincrement())
+  title        String       @db.VarChar(191)
+  description  String?      @db.Text
+  noteToAssignee String?    @db.Text
+
+  startDate    DateTime
+  dueDate      DateTime
+  durationDays Int?
+  priority     TaskPriority @default(MEDIUM)
+  status       String       @db.VarChar(32) @default("PENDING")
+  submissionNote String?    @db.Text
+  submittedAt   DateTime?
+
+  assigneeId   Int
+  assignee     User         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  createdById  Int
+  creator      User         @relation("TaskCreator", fields: [createdById], references: [id])
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([assigneeId])
+  @@index([createdById])
+  @@index([dueDate])
+}
+
+// --------------------------------------------------
 // NOTIFICATION READ STATES
 // --------------------------------------------------
 model NotificationRead {
@@ -444,6 +536,10 @@ model SoldierIntake {
   specialSkills    String?  @db.VarChar(255)
   serviceYears     Float?
   bloodGroup       String?  @db.VarChar(8)
+  battalionCode    String?  @db.VarChar(50)
+  companyCode      String?  @db.VarChar(50)
+  platoonCode      Int?
+  sequenceNumber   Int?
   addressLine      String?  @db.VarChar(255)
   province         String?  @db.VarChar(100)
   district         String?  @db.VarChar(100)

@@ -12,7 +12,7 @@
 
 ## บทบาท
 
-`OWNER` (อนุมัติขั้นสุดท้าย/ลาไปราชการ) · `ADMIN` (จัดการผู้ใช้/แดชบอร์ด) · `SUB_ADMIN` (ช่วยอนุมัติการลา) · `TEACHER` (รายงานการฝึก/ลาราชการ) · `STUDENT`
+`OWNER` (อนุมัติขั้นสุดท้าย/ลาไปราชการ) · `ADMIN` (จัดการผู้ใช้/แดชบอร์ด) · `SUB_ADMIN` (ช่วยอนุมัติการลา) · `SCHEDULE_ADMIN` (จัดการตารางสอน/กิจกรรมเท่านั้น) · `FORM_CREATOR` (สร้าง/แก้ไขแบบฟอร์มประเมินเท่านั้น) · `EXAM_UPLOADER` (ส่ง/จัดการไฟล์คะแนนสอบเท่านั้น) · `TEACHER` (รายงานการฝึก/ลาราชการ) · `STUDENT`
 
 ## รูปแบบ Error ทั่วไป
 
@@ -61,8 +61,9 @@
 
 ---
 
-## 5) Admin – ตารางสอน/กิจกรรม (ใช้กับ FullCalendar)
+## 5) Admin/Schedule – ตารางสอน/กิจกรรม (ใช้กับ FullCalendar)
 
+- Auth: `ADMIN`/`OWNER`/`SCHEDULE_ADMIN` สำหรับ endpoint /admin/...
 - `POST /admin/teaching-schedules` — body `{ title, start, end?, allDay?, description?, location?, companyCode?, battalionCode?, color?, teacherId? }` (end ไม่ส่งจะใช้ค่าเดียวกับ start; ถ้าไม่ส่ง `color` จะตั้งเป็นสีน้ำเงิน `#1E90FF`)
 - ตัวอย่าง:
 ```http
@@ -103,7 +104,7 @@ Content-Type: application/json
 
 ## 6) Admin/SUB_ADMIN – การลา (ผู้อนุมัติรอบแอดมินหรือผู้ช่วย)
 
-- `GET /admin/teacher-leaves/summary`
+- `GET /admin/teacher-leaves/summary` — overview ฝั่งครู นับเฉพาะผู้ใช้ role = TEACHER
 - `GET /admin/teacher-leaves` — query `status,adminStatus,limit<=200,includeOfficial`
 - `GET /admin/teacher-leaves/current` — ผู้ที่กำลังลาปัจจุบัน
 - `PATCH /admin/teacher-leaves/:id/status` — อนุมัติ/ปฏิเสธรอบแอดมิน
@@ -118,7 +119,7 @@ Content-Type: application/json
 
 ---
 
-## 8) Teacher – การลา (TEACHER)
+## 8) Teacher/Schedule Admin/Form Creator/Exam Uploader – การลา (TEACHER, SCHEDULE_ADMIN, FORM_CREATOR, EXAM_UPLOADER)
 
 - `POST /teacher/leaves` — คำขอลาทั่วไป
 - `GET /teacher/leaves` — query `limit`
@@ -128,14 +129,15 @@ Content-Type: application/json
 
 ---
 
-## 9) Teacher – แจ้งเตือนงานคาบเรียน/ประเมินผล (TEACHER)
+## 9) Notifications – แจ้งเตือนงานคาบเรียน/ประเมินผล/งานมอบหมาย (ทุกบทบาทยกเว้น STUDENT)
 
-- `GET /teacher/notifications` — ต้องใช้ token ครูผู้สอน; คืน reminder อัตโนมัติ (ไม่เก็บสถานะอ่าน)
+- `GET /teacher/notifications` — ต้องใช้ token (ยกเว้น STUDENT); คืน reminder อัตโนมัติ (ไม่เก็บสถานะอ่าน)
   - ประเภท `TRAINING_REPORT_MISSING`: แจ้งเตือนส่งยอดนักเรียนก่อนเริ่มคาบ (เริ่มแจ้งล่วงหน้า 60 นาที ถ้ายังไม่มี TrainingReport ในวันเดียวกัน)
   - ประเภท `STUDENT_EVALUATION_MISSING`: แจ้งเตือนบันทึกผลประเมินนักเรียนหลังคาบ (เริ่มแจ้งล่วงหน้า 30 นาที ก่อนจบคาบ ถ้ายังไม่มี StudentEvaluation ในวันเดียวกัน)
+  - ประเภท `TASK_ASSIGNED`: แจ้งงานที่ได้รับมอบหมายใหม่ (มีฟิลด์ `task` แนบข้อมูลงานและ `noteToAssignee` ถ้ามี)
   - อ้างอิงตารางสอน “วันนี้” ของครูเท่านั้น
   - query `page=1,pageSize<=50`; คืน `{ data, page, pageSize, total, totalPages }` โดยเรียงตาม `dueAt desc`
-  - payload: `{ id,type,title,message,source,status,dueAt,schedule:{ id,title,start,end,location,companyCode,battalionCode } }` (เวลาใน response เป็น UTC+7)
+  - payload: `{ id,type,title,message,source,status,dueAt,schedule:{ id,title,start,end,location,companyCode,battalionCode },task:{ id,title,description,noteToAssignee,startDate,dueDate,priority,status,creator:{id,firstName,lastName,role} } }` (เวลาใน response เป็น UTC+7)
 - `PATCH /teacher/notifications/read` — body `{ ids: [string] }` เพื่อทำสถานะอ่าน (บันทึกลงฐาน)
 
 ---
@@ -163,12 +165,14 @@ Content-Type: application/json
 
 ## 12) Soldier Intake – บันทึกข้อมูลทหารใหม่
 
-- `POST /soldier-intakes` — public form + upload บัตรประชาชน (multipart ฟิลด์ไฟล์ `file`); body fields: `firstName,lastName,citizenId,birthDate` (required) และ `weightKg,heightCm,serviceYears,bloodGroup,education,previousJob,religion,canSwim,specialSkills,addressLine,province,district,subdistrict,postalCode,email,phone,emergencyName,emergencyPhone,chronicDiseases[],foodAllergies[],drugAllergies[],medicalNotes`; ระบบบันทึก `idCardImageUrl` ไปที่ `/uploads/idcards/...`
+- `GET /public/soldier-intake/status` — ตรวจสอบว่าเปิดรับแบบฟอร์มอยู่หรือไม่ (ไม่ต้อง login)
+- `PATCH /admin/soldier-intake/status` — body `{ enabled: boolean }` เปิด/ปิดแบบฟอร์ม (ADMIN)
+- `POST /soldier-intakes` — public form + upload บัตรประชาชน (multipart ฟิลด์ไฟล์ `file`); body fields: `firstName,lastName,citizenId,birthDate` (required) และ `weightKg,heightCm,serviceYears,bloodGroup,battalionCode,companyCode,platoonCode (int),sequenceNumber (int),education,previousJob,religion,canSwim,specialSkills,addressLine,province,district,subdistrict,postalCode,email,phone,emergencyName,emergencyPhone,chronicDiseases[],foodAllergies[],drugAllergies[],medicalNotes`; ระบบบันทึก `idCardImageUrl` ไปที่ `/uploads/idcards/...`
 - `GET /admin/soldier-intakes` (ADMIN) — query `page,pageSize,search` (ค้นหา firstName,lastName,citizenId,phone)
 - `GET /admin/soldier-intakes/:id` (ADMIN) — ดูรายละเอียด intake
 - `PUT /admin/soldier-intakes/:id` (ADMIN) — แก้ไข intake; รองรับอัปโหลดบัตรใหม่ (multipart `file`)
 - `DELETE /admin/soldier-intakes/:id` (ADMIN) — ลบ intake
-- `GET /admin/soldier-intakes-summary` (ADMIN) — สรุปจำนวน `{ total, sixMonths, oneYear, twoYears, educationCounts[] }`; educationCounts คือ `{ value,label,count }` ครอบคลุมทุกตัวเลือกวุฒิการศึกษา อิง `serviceYears` (<=0.6,==1,==2)
+- `GET /admin/soldier-intakes-summary` (ADMIN) — สรุปจำนวน `{ total, sixMonths, oneYear, twoYears, educationCounts[], religionCounts[] }`; educationCounts คือ `{ value,label,count }` ครอบคลุมทุกตัวเลือกวุฒิการศึกษา อิง `serviceYears` (<=0.6,==1,==2) ส่วน religionCounts เป็น `{ value,label,count }` กลุ่มศาสนาที่ระบุมา
 
 ---
 
@@ -185,15 +189,15 @@ Content-Type: application/json
 
 ## 14) Student Evaluations – แบบประเมินกองร้อย
 
-Template (ADMIN):
+Template (ADMIN/OWNER/FORM_CREATOR):
 
-- `POST /admin/student-evaluation-templates` — body `{ name, description?, templateType (BATTALION|COMPANY|SERVICE), battalionCount?, teacherEvaluatorCount?, sections[] }`
+- `POST /admin/student-evaluation-templates` (ADMIN/OWNER/FORM_CREATOR) — body `{ name, description?, templateType (BATTALION|COMPANY|SERVICE), battalionCount?, teacherEvaluatorCount?, sections[] }`
   - `templateType = SERVICE` สำหรับแบบประเมินราชการ/รายบุคคล (ไม่ต้องส่ง battalionCount/teacherEvaluatorCount)
   - `templateType = BATTALION` ต้องส่ง `battalionCount, teacherEvaluatorCount` เป็นจำนวนเต็ม > 0
-- `GET /admin/student-evaluation-templates` — query `includeInactive,search`
-- `GET /admin/student-evaluation-templates/:id`
-- `PUT /admin/student-evaluation-templates/:id`
-- `DELETE /admin/student-evaluation-templates/:id`
+- `GET /admin/student-evaluation-templates` (ADMIN/OWNER/SUB_ADMIN/SCHEDULE_ADMIN/TEACHER/FORM_CREATOR) — query `includeInactive,search`
+- `GET /admin/student-evaluation-templates/:id` (ADMIN/OWNER/FORM_CREATOR)
+- `PUT /admin/student-evaluation-templates/:id` (ADMIN/OWNER/FORM_CREATOR)
+- `DELETE /admin/student-evaluation-templates/:id` (ADMIN/OWNER/FORM_CREATOR)
 
 Submission (ADMIN หรือ TEACHER):
 
@@ -215,13 +219,57 @@ Submission (ADMIN หรือ TEACHER):
   - `summaryByCompany[].totalEvaluations` = จำนวน evaluation ต่อ (battalion,company)
   - `summaryByCompany[].totalScore` = ผลรวม `overallScore` ของ evaluation ในกองพัน/กองร้อยนั้น
   - `summaryByCompany[].averageOverallScore` = `totalScore / totalEvaluations` (ค่าเฉลี่ยคะแนนรวมของแต่ละ evaluation ในกองพัน/กองร้อยนั้น; null ถ้าไม่มีข้อมูล)
+- `GET /student-evaluations/comparison` — คืนข้อมูลเปรียบเทียบคะแนนเฉลี่ยสำหรับทำกราฟ (กรองด้วย `templateId,companyCode,battalionCode,evaluatorId,templateType` ได้ ยกเว้น templateType=SERVICE)
+  - response `{ comparison: { battalions: [{ battalionCode,totalEvaluations,totalScore,averageOverallScore,companies:[{ battalionCode,companyCode,totalEvaluations,totalScore,averageOverallScore }] }], companies:[...] } }`
+  - รายการถูกจัดอันดับตาม `averageOverallScore` จากมากไปน้อย (ค่าเฉลี่ยปัดสองทศนิยม)
+  - ส่ง `battalionCodes` และ `companyCodes` (คั่น comma) เพื่อให้ผลลัพธ์เติมชุดข้อมูลครบทุกกองพัน/กองร้อยแม้ยังไม่มีคะแนน เช่น `?battalionCodes=พัน1,พัน2,พัน3,พัน4&companyCodes=ร้อย1,ร้อย2,ร้อย3,ร้อย4,ร้อย5`
 - `GET /student-evaluations/:id`
 - `PUT /student-evaluations/:id`
 - `DELETE /student-evaluations/:id`
 
 ---
 
-## 12) Static Files
+## 15) Exam Results – นำเข้าคะแนนสอบ (ADMIN/OWNER/TEACHER/SUB_ADMIN/SCHEDULE_ADMIN/FORM_CREATOR/EXAM_UPLOADER)
+
+- `POST /api/exam-results/import` (รวม `EXAM_UPLOADER`) — upload Excel (`file`/`excel`/`upload`/`sheet`) ต้องมีคอลัมน์อย่างน้อย: `ประทับเวลา`, `คะแนน`, `ยศ - ชื่อ - สกุล`; รองรับ `หมายเลข ทร. 5 ตัว`, `สังกัด` ถ้ามี
+- `GET /api/exam-results` — query `page,pageSize,search,unit,navyNumber,sort`; คืน `{ items, page, pageSize, total, totalPages }`
+  - `sort`: รองรับ `id`, `-id`, `timestamp`, `-timestamp` (ค่าเริ่มต้น `-timestamp`)
+- `GET /api/exam-results/summary` — query `battalionCodes,companyCodes` (comma separated); คืน `{ battalions: [{ battalionCode, averageScore, total, companies: [{ battalionCode, companyCode, averageScore, total }] }] }` (ค่าเริ่มต้น battalion=1-4, company=1-5)
+- `DELETE /api/exam-results/:id` — ลบรายการผลสอบ
+- `DELETE /api/exam-results` — ลบผลสอบทั้งหมด
+- `GET /api/exam-results/overview` — สรุปจำนวนทั้งหมด ค่าเฉลี่ยคะแนน และรายการล่าสุด `{ overview: { total, averageScore, latest } }`
+- `GET /api/exam-results/export` — ส่งออกไฟล์ Excel แยก sheet ตามกองร้อย (ดึงจากสังกัดรูปแบบ `ร้อย.<เลข> พัน.<เลข>`)
+
+---
+
+## 16) Owner – มอบหมายงาน / ติดตามสถานะ
+
+- `POST /admin/tasks` (OWNER) — body `{ title (required), assigneeId (required), startDate (required), durationDays?, dueDate?, priority? (HIGH|MEDIUM|LOW), description?, noteToAssignee?, status? }`  
+  - ถ้าไม่ส่ง `dueDate` ให้ระบุ `durationDays` ระบบจะคำนวณกำหนดส่งจาก startDate  
+  - ตัวอย่าง:
+```http
+POST /api/admin/tasks
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "title": "จัดทำแผนฝึกประจำสัปดาห์",
+  "assigneeId": 12,
+  "startDate": "2025-12-04",
+  "durationDays": 3,
+  "priority": "HIGH",
+  "description": "สรุปขั้นตอน เป้าหมาย และเอกสารแนบ",
+  "noteToAssignee": "ขออัปเดตความคืบหน้าทุก 2 วัน"
+}
+```
+- `GET /admin/tasks` (ทุก role ยกเว้น STUDENT; OWNER/ADMIN เห็นทั้งหมด, ผู้รับเห็นของตัวเอง) — query `assigneeId,createdById,status,priority`; คืน `{ data: [...] }`
+- `PATCH /admin/tasks/:id` (ทุก role ยกเว้น STUDENT) — ส่ง `{ status, submissionNote }`; ผู้รับงานอัปเดตสถานะของตนเองได้, OWNER/ADMIN อัปเดตได้ทุกงาน  
+  - ลำดับสถานะเดินหน้าเท่านั้น: `PENDING -> IN_PROGRESS -> DONE` (หรือ `CANCELLED` เพื่อยุติงาน); ไม่สามารถย้อนกลับไปสถานะก่อนหน้าได้ และงานที่ปิด (DONE/CANCELLED) แก้ไขไม่ได้
+- `DELETE /admin/tasks/:id` (OWNER) — ลบงาน
+
+---
+
+## 17) Static Files
 
 - `GET /uploads/avatars/:filename` — public
 

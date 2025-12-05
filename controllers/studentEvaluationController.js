@@ -17,6 +17,28 @@ const formatEvaluation = (evaluation) => {
 const formatEvaluationList = (items) =>
   Array.isArray(items) ? items.map(formatEvaluation) : items;
 
+const parseCodeList = (value) => {
+  const list = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+    ? value.split(",")
+    : [];
+  return list
+    .map((item) =>
+      typeof item === "string" ? item.trim().toUpperCase() : null
+    )
+    .filter(Boolean);
+};
+
+const formatAverageEntry = (entry = {}) => ({
+  ...entry,
+  averageOverallScore: formatOverallScore(entry.averageOverallScore),
+  totalScore:
+    typeof entry.totalScore === "number"
+      ? Number(entry.totalScore.toFixed(2))
+      : entry.totalScore,
+});
+
 const handleError = (err, res, actionMessage = "ไม่สามารถดำเนินการได้") => {
   if (err.code === "VALIDATION_ERROR") {
     return res.status(400).json({ message: err.message });
@@ -85,6 +107,49 @@ const listEvaluations = async (req, res) => {
   }
 };
 
+const getEvaluationComparison = async (req, res) => {
+  try {
+    const {
+      templateId,
+      companyCode,
+      battalionCode,
+      evaluatorId,
+      templateType,
+      battalionCodes,
+      companyCodes,
+    } = req.query || {};
+
+    const filters = {
+      templateId,
+      companyCode,
+      battalionCode,
+      evaluatorId,
+      templateType,
+      battalionCodesList: parseCodeList(battalionCodes),
+      companyCodesList: parseCodeList(companyCodes),
+    };
+
+    const comparison = await StudentEvaluationModel.compareAverages(filters);
+    res.json({
+      comparison: {
+        battalions: Array.isArray(comparison?.battalions)
+          ? comparison.battalions.map((b) => ({
+              ...formatAverageEntry(b),
+              companies: Array.isArray(b.companies)
+                ? b.companies.map(formatAverageEntry)
+                : [],
+            }))
+          : [],
+        companies: Array.isArray(comparison?.companies)
+          ? comparison.companies.map(formatAverageEntry)
+          : [],
+      },
+    });
+  } catch (err) {
+    handleError(err, res, "ไม่สามารถดึงข้อมูลเปรียบเทียบคะแนนเฉลี่ยได้");
+  }
+};
+
 const getEvaluationById = async (req, res) => {
   try {
     const evaluation = await StudentEvaluationModel.getEvaluationById(
@@ -123,6 +188,7 @@ const deleteEvaluation = async (req, res) => {
 module.exports = {
   createEvaluation,
   listEvaluations,
+  getEvaluationComparison,
   getEvaluationById,
   updateEvaluation,
   deleteEvaluation,

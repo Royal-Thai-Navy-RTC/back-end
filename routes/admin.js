@@ -5,6 +5,7 @@ const adminUser = require("../controllers/admin/userAdminController");
 const adminTrainingReports = require("../controllers/admin/trainingReportAdminController");
 const adminTeacherLeaves = require("../controllers/admin/teacherLeaveAdminController");
 const adminTeachingSchedule = require("../controllers/admin/teachingScheduleAdminController");
+const adminTaskAssignment = require("../controllers/admin/taskAssignmentAdminController");
 
 const router = express.Router();
 
@@ -146,7 +147,7 @@ router.get(
 router.post(
   "/admin/teaching-schedules",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeScheduleManager,
   adminTeachingSchedule.createSchedule
 );
 
@@ -159,15 +160,44 @@ router.get(
 router.put(
   "/admin/teaching-schedules/:id",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeScheduleManager,
   adminTeachingSchedule.updateSchedule
 );
 
 router.delete(
   "/admin/teaching-schedules/:id",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeScheduleManager,
   adminTeachingSchedule.deleteSchedule
+);
+
+// Admin: มอบหมายงาน
+router.post(
+  "/admin/tasks",
+  middleware.verifyToken,
+  middleware.authorizeOwner,
+  adminTaskAssignment.createTask
+);
+
+router.get(
+  "/admin/tasks",
+  middleware.verifyToken,
+  middleware.authorizeNonStudent,
+  adminTaskAssignment.listTasks
+);
+
+router.patch(
+  "/admin/tasks/:id",
+  middleware.verifyToken,
+  middleware.authorizeNonStudent,
+  adminTaskAssignment.updateTaskStatus
+);
+
+router.delete(
+  "/admin/tasks/:id",
+  middleware.verifyToken,
+  middleware.authorizeOwner,
+  adminTaskAssignment.deleteTask
 );
 
 module.exports = router;

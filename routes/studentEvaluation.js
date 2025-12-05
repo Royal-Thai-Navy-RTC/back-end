@@ -9,35 +9,35 @@ const router = express.Router();
 router.post(
   "/admin/student-evaluation-templates",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeTemplateManager,
   templateController.createTemplate
 );
 
 router.get(
   "/admin/student-evaluation-templates",
   middleware.verifyToken,
-  middleware.authorizeAdminOrTeacher,
+  middleware.authorizeTemplateViewer,
   templateController.listTemplates
 );
 
 router.get(
   "/admin/student-evaluation-templates/:id",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeTemplateManager,
   templateController.getTemplateById
 );
 
 router.put(
   "/admin/student-evaluation-templates/:id",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeTemplateManager,
   templateController.updateTemplate
 );
 
 router.delete(
   "/admin/student-evaluation-templates/:id",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeTemplateManager,
   templateController.deleteTemplate
 );
 
@@ -54,6 +54,13 @@ router.get(
   middleware.verifyToken,
   middleware.authorizeAdminOrTeacher,
   evaluationController.listEvaluations
+);
+
+router.get(
+  "/student-evaluations/comparison",
+  middleware.verifyToken,
+  middleware.authorizeAdminOrTeacher,
+  evaluationController.getEvaluationComparison
 );
 
 router.get(
