@@ -536,6 +536,8 @@ model SoldierIntake {
   specialSkills    String?  @db.VarChar(255)
   serviceYears     Float?
   bloodGroup       String?  @db.VarChar(8)
+  battalionCode    String?  @db.VarChar(50)
+  companyCode      String?  @db.VarChar(50)
   addressLine      String?  @db.VarChar(255)
   province         String?  @db.VarChar(100)
   district         String?  @db.VarChar(100)

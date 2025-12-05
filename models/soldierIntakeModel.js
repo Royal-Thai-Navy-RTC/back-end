@@ -111,6 +111,8 @@ const normalizeInput = (input = {}) => {
     heightCm,
     serviceYears,
     bloodGroup,
+    battalionCode: normalizeString(input.battalionCode),
+    companyCode: normalizeString(input.companyCode),
     education: normalizeString(input.education),
     previousJob: normalizeString(input.previousJob),
     religion: normalizeString(input.religion),
