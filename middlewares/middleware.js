@@ -13,16 +13,25 @@ const generalLeaveApproverRoleSet = new Set([
   "SUB_ADMIN",
 ]);
 const scheduleManagerRoleSet = new Set([...adminRoleSet, "SCHEDULE_ADMIN"]);
+const templateManagerRoleSet = new Set([...adminRoleSet, "FORM_CREATOR"]);
+const templateViewerRoleSet = new Set([
+  ...templateManagerRoleSet,
+  "SUB_ADMIN",
+  "SCHEDULE_ADMIN",
+  "TEACHER",
+]);
 const leaveRequesterRoleSet = new Set([
   ...adminRoleSet,
   ...teacherRoleSet,
   "SCHEDULE_ADMIN",
+  "FORM_CREATOR",
 ]);
 const nonStudentRoleSet = new Set([
   "OWNER",
   "ADMIN",
   "SUB_ADMIN",
   "SCHEDULE_ADMIN",
+  "FORM_CREATOR",
   "TEACHER",
 ]);
 
@@ -135,6 +144,44 @@ module.exports = {
         return res.status(403).json({ message: "Admin/Teacher only" });
       }
       // Attach latest role for downstream handlers/validators
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeTemplateManager: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!templateManagerRoleSet.has(role)) {
+        return res.status(403).json({ message: "Template creator only" });
+      }
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeTemplateViewer: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (!templateViewerRoleSet.has(role)) {
+        return res.status(403).json({ message: "Template access restricted" });
+      }
       next();
     } catch (e) {
       return res.status(500).json({ message: "Authorization error" });

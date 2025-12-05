@@ -642,6 +642,7 @@ module.exports = {
         "ADMIN",
         "SUB_ADMIN",
         "SCHEDULE_ADMIN",
+        "FORM_CREATOR",
         "TEACHER",
         "STUDENT",
       ]);

@@ -12,7 +12,7 @@
 
 ## บทบาท
 
-`OWNER` (อนุมัติขั้นสุดท้าย/ลาไปราชการ) · `ADMIN` (จัดการผู้ใช้/แดชบอร์ด) · `SUB_ADMIN` (ช่วยอนุมัติการลา) · `SCHEDULE_ADMIN` (จัดการตารางสอน/กิจกรรมเท่านั้น) · `TEACHER` (รายงานการฝึก/ลาราชการ) · `STUDENT`
+`OWNER` (อนุมัติขั้นสุดท้าย/ลาไปราชการ) · `ADMIN` (จัดการผู้ใช้/แดชบอร์ด) · `SUB_ADMIN` (ช่วยอนุมัติการลา) · `SCHEDULE_ADMIN` (จัดการตารางสอน/กิจกรรมเท่านั้น) · `FORM_CREATOR` (สร้าง/แก้ไขแบบฟอร์มประเมินเท่านั้น) · `TEACHER` (รายงานการฝึก/ลาราชการ) · `STUDENT`
 
 ## รูปแบบ Error ทั่วไป
 
@@ -119,7 +119,7 @@ Content-Type: application/json
 
 ---
 
-## 8) Teacher/Schedule Admin – การลา (TEACHER, SCHEDULE_ADMIN)
+## 8) Teacher/Schedule Admin/Form Creator – การลา (TEACHER, SCHEDULE_ADMIN, FORM_CREATOR)
 
 - `POST /teacher/leaves` — คำขอลาทั่วไป
 - `GET /teacher/leaves` — query `limit`
@@ -189,15 +189,15 @@ Content-Type: application/json
 
 ## 14) Student Evaluations – แบบประเมินกองร้อย
 
-Template (ADMIN):
+Template (ADMIN/OWNER/FORM_CREATOR):
 
-- `POST /admin/student-evaluation-templates` — body `{ name, description?, templateType (BATTALION|COMPANY|SERVICE), battalionCount?, teacherEvaluatorCount?, sections[] }`
+- `POST /admin/student-evaluation-templates` (ADMIN/OWNER/FORM_CREATOR) — body `{ name, description?, templateType (BATTALION|COMPANY|SERVICE), battalionCount?, teacherEvaluatorCount?, sections[] }`
   - `templateType = SERVICE` สำหรับแบบประเมินราชการ/รายบุคคล (ไม่ต้องส่ง battalionCount/teacherEvaluatorCount)
   - `templateType = BATTALION` ต้องส่ง `battalionCount, teacherEvaluatorCount` เป็นจำนวนเต็ม > 0
-- `GET /admin/student-evaluation-templates` — query `includeInactive,search`
-- `GET /admin/student-evaluation-templates/:id`
-- `PUT /admin/student-evaluation-templates/:id`
-- `DELETE /admin/student-evaluation-templates/:id`
+- `GET /admin/student-evaluation-templates` (ADMIN/OWNER/SUB_ADMIN/SCHEDULE_ADMIN/TEACHER/FORM_CREATOR) — query `includeInactive,search`
+- `GET /admin/student-evaluation-templates/:id` (ADMIN/OWNER/FORM_CREATOR)
+- `PUT /admin/student-evaluation-templates/:id` (ADMIN/OWNER/FORM_CREATOR)
+- `DELETE /admin/student-evaluation-templates/:id` (ADMIN/OWNER/FORM_CREATOR)
 
 Submission (ADMIN หรือ TEACHER):
 
