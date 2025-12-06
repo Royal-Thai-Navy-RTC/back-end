@@ -192,7 +192,7 @@ module.exports = {
     return prisma.soldierIntake.create({ data });
   },
 
-  listIntakes: async (filters = {}) => {
+  listIntakes: async (filters = {}, battalionCode, companyCode) => {
     ensureModelAvailable();
     const pageSize = Math.max(1, Math.min(Number(filters.pageSize) || 20, 100));
     const page = Math.max(1, Number(filters.page) || 1);
@@ -200,16 +200,16 @@ module.exports = {
 
     const where = {};
 
-    const battalionCode = normalizeString(filters.battalionCode);
+    battalionCode = normalizeString(filters.battalionCode);
     if (battalionCode) {
       where.battalionCode = battalionCode;
     }
 
-    const companyCode = normalizeString(filters.companyCode);
+    companyCode = normalizeString(filters.companyCode);
     if (companyCode) {
       where.companyCode = companyCode;
     }
-
+    // console.log(battalionCode, companyCode)
     if (
       filters.platoonCode !== undefined &&
       filters.platoonCode !== null &&
@@ -320,7 +320,7 @@ module.exports = {
     await prisma.soldierIntake.delete({ where: { id: intakeId } });
   },
 
-  summary: async () => {
+  summary: async (battalionCode, companyCode) => {
     ensureModelAvailable();
     const [
       total,
@@ -330,25 +330,27 @@ module.exports = {
       educationGroups,
       religionGroups,
     ] = await Promise.all([
-      prisma.soldierIntake.count(),
       prisma.soldierIntake.count({
-        where: { serviceYears: { lte: 0.6 } },
+        where: { battalionCode, companyCode },
       }),
       prisma.soldierIntake.count({
-        where: { serviceYears: { equals: 1 } },
+        where: { serviceYears: { lte: 0.6 }, battalionCode, companyCode }
       }),
       prisma.soldierIntake.count({
-        where: { serviceYears: { equals: 2 } },
+        where: { serviceYears: { equals: 1 }, battalionCode, companyCode },
+      }),
+      prisma.soldierIntake.count({
+        where: { serviceYears: { equals: 2 }, battalionCode, companyCode },
       }),
       prisma.soldierIntake.groupBy({
         by: ["education"],
         _count: { education: true },
-        where: { education: { not: null } },
+        where: { education: { not: null }, battalionCode, companyCode },
       }),
       prisma.soldierIntake.groupBy({
         by: ["religion"],
         _count: { religion: true },
-        where: { religion: { not: null } },
+        where: { religion: { not: null }, battalionCode, companyCode },
       }),
     ]);
     const educationCounts = EDUCATION_OPTIONS.map((option) => {

@@ -72,8 +72,7 @@ const listIntakes = async (req, res) => {
       filters.battalionCode = unitFilter.battalionCode;
       filters.companyCode = unitFilter.companyCode;
     }
-
-    const result = await SoldierIntake.listIntakes(filters);
+    const result = await SoldierIntake.listIntakes(filters, filters.battalionCode, filters.companyCode);
     res.json({
       data: result.items,
       page: result.page, 
@@ -144,7 +143,14 @@ const deleteIntake = async (req, res) => {
 
 const summary = async (req, res) => {
   try {
-    const data = await SoldierIntake.summary();
+    const filters = { ...(req.query || {}) };
+    const unitFilter = mapRoleToUnitFilter(req.userRole);
+
+    if (unitFilter) {
+      filters.battalionCode = unitFilter.battalionCode;
+      filters.companyCode = unitFilter.companyCode;
+    }
+    const data = await SoldierIntake.summary(filters.battalionCode, filters.companyCode);
     res.json({ data });
   } catch (err) {
     console.error("Failed to summarize soldier intake", err);
