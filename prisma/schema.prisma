@@ -7,10 +7,361 @@ datasource db {
   provider = "mysql"
 }
 
-// --------------------------------------------------
-// ENUM DEFINITIONS
-// ใช้ ASCII values + map เป็น label ภาษาไทยใน DB
-// --------------------------------------------------
+model User {
+  id                          Int                         @id @default(autoincrement())
+  username                    String                      @unique @db.VarChar(64)
+  passwordHash                String                      @db.VarChar(255)
+  refreshTokenHash            String?
+  refreshTokenExpiresAt       DateTime?
+  role                        Role                        @default(STUDENT)
+  isActive                    Boolean                     @default(true)
+  firstName                   String                      @db.VarChar(100)
+  lastName                    String                      @db.VarChar(100)
+  birthDate                   DateTime
+  rank                        Rank                        @default(SEAMAN_RECRUIT)
+  fullAddress                 String                      @db.VarChar(255)
+  education                   String?                     @db.VarChar(255)
+  position                    String?                     @db.VarChar(150)
+  division                    String?                     @db.VarChar(150)
+  email                       String                      @unique
+  phone                       String                      @unique @db.VarChar(32)
+  emergencyContactName        String?                     @db.VarChar(100)
+  emergencyContactPhone       String?                     @db.VarChar(32)
+  medicalHistory              String?                     @db.Text
+  chronicDiseases             Json?
+  drugAllergies               Json?
+  foodAllergies               Json?
+  religion                    String?                     @db.VarChar(100)
+  specialSkills               String?                     @db.VarChar(255)
+  secondaryOccupation         String?                     @db.VarChar(255)
+  avatar                      String?                     @db.Text
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime                    @updatedAt
+  evaluationsReceived         EvaluationSheet[]           @relation("TeacherEvaluations")
+  examResultsImported         ExamResult[]
+  featureTogglesUpdated       FeatureToggle[]             @relation("FeatureToggleUpdatedBy")
+  notificationReads           NotificationRead[]
+  studentEvaluationsEvaluated StudentEvaluation[]         @relation("StudentEvaluationEvaluatedPerson")
+  studentEvaluationsAuthored  StudentEvaluation[]         @relation("StudentEvaluationEvaluator")
+  studentEvaluationTemplates  StudentEvaluationTemplate[] @relation("TemplateCreators")
+  taskAssignments             TaskAssignment[]            @relation("TaskAssignee")
+  tasksCreated                TaskAssignment[]            @relation("TaskCreator")
+  adminReviewedLeaves         TeacherLeave[]              @relation("AdminLeaveApproval")
+  ownerApprovedLeaves         TeacherLeave[]              @relation("OwnerLeaveApproval")
+  teacherLeaves               TeacherLeave[]              @relation("TeacherLeaves")
+  teachingSchedules           TeachingSchedule[]
+  trainingReports             TrainingReport[]
+
+  @@index([lastName, firstName])
+  @@index([rank])
+  @@index([role])
+}
+
+model EvaluationSheet {
+  id            Int                @id @default(autoincrement())
+  subject       String
+  teacherName   String
+  teacherId     Int?
+  evaluatorName String
+  evaluatorUnit String?            @db.VarChar(255)
+  evaluatedAt   DateTime
+  notes         String?            @db.Text
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  answers       EvaluationAnswer[]
+  teacher       User?              @relation("TeacherEvaluations", fields: [teacherId], references: [id])
+
+  @@index([teacherId])
+  @@index([teacherName])
+  @@index([subject])
+}
+
+model EvaluationAnswer {
+  id       Int             @id @default(autoincrement())
+  sheetId  Int
+  section  String?         @db.VarChar(32)
+  itemCode String?         @db.VarChar(32)
+  itemText String          @db.VarChar(255)
+  rating   Int
+  sheet    EvaluationSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+
+  @@index([sheetId])
+}
+
+model StudentEvaluationTemplate {
+  id                    Int                        @id @default(autoincrement())
+  name                  String
+  description           String?                    @db.VarChar(255)
+  isActive              Boolean                    @default(true)
+  createdBy             Int?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  templateType          EvaluationTemplateType
+  battalionCount        Int?
+  teacherEvaluatorCount Int?
+  evaluations           StudentEvaluation[]
+  sections              StudentEvaluationSection[]
+  creator               User?                      @relation("TemplateCreators", fields: [createdBy], references: [id])
+
+  @@index([createdBy], map: "StudentEvaluationTemplate_createdBy_fkey")
+}
+
+model StudentEvaluationSection {
+  id           Int                         @id @default(autoincrement())
+  templateId   Int
+  title        String
+  description  String?                     @db.VarChar(255)
+  sectionOrder Int                         @default(0)
+  questions    StudentEvaluationQuestion[]
+  template     StudentEvaluationTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+}
+
+model StudentEvaluationQuestion {
+  id            Int                       @id @default(autoincrement())
+  sectionId     Int
+  prompt        String                    @db.VarChar(255)
+  maxScore      Int                       @default(5)
+  questionOrder Int                       @default(0)
+  answers       StudentEvaluationAnswer[]
+  section       StudentEvaluationSection  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId])
+}
+
+model StudentEvaluation {
+  id                  Int                       @id @default(autoincrement())
+  templateId          Int
+  evaluatorId         Int
+  companyCode         String                    @db.VarChar(32)
+  battalionCode       String                    @db.VarChar(32)
+  subject             String?
+  evaluationPeriod    DateTime                  @default(now())
+  summary             String?                   @db.Text
+  overallScore        Float?
+  submittedAt         DateTime                  @default(now())
+  evaluationRound     String?                   @db.VarChar(100)
+  evaluatorName       String?                   @db.VarChar(150)
+  evaluatedPerson     String?
+  evaluatedPersonId   Int?
+  evaluatedPersonUser User?                     @relation("StudentEvaluationEvaluatedPerson", fields: [evaluatedPersonId], references: [id])
+  evaluator           User                      @relation("StudentEvaluationEvaluator", fields: [evaluatorId], references: [id])
+  template            StudentEvaluationTemplate @relation(fields: [templateId], references: [id])
+  answers             StudentEvaluationAnswer[]
+
+  @@index([templateId])
+  @@index([companyCode, battalionCode])
+  @@index([evaluatorId])
+  @@index([evaluatedPersonId], map: "StudentEvaluation_evaluatedPersonId_fkey")
+}
+
+model StudentEvaluationAnswer {
+  id           Int                       @id @default(autoincrement())
+  evaluationId Int
+  questionId   Int
+  score        Int
+  comment      String?                   @db.VarChar(255)
+  evaluation   StudentEvaluation         @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  question     StudentEvaluationQuestion @relation(fields: [questionId], references: [id])
+
+  @@index([evaluationId])
+  @@index([questionId])
+}
+
+model ExamResult {
+  id           Int      @id @default(autoincrement())
+  timestamp    DateTime
+  scoreText    String?  @db.VarChar(64)
+  scoreValue   Float?
+  scoreTotal   Float?
+  fullName     String
+  navyNumber   String?  @db.VarChar(32)
+  unit         String?
+  importedById Int?
+  createdAt    DateTime @default(now())
+  importedBy   User?    @relation(fields: [importedById], references: [id])
+
+  @@unique([timestamp, navyNumber, fullName, scoreText])
+  @@index([timestamp])
+  @@index([navyNumber])
+  @@index([importedById], map: "ExamResult_importedById_fkey")
+}
+
+model FeatureToggle {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique @db.VarChar(64)
+  isEnabled   Boolean  @default(false)
+  description String?  @db.VarChar(255)
+  updatedById Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  updatedBy   User?    @relation("FeatureToggleUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([key])
+  @@index([updatedById], map: "FeatureToggle_updatedById_fkey")
+}
+
+model TrainingReport {
+  id               Int      @id @default(autoincrement())
+  teacherId        Int
+  subject          String
+  participantCount Int
+  company          String?  @db.VarChar(150)
+  battalion        String?  @db.VarChar(150)
+  trainingDate     DateTime
+  trainingTime     String?  @db.VarChar(16)
+  location         String?
+  durationHours    Float
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  division         String?  @db.VarChar(150)
+  teacher          User     @relation(fields: [teacherId], references: [id])
+
+  @@index([teacherId, trainingDate])
+}
+
+model TeachingSchedule {
+  id            Int      @id @default(autoincrement())
+  title         String
+  description   String?  @db.Text
+  location      String?
+  companyCode   String?  @db.VarChar(32)
+  battalionCode String?  @db.VarChar(32)
+  color         String   @default("#1E90FF") @db.VarChar(16)
+  start         DateTime
+  end           DateTime
+  allDay        Boolean  @default(false)
+  teacherId     Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  teacher       User?    @relation(fields: [teacherId], references: [id])
+
+  @@index([teacherId, start, end])
+  @@index([battalionCode, companyCode, start])
+}
+
+model TeacherLeave {
+  id                  Int          @id @default(autoincrement())
+  teacherId           Int
+  leaveType           String       @db.VarChar(100)
+  destination         String?
+  reason              String?      @db.Text
+  startDate           DateTime
+  endDate             DateTime?
+  status              LeaveStatus  @default(PENDING)
+  isOfficialDuty      Boolean      @default(false)
+  adminApprovalStatus LeaveStatus?
+  adminApprovalBy     Int?
+  adminApprovalAt     DateTime?
+  ownerApprovalStatus LeaveStatus?
+  ownerApprovalBy     Int?
+  ownerApprovalAt     DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  adminApprover       User?        @relation("AdminLeaveApproval", fields: [adminApprovalBy], references: [id])
+  ownerApprover       User?        @relation("OwnerLeaveApproval", fields: [ownerApprovalBy], references: [id])
+  teacher             User         @relation("TeacherLeaves", fields: [teacherId], references: [id])
+
+  @@index([teacherId, startDate])
+  @@index([isOfficialDuty, status])
+  @@index([adminApprovalBy], map: "TeacherLeave_adminApprovalBy_fkey")
+  @@index([ownerApprovalBy], map: "TeacherLeave_ownerApprovalBy_fkey")
+}
+
+model LibraryItem {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?  @db.Text
+  category    String?  @db.VarChar(100)
+  fileUrl     String?  @db.Text
+  coverUrl    String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@index([updatedAt])
+}
+
+model TaskAssignment {
+  id             Int          @id @default(autoincrement())
+  title          String
+  description    String?      @db.Text
+  noteToAssignee String?      @db.Text
+  startDate      DateTime
+  dueDate        DateTime
+  durationDays   Int?
+  priority       TaskPriority @default(MEDIUM)
+  status         String       @default("PENDING") @db.VarChar(32)
+  assigneeId     Int
+  createdById    Int
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  submissionNote String?      @db.Text
+  submittedAt    DateTime?
+  assignee       User         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator        User         @relation("TaskCreator", fields: [createdById], references: [id])
+
+  @@index([assigneeId])
+  @@index([createdById])
+  @@index([dueDate])
+}
+
+model NotificationRead {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  notificationId String   @db.VarChar(255)
+  readAt         DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, notificationId])
+  @@index([userId])
+}
+
+model SoldierIntake {
+  id              Int      @id @default(autoincrement())
+  firstName       String   @db.VarChar(100)
+  lastName        String   @db.VarChar(100)
+  citizenId       String   @db.VarChar(50)
+  birthDate       DateTime
+  weightKg        Float?
+  heightCm        Float?
+  education       String?  @db.VarChar(150)
+  previousJob     String?  @db.VarChar(150)
+  religion        String?  @db.VarChar(100)
+  canSwim         Boolean?
+  specialSkills   String?  @db.VarChar(255)
+  addressLine     String?  @db.VarChar(255)
+  province        String?  @db.VarChar(100)
+  district        String?  @db.VarChar(100)
+  subdistrict     String?  @db.VarChar(100)
+  postalCode      String?  @db.VarChar(20)
+  email           String?
+  phone           String?  @db.VarChar(32)
+  emergencyName   String?  @db.VarChar(100)
+  emergencyPhone  String?  @db.VarChar(32)
+  chronicDiseases Json?
+  foodAllergies   Json?
+  drugAllergies   Json?
+  medicalNotes    String?  @db.Text
+  idCardImageUrl  String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  serviceYears    Float?
+  bloodGroup      String?  @db.VarChar(8)
+  battalionCode   String?  @db.VarChar(50)
+  companyCode     String?  @db.VarChar(50)
+  platoonCode     Int?
+  sequenceNumber  Int?
+
+  @@index([citizenId])
+  @@index([phone])
+  @@index([email])
+}
+
 enum Role {
   OWNER          @map("Owner")
   ADMIN          @map("แอดมิน")
@@ -20,90 +371,65 @@ enum Role {
   EXAM_UPLOADER  @map("ผู้อัปโหลดคะแนนสอบ")
   TEACHER        @map("ครูผู้สอน")
   STUDENT        @map("นักเรียน")
-
-  // ----------- Battalion 1 -----------
-  BAT1_COM1 @map("กองพัน 1 กองร้อย 1")
-  BAT1_COM2 @map("กองพัน 1 กองร้อย 2")
-  BAT1_COM3 @map("กองพัน 1 กองร้อย 3")
-  BAT1_COM4 @map("กองพัน 1 กองร้อย 4")
-  BAT1_COM5 @map("กองพัน 1 กองร้อย 5")
-
-  // ----------- Battalion 2 -----------
-  BAT2_COM1 @map("กองพัน 2 กองร้อย 1")
-  BAT2_COM2 @map("กองพัน 2 กองร้อย 2")
-  BAT2_COM3 @map("กองพัน 2 กองร้อย 3")
-  BAT2_COM4 @map("กองพัน 2 กองร้อย 4")
-  BAT2_COM5 @map("กองพัน 2 กองร้อย 5")
-
-  // ----------- Battalion 3 -----------
-  BAT3_COM1 @map("กองพัน 3 กองร้อย 1")
-  BAT3_COM2 @map("กองพัน 3 กองร้อย 2")
-  BAT3_COM3 @map("กองพัน 3 กองร้อย 3")
-  BAT3_COM4 @map("กองพัน 3 กองร้อย 4")
-  BAT3_COM5 @map("กองพัน 3 กองร้อย 5")
-
-  // ----------- Battalion 4 -----------
-  BAT4_COM1 @map("กองพัน 4 กองร้อย 1")
-  BAT4_COM2 @map("กองพัน 4 กองร้อย 2")
-  BAT4_COM3 @map("กองพัน 4 กองร้อย 3")
-  BAT4_COM4 @map("กองพัน 4 กองร้อย 4")
-  BAT4_COM5 @map("กองพัน 4 กองร้อย 5")
+  BAT1_COM1      @map("กองพัน 1 กองร้อย 1")
+  BAT1_COM2      @map("กองพัน 1 กองร้อย 2")
+  BAT1_COM3      @map("กองพัน 1 กองร้อย 3")
+  BAT1_COM4      @map("กองพัน 1 กองร้อย 4")
+  BAT1_COM5      @map("กองพัน 1 กองร้อย 5")
+  BAT2_COM1      @map("กองพัน 2 กองร้อย 1")
+  BAT2_COM2      @map("กองพัน 2 กองร้อย 2")
+  BAT2_COM3      @map("กองพัน 2 กองร้อย 3")
+  BAT2_COM4      @map("กองพัน 2 กองร้อย 4")
+  BAT2_COM5      @map("กองพัน 2 กองร้อย 5")
+  BAT3_COM1      @map("กองพัน 3 กองร้อย 1")
+  BAT3_COM2      @map("กองพัน 3 กองร้อย 2")
+  BAT3_COM3      @map("กองพัน 3 กองร้อย 3")
+  BAT3_COM4      @map("กองพัน 3 กองร้อย 4")
+  BAT3_COM5      @map("กองพัน 3 กองร้อย 5")
+  BAT4_COM1      @map("กองพัน 4 กองร้อย 1")
+  BAT4_COM2      @map("กองพัน 4 กองร้อย 2")
+  BAT4_COM3      @map("กองพัน 4 กองร้อย 3")
+  BAT4_COM4      @map("กองพัน 4 กองร้อย 4")
+  BAT4_COM5      @map("กองพัน 4 กองร้อย 5")
 }
 
 enum Rank {
-  ADMIRAL        @map("พลเรือเอก")
-  ADMIRAL_FEMALE @map("พลเรือเอกหญิง")
-
-  VICE_ADMIRAL        @map("พลเรือโท")
-  VICE_ADMIRAL_FEMALE @map("พลเรือโทหญิง")
-
-  REAR_ADMIRAL        @map("พลเรือตรี")
-  REAR_ADMIRAL_FEMALE @map("พลเรือตรีหญิง")
-
-  CAPTAIN        @map("นาวาเอก")
-  CAPTAIN_FEMALE @map("นาวาเอกหญิง")
-
-  COMMANDER        @map("นาวาโท")
-  COMMANDER_FEMALE @map("นาวาโทหญิง")
-
+  ADMIRAL                     @map("พลเรือเอก")
+  ADMIRAL_FEMALE              @map("พลเรือเอกหญิง")
+  VICE_ADMIRAL                @map("พลเรือโท")
+  VICE_ADMIRAL_FEMALE         @map("พลเรือโทหญิง")
+  REAR_ADMIRAL                @map("พลเรือตรี")
+  REAR_ADMIRAL_FEMALE         @map("พลเรือตรีหญิง")
+  CAPTAIN                     @map("นาวาเอก")
+  CAPTAIN_FEMALE              @map("นาวาเอกหญิง")
+  COMMANDER                   @map("นาวาโท")
+  COMMANDER_FEMALE            @map("นาวาโทหญิง")
   LIEUTENANT_COMMANDER        @map("นาวาตรี")
   LIEUTENANT_COMMANDER_FEMALE @map("นาวาตรีหญิง")
-
-  LIEUTENANT        @map("เรือเอก")
-  LIEUTENANT_FEMALE @map("เรือเอกหญิง")
-
-  SUB_LIEUTENANT        @map("เรือโท")
-  SUB_LIEUTENANT_FEMALE @map("เรือโทหญิง")
-
-  ENSIGN        @map("เรือตรี")
-  ENSIGN_FEMALE @map("เรือตรีหญิง")
-
-  PETTY_OFFICER_1        @map("พันจ่าเอก")
-  PETTY_OFFICER_1_FEMALE @map("พันจ่าเอกหญิง")
-
-  PETTY_OFFICER_2        @map("พันจ่าโท")
-  PETTY_OFFICER_2_FEMALE @map("พันจ่าโทหญิง")
-
-  PETTY_OFFICER_3        @map("พันจ่าตรี")
-  PETTY_OFFICER_3_FEMALE @map("พันจ่าตรีหญิง")
-
-  LIEUTENANT_COLONEL        @map("พันโท")
-  LIEUTENANT_COLONEL_FEMALE @map("พันโทหญิง")
-
-  MAJOR        @map("พันตรี")
-  MAJOR_FEMALE @map("พันตรีหญิง")
-
-  PETTY_OFFICER        @map("จ่าเอก")
-  PETTY_OFFICER_FEMALE @map("จ่าเอกหญิง")
-
-  LEADING_RATING        @map("จ่าโท")
-  LEADING_RATING_FEMALE @map("จ่าโทหญิง")
-
-  ABLE_SEAMAN        @map("จ่าตรี")
-  ABLE_SEAMAN_FEMALE @map("จ่าตรีหญิง")
-
-  COMPANY @map("กองร้อย")
-  SEAMAN_RECRUIT @map("พลฯ")
+  LIEUTENANT                  @map("เรือเอก")
+  LIEUTENANT_FEMALE           @map("เรือเอกหญิง")
+  SUB_LIEUTENANT              @map("เรือโท")
+  SUB_LIEUTENANT_FEMALE       @map("เรือโทหญิง")
+  ENSIGN                      @map("เรือตรี")
+  ENSIGN_FEMALE               @map("เรือตรีหญิง")
+  PETTY_OFFICER_1             @map("พันจ่าเอก")
+  PETTY_OFFICER_1_FEMALE      @map("พันจ่าเอกหญิง")
+  PETTY_OFFICER_2             @map("พันจ่าโท")
+  PETTY_OFFICER_2_FEMALE      @map("พันจ่าโทหญิง")
+  PETTY_OFFICER_3             @map("พันจ่าตรี")
+  PETTY_OFFICER_3_FEMALE      @map("พันจ่าตรีหญิง")
+  LIEUTENANT_COLONEL          @map("พันโท")
+  LIEUTENANT_COLONEL_FEMALE   @map("พันโทหญิง")
+  MAJOR                       @map("พันตรี")
+  MAJOR_FEMALE                @map("พันตรีหญิง")
+  PETTY_OFFICER               @map("จ่าเอก")
+  PETTY_OFFICER_FEMALE        @map("จ่าเอกหญิง")
+  LEADING_RATING              @map("จ่าโท")
+  LEADING_RATING_FEMALE       @map("จ่าโทหญิง")
+  ABLE_SEAMAN                 @map("จ่าตรี")
+  ABLE_SEAMAN_FEMALE          @map("จ่าตรีหญิง")
+  COMPANY                     @map("กองร้อย")
+  SEAMAN_RECRUIT              @map("พลฯ")
 }
 
 enum LeaveStatus {
@@ -123,471 +449,4 @@ enum TaskPriority {
   HIGH
   MEDIUM
   LOW
-}
-
-// --------------------------------------------------
-// USER MODEL (บุคลากร / กำลังพล)
-// --------------------------------------------------
-model User {
-  // --- ระบบ / Primary Key ---
-  id Int @id @default(autoincrement())
-
-  // --- ข้อมูลเข้าใช้ระบบ ---
-  username              String    @unique @db.VarChar(64) // ชื่อผู้ใช้ (ห้ามซ้ำ)
-  passwordHash          String    @db.VarChar(255) // เก็บรหัสผ่านแบบ hash
-  refreshTokenHash      String?   @db.VarChar(191) // เก็บ hash ของ refresh token ปัจจุบัน (ถ้ามี)
-  refreshTokenExpiresAt DateTime? // วันหมดอายุของ refresh token
-  role                  Role      @default(STUDENT) // บทบาทในระบบ (แอดมิน/ครู/นักเรียน)
-  isActive              Boolean   @default(true) // ใช้งานอยู่หรือไม่ (สำหรับ soft delete)
-
-  // --- ข้อมูลส่วนบุคคล ---
-  firstName   String   @db.VarChar(100) // ชื่อจริง
-  lastName    String   @db.VarChar(100) // นามสกุล
-  birthDate   DateTime // วันเกิด
-  rank        Rank     @default(SEAMAN_RECRUIT) // ยศทหารเรือไทย
-  fullAddress String   @db.VarChar(255) // ที่อยู่เต็ม
-
-  // --- ประวัติการศึกษา / ตำแหน่ง ---
-  education String? @db.VarChar(255) // ประวัติการศึกษา (อาจไม่มี หรือใช้ “วุฒิสูงสุด”)
-  position  String? @db.VarChar(150) // ตำแหน่งปัจจุบัน/ตำแหน่งงาน
-  division  String? @db.VarChar(150) // หมวดวิชา (จำเป็นสำหรับ role = TEACHER)
-
-  // --- การติดต่อหลัก ---
-  email String @unique @db.VarChar(191) // อีเมล (ห้ามซ้ำ)
-  phone String @unique @db.VarChar(32) // เบอร์โทรศัพท์ (ห้ามซ้ำ)
-
-  // --- ข้อมูลติดต่อฉุกเฉิน ---
-  emergencyContactName  String? @db.VarChar(100) // ชื่อผู้ติดต่อฉุกเฉิน
-  emergencyContactPhone String? @db.VarChar(32) // เบอร์โทรผู้ติดต่อฉุกเฉิน
-
-  // --- ข้อมูลด้านการแพทย์ (Sensitive) ---
-  medicalHistory  String? @db.Text // ประวัติทางการแพทย์ (ควรเข้ารหัส/จำกัดสิทธิ์)
-  chronicDiseases Json?
-  drugAllergies   Json?
-  foodAllergies   Json?
-
-  // --- ข้อมูลส่วนตัวเพิ่มเติม ---
-  religion            String? @db.VarChar(100)
-  specialSkills       String? @db.VarChar(255)
-  secondaryOccupation String? @db.VarChar(255)
-
-  // --- อื่น ๆ ---
-  avatar String? @db.Text // URL หรือ base64 รูปโปรไฟล์
-
-  createdAt DateTime @default(now()) // วันที่สร้างข้อมูล
-  updatedAt DateTime @updatedAt // อัปเดตอัตโนมัติทุกครั้งที่แก้ไข
-
-  // ความสัมพันธ์กับแบบประเมินที่ตนเป็นผู้สอน (ถ้ามีการผูก teacherId)
-  evaluationsReceived EvaluationSheet[] @relation("TeacherEvaluations")
-
-  // รายงานยอดนักเรียนที่ครูส่ง
-  trainingReports TrainingReport[]
-
-  // ตารางสอน/กิจกรรม
-  teachingSchedules TeachingSchedule[]
-
-  // คำขอลาของครูฝึก
-  teacherLeaves       TeacherLeave[] @relation("TeacherLeaves")
-  adminReviewedLeaves TeacherLeave[] @relation("AdminLeaveApproval")
-  ownerApprovedLeaves TeacherLeave[] @relation("OwnerLeaveApproval")
-
-  // แบบประเมินนักเรียน
-  studentEvaluationsAuthored  StudentEvaluation[]         @relation("StudentEvaluationEvaluator")
-  studentEvaluationTemplates  StudentEvaluationTemplate[] @relation("TemplateCreators")
-  studentEvaluationsEvaluated StudentEvaluation[]         @relation("StudentEvaluationEvaluatedPerson")
-
-  // ผลสอบที่นำเข้าจากไฟล์ Excel
-  examResultsImported ExamResult[]
-
-  // ฟีเจอร์ท็อกเกิลที่เคยอัปเดต
-  featureTogglesUpdated FeatureToggle[] @relation("FeatureToggleUpdatedBy")
-
-  // แจ้งเตือนที่อ่านแล้ว
-  notificationReads NotificationRead[]
-
-  // งานที่ได้รับมอบหมาย
-  taskAssignments TaskAssignment[] @relation("TaskAssignee")
-  // งานที่สร้าง/มอบหมายให้คนอื่น
-  tasksCreated    TaskAssignment[] @relation("TaskCreator")
-
-  // --- Indexes สำหรับการค้นหา ---
-  @@index([lastName, firstName])
-  @@index([rank])
-  @@index([role])
-}
-
-// --------------------------------------------------
-// TEACHING EVALUATION MODELS (แบบประเมินครู)
-// --------------------------------------------------
-model EvaluationSheet {
-  id Int @id @default(autoincrement())
-
-  // รายวิชา + ครูผู้สอน
-  subject     String @db.VarChar(191)
-  teacherName String @db.VarChar(191)
-
-  // อ้างอิงไปยัง User (role = TEACHER) ได้ ถ้ามี
-  teacherId Int?
-  teacher   User? @relation("TeacherEvaluations", fields: [teacherId], references: [id])
-
-  // ผู้ประเมิน
-  evaluatorName String   @db.VarChar(191)
-  evaluatorUnit String?  @db.VarChar(255)
-  evaluatedAt   DateTime // วันที่ประเมินจากไฟล์ (ถ้าหาไม่ได้ให้ใช้เวลาปัจจุบัน)
-
-  notes String? @db.Text
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  answers EvaluationAnswer[]
-
-  @@index([teacherId])
-  @@index([teacherName])
-  @@index([subject])
-}
-
-model EvaluationAnswer {
-  id      Int             @id @default(autoincrement())
-  sheetId Int
-  sheet   EvaluationSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
-
-  // ตัวชี้วัด/หัวข้อประเมิน
-  section  String? @db.VarChar(32)
-  itemCode String? @db.VarChar(32)
-  itemText String  @db.VarChar(255)
-
-  // คะแนนแบบ Likert 1..5 (5 = พึงพอใจมากที่สุด)
-  rating Int
-
-  @@index([sheetId])
-}
-
-// --------------------------------------------------
-// STUDENT EVALUATION MODELS (แบบประเมินนักเรียน)
-// --------------------------------------------------
-model StudentEvaluationTemplate {
-  id                    Int                    @id @default(autoincrement())
-  name                  String                 @db.VarChar(191)
-  description           String?                @db.VarChar(255)
-  templateType          EvaluationTemplateType
-  battalionCount        Int?
-  teacherEvaluatorCount Int?
-  isActive              Boolean                @default(true)
-
-  createdBy Int?
-  creator   User? @relation("TemplateCreators", fields: [createdBy], references: [id])
-
-  sections    StudentEvaluationSection[]
-  evaluations StudentEvaluation[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model StudentEvaluationSection {
-  id         Int                       @id @default(autoincrement())
-  templateId Int
-  template   StudentEvaluationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  title        String  @db.VarChar(191)
-  description  String? @db.VarChar(255)
-  sectionOrder Int     @default(0)
-
-  questions StudentEvaluationQuestion[]
-
-  @@index([templateId])
-}
-
-model StudentEvaluationQuestion {
-  id        Int                      @id @default(autoincrement())
-  sectionId Int
-  section   StudentEvaluationSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-
-  prompt        String @db.VarChar(255)
-  maxScore      Int    @default(5)
-  questionOrder Int    @default(0)
-
-  answers StudentEvaluationAnswer[]
-
-  @@index([sectionId])
-}
-
-model StudentEvaluation {
-  id         Int                       @id @default(autoincrement())
-  templateId Int
-  template   StudentEvaluationTemplate @relation(fields: [templateId], references: [id])
-
-  evaluatorId Int
-  evaluator   User @relation("StudentEvaluationEvaluator", fields: [evaluatorId], references: [id])
-
-  companyCode         String   @db.VarChar(32) // กองร้อย
-  battalionCode       String   @db.VarChar(32) // กองพัน
-  subject             String?  @db.VarChar(191) // วิชาที่ใช้ประเมิน
-  evaluationPeriod    DateTime @default(now()) // วันที่/รอบการประเมิน
-  evaluationRound     String?  @db.VarChar(100) // รอบการประเมิน (เช่น ไตรมาส 1/2568)
-  evaluatorName       String?  @db.VarChar(150) // ชื่อผู้ประเมิน (สำหรับ SERVICE)
-  evaluatedPersonId   Int? // ผู้ถูกรับการประเมิน (user id ถ้ามี)
-  evaluatedPersonUser User?    @relation("StudentEvaluationEvaluatedPerson", fields: [evaluatedPersonId], references: [id])
-  evaluatedPerson     String?  @db.VarChar(191) // ผู้ถูกประเมิน/รับบริการ (SERVICE)
-
-  summary      String?  @db.Text
-  overallScore Float?
-  submittedAt  DateTime @default(now())
-
-  answers StudentEvaluationAnswer[]
-
-  @@index([templateId])
-  @@index([companyCode, battalionCode])
-  @@index([evaluatorId])
-}
-
-model StudentEvaluationAnswer {
-  id           Int               @id @default(autoincrement())
-  evaluationId Int
-  evaluation   StudentEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
-
-  questionId Int
-  question   StudentEvaluationQuestion @relation(fields: [questionId], references: [id])
-
-  score   Int
-  comment String? @db.VarChar(255)
-
-  @@index([evaluationId])
-  @@index([questionId])
-}
-
-// --------------------------------------------------
-// EXAM RESULTS (คะแนนสอบจากการนำเข้าไฟล์ Excel)
-// --------------------------------------------------
-model ExamResult {
-  id         Int      @id @default(autoincrement())
-  timestamp  DateTime // ประทับเวลาจากไฟล์
-  scoreText  String?  @db.VarChar(64) // raw text เช่น "32 / 40"
-  scoreValue Float? // คะแนนที่ทำได้
-  scoreTotal Float? // คะแนนเต็ม (ถ้าพบ)
-  fullName   String   @db.VarChar(191) // ยศ - ชื่อ - สกุล
-  navyNumber String?  @db.VarChar(32) // หมายเลข ทร. 5 ตัว
-  unit       String?  @db.VarChar(191) // สังกัด/หน่วย
-
-  importedById Int?
-  importedBy   User? @relation(fields: [importedById], references: [id])
-
-  createdAt DateTime @default(now())
-
-  @@unique([timestamp, navyNumber, fullName, scoreText])
-  @@index([timestamp])
-  @@index([navyNumber])
-}
-
-// --------------------------------------------------
-// FEATURE TOGGLES (เปิด/ปิดฟีเจอร์ เช่น ฟอร์มรับทหารใหม่)
-// --------------------------------------------------
-model FeatureToggle {
-  id          Int     @id @default(autoincrement())
-  key         String  @unique @db.VarChar(64)
-  isEnabled   Boolean @default(false)
-  description String? @db.VarChar(255)
-
-  updatedById Int?
-  updatedBy   User? @relation("FeatureToggleUpdatedBy", fields: [updatedById], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([key])
-}
-
-// --------------------------------------------------
-// TRAINING REPORTS (ยอดนักเรียน/รายงานการฝึกของครู)
-// --------------------------------------------------
-model TrainingReport {
-  id        Int  @id @default(autoincrement())
-  teacherId Int
-  teacher   User @relation(fields: [teacherId], references: [id])
-
-  subject          String   @db.VarChar(191)
-  participantCount Int
-  company          String?  @db.VarChar(150) // ร้อยฝึกที่
-  battalion        String?  @db.VarChar(150) // พันฝึกที่
-  division         String?  @db.VarChar(150) // หมวด/กองร้อยต้นสังกัด
-  trainingDate     DateTime
-  trainingTime     String?  @db.VarChar(16) // HH:mm
-  location         String?  @db.VarChar(191)
-  durationHours    Float
-  notes            String?  @db.Text
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([teacherId, trainingDate])
-}
-
-// --------------------------------------------------
-// TEACHING SCHEDULE (ตารางสอน/กิจกรรม)
-// --------------------------------------------------
-model TeachingSchedule {
-  id            Int      @id @default(autoincrement())
-  title         String   @db.VarChar(191)
-  description   String?  @db.Text
-  location      String?  @db.VarChar(191)
-  companyCode   String?  @db.VarChar(32) // กองร้อย
-  battalionCode String?  @db.VarChar(32) // กองพัน
-  color         String   @default("#1E90FF") @db.VarChar(16) // สีสำหรับแสดงผลปฏิทิน (default น้ำเงิน)
-  start         DateTime
-  end           DateTime
-  allDay        Boolean  @default(false)
-
-  teacherId Int?
-  teacher   User? @relation(fields: [teacherId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([teacherId, start, end])
-  @@index([battalionCode, companyCode, start])
-}
-
-// --------------------------------------------------
-// TEACHER LEAVE (บัญชีพล / การลา)
-// --------------------------------------------------
-model TeacherLeave {
-  id        Int  @id @default(autoincrement())
-  teacherId Int
-  teacher   User @relation("TeacherLeaves", fields: [teacherId], references: [id])
-
-  leaveType      String      @db.VarChar(100)
-  destination    String?     @db.VarChar(191)
-  reason         String?     @db.Text
-  startDate      DateTime
-  endDate        DateTime?
-  status         LeaveStatus @default(PENDING)
-  isOfficialDuty Boolean     @default(false)
-
-  adminApprovalStatus LeaveStatus?
-  adminApprovalBy     Int?
-  adminApprover       User?        @relation("AdminLeaveApproval", fields: [adminApprovalBy], references: [id])
-  adminApprovalAt     DateTime?
-
-  ownerApprovalStatus LeaveStatus?
-  ownerApprovalBy     Int?
-  ownerApprover       User?        @relation("OwnerLeaveApproval", fields: [ownerApprovalBy], references: [id])
-  ownerApprovalAt     DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([teacherId, startDate])
-  @@index([isOfficialDuty, status])
-}
-
-// --------------------------------------------------
-// LIBRARY (คลังเอกสาร/ไฟล์)
-// --------------------------------------------------
-model LibraryItem {
-  id          Int     @id @default(autoincrement())
-  title       String  @db.VarChar(191)
-  description String? @db.Text
-  category    String? @db.VarChar(100)
-  fileUrl     String? @db.Text
-  coverUrl    String? @db.Text
-  isActive    Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([category])
-  @@index([isActive])
-  @@index([updatedAt])
-}
-
-// --------------------------------------------------
-// TASK ASSIGNMENTS (มอบหมายงาน)
-// --------------------------------------------------
-model TaskAssignment {
-  id             Int     @id @default(autoincrement())
-  title          String  @db.VarChar(191)
-  description    String? @db.Text
-  noteToAssignee String? @db.Text
-
-  startDate      DateTime
-  dueDate        DateTime
-  durationDays   Int?
-  priority       TaskPriority @default(MEDIUM)
-  status         String       @default("PENDING") @db.VarChar(32)
-  submissionNote String?      @db.Text
-  submittedAt    DateTime?
-
-  assigneeId Int
-  assignee   User @relation("TaskAssignee", fields: [assigneeId], references: [id])
-
-  createdById Int
-  creator     User @relation("TaskCreator", fields: [createdById], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([assigneeId])
-  @@index([createdById])
-  @@index([dueDate])
-}
-
-// --------------------------------------------------
-// NOTIFICATION READ STATES
-// --------------------------------------------------
-model NotificationRead {
-  id             Int      @id @default(autoincrement())
-  userId         Int
-  notificationId String   @db.VarChar(255)
-  readAt         DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@unique([userId, notificationId])
-  @@index([userId])
-}
-
-// --------------------------------------------------
-// SOLDIER INTAKE FORM (แบบฟอร์มข้อมูลทหารใหม่)
-// --------------------------------------------------
-model SoldierIntake {
-  id              Int      @id @default(autoincrement())
-  firstName       String   @db.VarChar(100)
-  lastName        String   @db.VarChar(100)
-  citizenId       String   @db.VarChar(50)
-  birthDate       DateTime
-  weightKg        Float?
-  heightCm        Float?
-  education       String?  @db.VarChar(150)
-  previousJob     String?  @db.VarChar(150)
-  religion        String?  @db.VarChar(100)
-  canSwim         Boolean?
-  specialSkills   String?  @db.VarChar(255)
-  serviceYears    Float?
-  bloodGroup      String?  @db.VarChar(8)
-  battalionCode   String?  @db.VarChar(50)
-  companyCode     String?  @db.VarChar(50)
-  platoonCode     Int?
-  sequenceNumber  Int?
-  addressLine     String?  @db.VarChar(255)
-  province        String?  @db.VarChar(100)
-  district        String?  @db.VarChar(100)
-  subdistrict     String?  @db.VarChar(100)
-  postalCode      String?  @db.VarChar(20)
-  email           String?  @db.VarChar(191)
-  phone           String?  @db.VarChar(32)
-  emergencyName   String?  @db.VarChar(100)
-  emergencyPhone  String?  @db.VarChar(32)
-  chronicDiseases Json?
-  foodAllergies   Json?
-  drugAllergies   Json?
-  medicalNotes    String?  @db.Text
-  idCardImageUrl  String?  @db.Text
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([citizenId])
-  @@index([phone])
-  @@index([email])
 }
