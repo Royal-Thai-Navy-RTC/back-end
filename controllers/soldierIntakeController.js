@@ -76,7 +76,7 @@ const listIntakes = async (req, res) => {
     const result = await SoldierIntake.listIntakes(filters);
     res.json({
       data: result.items,
-      page: result.page,
+      page: result.page, 
       pageSize: result.pageSize,
       total: result.total,
       totalPages: result.totalPages,
