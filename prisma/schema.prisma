@@ -450,3 +450,17 @@ enum TaskPriority {
   MEDIUM
   LOW
 }
+
+model News {
+  id           Int      @id @default(autoincrement())
+  title        String   @db.VarChar(255)
+  content      String   @db.Text
+  imageUrl     String?  @db.VarChar(500)   // เก็บ path หรือ URL รูปข่าว
+  externalLink String?  @db.VarChar(500)   // ลิงก์ภายนอก (ถ้ามี)
+
+  isPublished  Boolean  @default(true)     // ใช้ควบคุมว่าจะโชว์หน้า Home ไหม
+  publishedAt  DateTime @default(now())    // ใช้ sort ข่าวล่าสุด
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
