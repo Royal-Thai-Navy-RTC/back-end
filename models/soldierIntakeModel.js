@@ -138,6 +138,7 @@ const normalizeInput = (input = {}) => {
   const surgeryHistory = normalizeBool(input.surgery);
   const experienced = normalizePositiveInt(input.experience, "experience");
   const familyStatus = normalizeString(input.familyStatus);
+  const certificates = splitList(input.certificates);
 
   return {
     firstName,
@@ -175,6 +176,7 @@ const normalizeInput = (input = {}) => {
     surgeryHistory,
     experienced,
     familyStatus,
+    certificates,
   };
 };
 

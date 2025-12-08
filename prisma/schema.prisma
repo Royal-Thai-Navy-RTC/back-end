@@ -360,6 +360,7 @@ model SoldierIntake {
   surgeryHistory  Boolean?  @default(false)
   experienced     Int?
   familyStatus    String?  @db.VarChar(100)
+  certificates    Json?
 
   @@index([citizenId])
   @@index([phone])
