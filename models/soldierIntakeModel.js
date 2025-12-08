@@ -136,7 +136,7 @@ const normalizeInput = (input = {}) => {
   //   familyStatus: "", string
   const accidentHistory = normalizeBool(input.accident);
   const surgeryHistory = normalizeBool(input.surgery);
-  const experienced = normalizePositiveInt(input.experience, "experience");
+  const experienced = normalizePositiveInt(input.experienced, "experienced");
   const familyStatus = normalizeString(input.familyStatus);
   const certificates = splitList(input.certificates);
 
