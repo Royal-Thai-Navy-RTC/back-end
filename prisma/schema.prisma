@@ -356,6 +356,10 @@ model SoldierIntake {
   companyCode     String?  @db.VarChar(50)
   platoonCode     Int?
   sequenceNumber  Int?
+  accidentHistory Boolean?  @default(false)
+  surgeryHistory  Boolean?  @default(false)
+  experienced     Int?
+  familyStatus    String?  @db.VarChar(100)
 
   @@index([citizenId])
   @@index([phone])

@@ -130,6 +130,14 @@ const normalizeInput = (input = {}) => {
     "sequenceNumber"
   );
   const platoonCode = normalizePositiveInt(input.platoonCode, "platoonCode");
+  // accident: "", boolean
+  //   surgery: "", boolean
+  //   experience: "", int
+  //   familyStatus: "", string
+  const accidentHistory = normalizeBool(input.accident);
+  const surgeryHistory = normalizeBool(input.surgery);
+  const experienced = normalizePositiveInt(input.experience, "experience");
+  const familyStatus = normalizeString(input.familyStatus);
 
   return {
     firstName,
@@ -163,6 +171,10 @@ const normalizeInput = (input = {}) => {
     drugAllergies: splitList(input.drugAllergies),
     medicalNotes: normalizeString(input.medicalNotes),
     idCardImageUrl: normalizeString(input.idCardImageUrl),
+    accidentHistory,
+    surgeryHistory,
+    experienced,
+    familyStatus,
   };
 };
 
