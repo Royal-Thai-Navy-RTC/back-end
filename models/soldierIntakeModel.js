@@ -383,6 +383,9 @@ module.exports = {
         count: item._count.religion || 0,
       }))
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    const canSwimCount = await prisma.soldierIntake.count({
+      where: { canSwim: true, battalionCode, companyCode },
+    });
     return {
       total,
       sixMonths,
@@ -390,6 +393,7 @@ module.exports = {
       twoYears,
       educationCounts,
       religionCounts,
+      canSwimCount,
     };
   },
 
