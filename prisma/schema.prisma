@@ -218,6 +218,7 @@ model TrainingReport {
   updatedAt        DateTime @updatedAt
   division         String?  @db.VarChar(150)
   teacher          User     @relation(fields: [teacherId], references: [id])
+  instructorName   String?  @db.VarChar(150)
 
   @@index([teacherId, trainingDate])
 }

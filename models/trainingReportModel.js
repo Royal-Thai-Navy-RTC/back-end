@@ -49,6 +49,10 @@ const validatePayload = (input = {}) => {
     throw err;
   }
 
+  const instructorName = input.instructorName
+    ? String(input.instructorName).trim()
+    : null;
+
   const normalized = {
     teacherId,
     subject: String(input.subject).trim(),
@@ -61,6 +65,7 @@ const validatePayload = (input = {}) => {
     location: input.location ? String(input.location).trim() : null,
     durationHours,
     notes: input.notes ? String(input.notes).trim() : null,
+    instructorName,
   };
 
   return normalized;
@@ -204,6 +209,7 @@ const getAdminTrainingReportSummary = async ({ search } = {}) => {
       latestSubject: latest?.subject || null,
       latestTrainingDate: latest?.trainingDate || null,
       latestReportAt: latest?.createdAt || null,
+      instructorName: latest?.instructorName || null,
     };
   });
 
