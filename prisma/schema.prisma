@@ -356,8 +356,9 @@ model SoldierIntake {
   companyCode     String?  @db.VarChar(50)
   platoonCode     Int?
   sequenceNumber  Int?
-  accidentHistory Boolean?  @default(false)
-  surgeryHistory  Boolean?  @default(false)
+  accidentHistory Boolean? @default(false)
+  surgeryHistory  Boolean? @default(false)
+  tattoo          Boolean? @default(false)
   experienced     Int?
   familyStatus    String?  @db.VarChar(100)
   certificates    Json?
@@ -457,15 +458,15 @@ enum TaskPriority {
 }
 
 model News {
-  id           Int      @id @default(autoincrement())
-  title        String   @db.VarChar(255)
-  content      String   @db.Text
-  imageUrl     String?  @db.VarChar(500)   // เก็บ path หรือ URL รูปข่าว
-  externalLink String?  @db.VarChar(500)   // ลิงก์ภายนอก (ถ้ามี)
+  id           Int     @id @default(autoincrement())
+  title        String  @db.VarChar(255)
+  content      String  @db.Text
+  imageUrl     String? @db.VarChar(500) // เก็บ path หรือ URL รูปข่าว
+  externalLink String? @db.VarChar(500) // ลิงก์ภายนอก (ถ้ามี)
 
-  isPublished  Boolean  @default(true)     // ใช้ควบคุมว่าจะโชว์หน้า Home ไหม
-  publishedAt  DateTime @default(now())    // ใช้ sort ข่าวล่าสุด
+  isPublished Boolean  @default(true) // ใช้ควบคุมว่าจะโชว์หน้า Home ไหม
+  publishedAt DateTime @default(now()) // ใช้ sort ข่าวล่าสุด
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
