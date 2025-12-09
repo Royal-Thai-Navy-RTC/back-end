@@ -20,6 +20,14 @@ router.get(
   teacherReportController.getRecentTrainingReports
 );
 
+// export excel file
+router.get(
+  "/teacher/training-reports/export",
+  middleware.verifyToken,
+  middleware.authorizeTeacher,
+  teacherReportController.exportTrainingReportsExcel
+);
+
 router.post(
   "/teacher/leaves",
   middleware.verifyToken,
