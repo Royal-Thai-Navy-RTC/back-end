@@ -97,6 +97,109 @@ const EDUCATION_OPTIONS = [
   { value: "ต่ำกว่าประถมศึกษาปีที่ 6", label: "ต่ำกว่าประถมศึกษาปีที่ 6" },
 ];
 
+const COMPANY_CODES = ["1", "2", "3", "4", "5"];
+const BATTALION_CODES = ["1", "2", "3", "4"];
+
+const buildOrderedCodes = (records, requested = [], key, allowExtra = true) => {
+  const seen = new Set();
+  const ordered = [];
+
+  for (const code of requested || []) {
+    if (code === undefined || code === null) continue;
+    const normalized = String(code);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    ordered.push(normalized);
+  }
+
+  if (allowExtra) {
+    for (const record of records || []) {
+      const value = record?.[key];
+      if (value === undefined || value === null) continue;
+      const normalized = String(value);
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      ordered.push(normalized);
+    }
+  }
+
+  return ordered;
+};
+
+const formatComboCounts = (
+  records,
+  requestedBattalions = [],
+  requestedCompanies = [],
+  options = {}
+) => {
+  const battalionCodes = buildOrderedCodes(
+    records,
+    requestedBattalions,
+    "battalionCode",
+    options.allowExtraBattalions ?? true
+  );
+  const companyCodes = buildOrderedCodes(
+    records,
+    requestedCompanies,
+    "companyCode",
+    options.allowExtraCompanies ?? true
+  );
+  const countsMap = new Map();
+
+  for (const record of records || []) {
+    const battalion = record?.battalionCode;
+    const company = record?.companyCode;
+    if (battalion === undefined || battalion === null) continue;
+    if (company === undefined || company === null) continue;
+    const key = `${battalion}|||${company}`;
+    const value = Number(record._count?.companyCode ?? record.count?.companyCode ?? 0);
+    countsMap.set(key, Number.isFinite(value) ? value : 0);
+  }
+
+  const result = [];
+  for (const battalion of battalionCodes) {
+    for (const company of companyCodes) {
+      const key = `${battalion}|||${company}`;
+      result.push({
+        battalionCode: battalion,
+        companyCode: company,
+        count: countsMap.get(key) ?? 0,
+      });
+    }
+  }
+
+  return result;
+};
+
+const formatGroupCounts = (records, fallbackCodes, key) => {
+  const countsMap = new Map();
+
+  for (const record of records) {
+    const value = Number(record._count?.[key] ?? record.count?.[key] ?? 0);
+    const numericValue = Number.isFinite(value) ? value : 0;
+    if (record[key] === undefined || record[key] === null) continue;
+    countsMap.set(String(record[key]), numericValue);
+  }
+
+  const ordered = [];
+  const seen = new Set();
+  const candidateCodes = [
+    ...fallbackCodes,
+    ...records.map((record) => record[key]).filter((code) => code !== undefined && code !== null),
+  ];
+  for (const code of candidateCodes) {
+    const normalized = String(code);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    ordered.push(normalized);
+  }
+
+  return ordered.map((code) => ({
+    [key]: code,
+    count: countsMap.get(code) ?? 0,
+  }));
+};
+
 const normalizePositiveInt = (value, field) => {
   if (value === undefined || value === null || value === "") return undefined;
   const num = Number(value);
@@ -338,6 +441,10 @@ module.exports = {
 
   summary: async (battalionCode, companyCode) => {
     ensureModelAvailable();
+    battalionCode = normalizeString(battalionCode);
+    companyCode = normalizeString(companyCode);
+    const requestedBattalionCodes = battalionCode ? [battalionCode] : BATTALION_CODES;
+    const requestedCompanyCodes = companyCode ? [companyCode] : COMPANY_CODES;
     const [
       total,
       sixMonths,
@@ -386,6 +493,45 @@ module.exports = {
     const canSwimCount = await prisma.soldierIntake.count({
       where: { canSwim: true, battalionCode, companyCode },
     });
+    const companyWhere = {
+      companyCode: companyCode ? companyCode : { not: null },
+    };
+    if (battalionCode) {
+      companyWhere.battalionCode = battalionCode;
+    }
+    const companyCountsRaw = await prisma.soldierIntake.groupBy({
+      by: ["battalionCode", "companyCode"],
+      _count: { companyCode: true },
+      where: companyWhere,
+    });
+    const battalionCountsRaw = await prisma.soldierIntake.groupBy({
+      by: ["battalionCode"],
+      _count: { battalionCode: true },
+      where: { battalionCode: { not: null } },
+    });
+    const companyCounts = formatComboCounts(
+      companyCountsRaw,
+      requestedBattalionCodes,
+      requestedCompanyCodes,
+      {
+        allowExtraBattalions: !battalionCode,
+        allowExtraCompanies: !companyCode,
+      }
+    );
+    const battalionCounts = formatGroupCounts(
+      battalionCountsRaw,
+      BATTALION_CODES,
+      "battalionCode"
+    );
+    const bloodGroupCounts = await prisma.soldierIntake.groupBy({
+      by: ["bloodGroup"],
+      _count: { bloodGroup: true },
+      where: { bloodGroup: { not: null }, battalionCode, companyCode },
+    }).then((groups) => formatGroupCounts(
+      groups,
+      ["A", "B", "AB", "O", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+      "bloodGroup"
+    ));
     return {
       total,
       sixMonths,
@@ -394,6 +540,9 @@ module.exports = {
       educationCounts,
       religionCounts,
       canSwimCount,
+      companyCounts,
+      battalionCounts,
+      bloodGroupCounts,
     };
   },
 
