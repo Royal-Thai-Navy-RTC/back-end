@@ -75,15 +75,18 @@ function buildDateRange(startDate, endDate) {
 }
 
 // ✅ ดึงข้อมูลด้วย Prisma แทน SQL ตรง ๆ (ใช้สำหรับ export Excel เท่านั้น)
-async function findReports({ teacherId, startDate, endDate }) {
+async function findReports({ startDate, endDate }) {
   const trainingDateRange = buildDateRange(startDate, endDate);
 
   const reports = await prisma.trainingReport.findMany({
     where: {
-      teacherId: teacherId,
       ...(trainingDateRange ? { trainingDate: trainingDateRange } : {}),
     },
-    orderBy: [{ trainingDate: "asc" }, { trainingTime: "asc" }, { id: "asc" }],
+    orderBy: [
+      { trainingDate: "asc" },
+      { trainingTime: "asc" },
+      { id: "asc" }
+    ],
   });
 
   return reports;
