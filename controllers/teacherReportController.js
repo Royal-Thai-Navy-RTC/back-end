@@ -127,10 +127,16 @@ async function exportReportsToExcel({ teacherId, startDate, endDate }) {
   sheet.getRow(1).values = [];
   sheet.getRow(2).values = [];
 
-  // ---------- ส่วนหัวบน ----------
-  const division = rows[0]?.division || "-";
-  const title = `หมวดวิชา ${division}`;
+    // ---------- ส่วนหัวบน ----------
+  let division = (rows[0]?.division || "").trim();
 
+  // ถ้า division เป็น "หมายเหตุ" หรือว่าง ให้ถือว่าไม่มีหมวดวิชา
+  if (!division || division === "หมายเหตุ") {
+    division = "";
+  }
+
+  // const title = division ? `หมวดวิชา ${division}` : "";
+  const title = "รายงานการส่งยอดของครูผู้สอน";
   let headerDate = null;
   if (startDate && endDate && startDate === endDate) {
     headerDate = startDate;
@@ -144,13 +150,14 @@ async function exportReportsToExcel({ teacherId, startDate, endDate }) {
 
   sheet.mergeCells("A1:H1");
   sheet.mergeCells("A2:H2");
-  sheet.getCell("A1").value = title;
+
+  sheet.getCell("A1").value = title;    // ถ้าไม่มี title จะเป็นค่าว่าง
   sheet.getCell("A2").value = thaiDate;
 
-  [sheet.getCell("A1"), sheet.getCell("A2")].forEach((cell) => {
-    cell.alignment = { horizontal: "center", vertical: "middle" };
-    cell.font = { name: "TH Sarabun New", size: 16, bold: true };
-  });
+  sheet.getCell("A1").font = { name: "TH Sarabun New", size: 16, bold: true };
+  sheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+  sheet.getCell("A2").font = { name: "TH Sarabun New", size: 16, bold: true };
+  sheet.getCell("A2").alignment = { horizontal: "center", vertical: "middle" };
 
   // ---------- หัวตาราง ----------
   const headerRowIndex = 4;
