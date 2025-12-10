@@ -782,6 +782,12 @@ module.exports = {
     await prisma.soldierIntake.delete({ where: { id: intakeId } });
   },
 
+  deleteAllIntakes: async () => {
+    ensureModelAvailable();
+    const deleted = await prisma.soldierIntake.deleteMany({});
+    return { deleted: deleted.count };
+  },
+
   summary: async (battalionCode, companyCode) => {
     ensureModelAvailable();
 

@@ -141,6 +141,16 @@ const deleteIntake = async (req, res) => {
   }
 };
 
+const deleteAllIntakes = async (_req, res) => {
+  try {
+    const result = await SoldierIntake.deleteAllIntakes();
+    res.json({ deleted: result.deleted });
+  } catch (err) {
+    console.error("Failed to delete soldier intakes", err);
+    res.status(500).json({ message: "ไม่สามารถลบข้อมูลได้" });
+  }
+};
+
 const summary = async (req, res) => {
   try {
     const filters = { ...(req.query || {}) };
@@ -267,4 +277,5 @@ module.exports = {
   getIntakePublicStatus,
   setIntakePublicStatus,
   importUnitAssignments,
+  deleteAllIntakes,
 };

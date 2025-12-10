@@ -34,6 +34,13 @@ router.get(
   soldierIntakeController.listIntakes
 );
 
+router.delete(
+  "/admin/soldier-intakes",
+  middleware.verifyToken,
+  middleware.authorizeOwner,
+  soldierIntakeController.deleteAllIntakes
+);
+
 router.get(
   "/admin/soldier-intakes/:id",
   middleware.verifyToken,
@@ -52,7 +59,7 @@ router.put(
 router.delete(
   "/admin/soldier-intakes/:id",
   middleware.verifyToken,
-  middleware.authorizeSoldierData,
+  middleware.authorizeOwner,
   soldierIntakeController.deleteIntake
 );
 
