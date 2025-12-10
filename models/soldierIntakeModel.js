@@ -519,6 +519,71 @@ const buildRadarProfileForItem = (item) => {
   };
 };
 
+const hasChronicDisease = (item) => {
+  const list = Array.isArray(item?.chronicDiseases)
+    ? item.chronicDiseases.filter(isMeaningfulHealthValue)
+    : [];
+  return list.length > 0;
+};
+
+const hasAnyAllergy = (item) => {
+  const foodList = Array.isArray(item?.foodAllergies)
+    ? item.foodAllergies.filter(isMeaningfulHealthValue)
+    : [];
+  const drugList = Array.isArray(item?.drugAllergies)
+    ? item.drugAllergies.filter(isMeaningfulHealthValue)
+    : [];
+  return foodList.length + drugList.length > 0;
+};
+
+const computeAge = (birthDate) => {
+  if (!birthDate) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+// ใช้เงื่อนไขที่คุยไว้: ว่ายน้ำได้, อายุ ≤ 23, ไม่มีโรคประจำตัว, ไม่มีรอยสักในร่มผ้า
+const isEligibleNcoStudent = (item) => {
+  const age = computeAge(item.birthDate);
+  if (age == null) return false;
+
+  const canSwim = !!item.canSwim;
+  const chronic = hasChronicDisease(item);
+  const tattoo = !!item.tattoo; // ถ้า field ชื่ออื่น เปลี่ยนตรงนี้
+
+  return canSwim && age <= 23 && !chronic && !tattoo;
+};
+
+// คะแนนความพร้อมรบแบบง่ายๆ 0–100
+// (อยากผูกกับ abilityScore จริง ก็ค่อยย้ายสูตรมาใช้แทนได้)
+const computeCombatReadinessScore = (item) => {
+  let score = 100;
+
+  const age = computeAge(item.birthDate);
+  const chronic = hasChronicDisease(item);
+  const allergy = hasAnyAllergy(item);
+  const canSwim = !!item.canSwim;
+
+  if (chronic) score -= 30;
+  if (allergy) score -= 15;
+  if (!canSwim) score -= 20;
+
+  if (age != null) {
+    if (age < 18 || age > 27) score -= 10;
+  }
+
+  // clamp 0–100
+  if (score < 0) score = 0;
+  if (score > 100) score = 100;
+
+  return score;
+};
+
 module.exports = {
   createIntake: async (input = {}) => {
     ensureModelAvailable();
@@ -719,12 +784,15 @@ module.exports = {
 
   summary: async (battalionCode, companyCode) => {
     ensureModelAvailable();
+
     battalionCode = normalizeString(battalionCode);
     companyCode = normalizeString(companyCode);
+
     const requestedBattalionCodes = battalionCode
       ? [battalionCode]
       : BATTALION_CODES;
     const requestedCompanyCodes = companyCode ? [companyCode] : COMPANY_CODES;
+
     const [
       total,
       sixMonths,
@@ -756,12 +824,14 @@ module.exports = {
         where: { religion: { not: null }, battalionCode, companyCode },
       }),
     ]);
+
     const educationCounts = EDUCATION_OPTIONS.map((option) => {
       const matched = educationGroups.find(
         (item) => item.education === option.value
       );
       return { ...option, count: matched?._count.education || 0 };
     });
+
     const religionCounts = religionGroups
       .filter((item) => item.religion)
       .map((item) => ({
@@ -770,25 +840,30 @@ module.exports = {
         count: item._count.religion || 0,
       }))
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
     const canSwimCount = await prisma.soldierIntake.count({
       where: { canSwim: true, battalionCode, companyCode },
     });
+
     const companyWhere = {
       companyCode: companyCode ? companyCode : { not: null },
     };
     if (battalionCode) {
       companyWhere.battalionCode = battalionCode;
     }
+
     const companyCountsRaw = await prisma.soldierIntake.groupBy({
       by: ["battalionCode", "companyCode"],
       _count: { companyCode: true },
       where: companyWhere,
     });
+
     const battalionCountsRaw = await prisma.soldierIntake.groupBy({
       by: ["battalionCode"],
       _count: { battalionCode: true },
       where: { battalionCode: { not: null } },
     });
+
     const companyCounts = formatComboCounts(
       companyCountsRaw,
       requestedBattalionCodes,
@@ -798,11 +873,13 @@ module.exports = {
         allowExtraCompanies: !companyCode,
       }
     );
+
     const battalionCounts = formatGroupCounts(
       battalionCountsRaw,
       BATTALION_CODES,
       "battalionCode"
     );
+
     const bloodGroupCounts = await prisma.soldierIntake
       .groupBy({
         by: ["bloodGroup"],
@@ -829,6 +906,164 @@ module.exports = {
           "bloodGroup"
         )
       );
+
+    // ---------- สรุปอายุ/สิทธิ์ นร.จ./โรคประจำตัว/แพ้/พร้อมรบ + religion per company ----------
+
+    const readinessRows = await prisma.soldierIntake.findMany({
+      where: { battalionCode, companyCode },
+      select: {
+        id: true,
+        battalionCode: true,
+        companyCode: true,
+        birthDate: true,
+        chronicDiseases: true,
+        foodAllergies: true,
+        drugAllergies: true,
+        canSwim: true,
+        tattoo: true, // ถ้า field ชื่ออื่น แก้ตรงนี้
+        religion: true,
+        bloodGroup: true,
+      },
+    });
+
+    const summaryMap = new Map();
+
+    const getKey = (bat, com) => `${bat || ""}-${com || ""}`;
+
+    // base จาก companyCounts ให้มีทุกกองร้อย
+    companyCounts.forEach((item) => {
+      const key = getKey(item.battalionCode, item.companyCode);
+      summaryMap.set(key, {
+        battalionCode: item.battalionCode || null,
+        companyCode: item.companyCode || null,
+        count: item.count || 0,
+        // ageTotal: 0,
+        // ageMin: null,
+        // ageMax: null,
+        // ageCount: 0,
+        ages: [],
+        eligibleNcoCount: 0,
+        chronicDiseaseCount: 0,
+        allergyCount: 0,
+        combatScoreTotal: 0,
+        combatScoreCount: 0,
+        combatHighCount: 0,
+        religionCountsMap: new Map(),
+        bloodGroupCountsMap: new Map(),
+      });
+    });
+
+    readinessRows.forEach((row) => {
+      const key = getKey(row.battalionCode, row.companyCode);
+      if (!summaryMap.has(key)) {
+        summaryMap.set(key, {
+          battalionCode: row.battalionCode || null,
+          companyCode: row.companyCode || null,
+          count: 0,
+          // ageTotal: 0,
+          // ageMin: null,
+          // ageMax: null,
+          // ageCount: 0,
+          ages: [],
+          eligibleNcoCount: 0,
+          chronicDiseaseCount: 0,
+          allergyCount: 0,
+          combatScoreTotal: 0,
+          combatScoreCount: 0,
+          combatHighCount: 0,
+          religionCountsMap: new Map(),
+          bloodGroupCountsMap: new Map(),
+        });
+      }
+
+      const summary = summaryMap.get(key);
+
+      summary.count += 1;
+
+      const age = computeAge(row.birthDate);
+      if (age != null) {
+        summary.ages.push(age);
+      }
+
+      if (hasChronicDisease(row)) {
+        summary.chronicDiseaseCount += 1;
+      }
+
+      if (hasAnyAllergy(row)) {
+        summary.allergyCount += 1;
+      }
+
+      if (isEligibleNcoStudent(row)) {
+        summary.eligibleNcoCount += 1;
+      }
+
+      const combatScore = computeCombatReadinessScore(row);
+      summary.combatScoreTotal += combatScore;
+      summary.combatScoreCount += 1;
+      if (combatScore >= 70) {
+        summary.combatHighCount += 1;
+      }
+
+      if (row.religion) {
+        const current = summary.religionCountsMap.get(row.religion) || 0;
+        summary.religionCountsMap.set(row.religion, current + 1);
+      }
+
+      if (row.bloodGroup) {
+        const current = summary.bloodGroupCountsMap.get(row.bloodGroup) || 0;
+        summary.bloodGroupCountsMap.set(row.bloodGroup, current + 1);
+      }
+    });
+
+    const companySummaries = Array.from(summaryMap.values())
+      .map((item) => {
+        const avgCombat =
+          item.combatScoreCount > 0
+            ? item.combatScoreTotal / item.combatScoreCount
+            : null;
+
+        const religionCounts = Array.from(item.religionCountsMap.entries())
+          .map(([value, count]) => ({
+            value,
+            label: value,
+            count,
+          }))
+          .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+        const bloodGroupCounts = Array.from(item.bloodGroupCountsMap?.entries() || [])
+          .map(([value, count]) => ({
+            value,
+            label: value,
+            count,
+          }))
+          .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+        return {
+          battalionCode: item.battalionCode,
+          companyCode: item.companyCode,
+          count: item.count,
+
+          age: item.ages,
+
+          eligibleNcoCount: item.eligibleNcoCount, // นรจ. ที่มีสิทธิ์
+          chronicDiseaseCount: item.chronicDiseaseCount, // มีโรคประจำตัว
+          allergyCount: item.allergyCount, // มีอาการแพ้
+          combatReadinessAvg: avgCombat, // คะแนนความพร้อมรบเฉลี่ย
+          combatHighCount: item.combatHighCount, //จำนวนคนที่พร้อมรบสูง (≥ 70 คะแนน)
+          religionCounts,
+          bloodGroupCounts,
+        };
+      })
+      .sort((a, b) => {
+        const batA = Number(a.battalionCode || 0);
+        const batB = Number(b.battalionCode || 0);
+        if (batA !== batB) return batA - batB;
+
+        const comA = Number(a.companyCode || 0);
+        const comB = Number(b.companyCode || 0);
+        return comA - comB;
+      });
+
     return {
       total,
       sixMonths,
@@ -840,6 +1075,7 @@ module.exports = {
       companyCounts,
       battalionCounts,
       bloodGroupCounts,
+      companySummaries,
     };
   },
 
