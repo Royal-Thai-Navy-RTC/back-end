@@ -548,13 +548,11 @@ module.exports = {
         radarProfile.values[3] +
         radarProfile.values[4],
       percent: clampScore(
-        (
-          radarProfile.values[0] +
+        (radarProfile.values[0] +
           radarProfile.values[1] +
           radarProfile.values[2] +
           radarProfile.values[3] +
-          radarProfile.values[4]
-        ) /
+          radarProfile.values[4]) /
           5,
         0,
         100
@@ -669,6 +667,30 @@ module.exports = {
         throw err;
       }
     }
+
+    // ✅ คำนวณ radar chart ก่อนเก็บข้อมูล
+    const radarProfile = buildRadarProfileForItem(data);
+
+    // ถ้าใน Prisma model ใช้ field Json ชื่อ radarProfile
+    data.radarProfile = radarProfile;
+    data.combatReadiness = {
+      score:
+        radarProfile.values[0] +
+        radarProfile.values[1] +
+        radarProfile.values[2] +
+        radarProfile.values[3] +
+        radarProfile.values[4],
+      percent: clampScore(
+        (radarProfile.values[0] +
+          radarProfile.values[1] +
+          radarProfile.values[2] +
+          radarProfile.values[3] +
+          radarProfile.values[4]) /
+          5,
+        0,
+        100
+      ),
+    };
     return prisma.soldierIntake.update({
       where: { id: intakeId },
       data,
