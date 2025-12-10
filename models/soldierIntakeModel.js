@@ -923,6 +923,8 @@ module.exports = {
         tattoo: true, // ถ้า field ชื่ออื่น แก้ตรงนี้
         religion: true,
         bloodGroup: true,
+        serviceYears: true,
+        canSwim: true,
       },
     });
 
@@ -950,6 +952,8 @@ module.exports = {
         combatHighCount: 0,
         religionCountsMap: new Map(),
         bloodGroupCountsMap: new Map(),
+        serviceYearsCountsMap: new Map(),
+        canSwimCountsMap: new Map(),
       });
     });
 
@@ -973,6 +977,8 @@ module.exports = {
           combatHighCount: 0,
           religionCountsMap: new Map(),
           bloodGroupCountsMap: new Map(),
+          serviceYearsCountsMap: new Map(),
+          canSwimCountsMap: new Map(),
         });
       }
 
@@ -1013,6 +1019,18 @@ module.exports = {
         const current = summary.bloodGroupCountsMap.get(row.bloodGroup) || 0;
         summary.bloodGroupCountsMap.set(row.bloodGroup, current + 1);
       }
+
+      if (row.serviceYears != null) {
+        const sy = String(row.serviceYears);
+        const current = summary.serviceYearsCountsMap.get(sy) || 0;
+        summary.serviceYearsCountsMap.set(sy, current + 1);
+      }
+
+      if (row.canSwim != null) {
+        const cs = !!row.canSwim;
+        const current = summary.canSwimCountsMap.get(cs) || 0;
+        summary.canSwimCountsMap.set(cs, current + 1);
+      }
     });
 
     const companySummaries = Array.from(summaryMap.values())
@@ -1038,10 +1056,26 @@ module.exports = {
           }))
           .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 
+        const serviceYearsCounts = Array.from(item.serviceYearsCountsMap?.entries() || [])
+          .map(([value, count]) => ({
+            value,
+            label: value,
+            count,
+          }))
+          .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+        const canSwimCounts = Array.from(item.canSwimCountsMap?.entries() || [])
+          .map(([value, count]) => ({
+            value,
+            label: value ? "ว่ายน้ำได้" : "ว่ายน้ำไม่ได้",
+            count,
+          }))
+          .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
         return {
           battalionCode: item.battalionCode,
           companyCode: item.companyCode,
-          count: item.count,
+          // count: item.count,
 
           age: item.ages,
 
@@ -1052,6 +1086,8 @@ module.exports = {
           combatHighCount: item.combatHighCount, //จำนวนคนที่พร้อมรบสูง (≥ 70 คะแนน)
           religionCounts,
           bloodGroupCounts,
+          serviceYearsCounts,
+          canSwimCounts,
         };
       })
       .sort((a, b) => {
