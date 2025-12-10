@@ -24,7 +24,7 @@ router.get(
 router.get(
   "/teacher/training-reports/export",
   middleware.verifyToken,
-  middleware.authorizeTeacher,
+  middleware.authorizeAdmin,
   teacherReportController.exportTrainingReportsExcel
 );
 
