@@ -363,6 +363,8 @@ model SoldierIntake {
   experienced     Int?
   familyStatus    String?  @db.VarChar(100)
   certificates    Json?
+  radarProfile    Json?
+  combatReadiness Json?
 
   @@index([citizenId])
   @@index([phone])

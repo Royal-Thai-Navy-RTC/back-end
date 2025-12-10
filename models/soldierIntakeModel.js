@@ -152,7 +152,9 @@ const formatComboCounts = (
     if (battalion === undefined || battalion === null) continue;
     if (company === undefined || company === null) continue;
     const key = `${battalion}|||${company}`;
-    const value = Number(record._count?.companyCode ?? record.count?.companyCode ?? 0);
+    const value = Number(
+      record._count?.companyCode ?? record.count?.companyCode ?? 0
+    );
     countsMap.set(key, Number.isFinite(value) ? value : 0);
   }
 
@@ -185,7 +187,9 @@ const formatGroupCounts = (records, fallbackCodes, key) => {
   const seen = new Set();
   const candidateCodes = [
     ...fallbackCodes,
-    ...records.map((record) => record[key]).filter((code) => code !== undefined && code !== null),
+    ...records
+      .map((record) => record[key])
+      .filter((code) => code !== undefined && code !== null),
   ];
   for (const code of candidateCodes) {
     const normalized = String(code);
@@ -295,10 +299,231 @@ const ensureModelAvailable = () => {
   }
 };
 
+// ถ้ามี helper พวกนี้อยู่แล้วไม่ต้องประกาศซ้ำ
+const clampScore = (val, min = 0, max = 100) =>
+  Math.min(max, Math.max(min, Number.isFinite(val) ? val : 0));
+
+const computeBmi = (weightKg, heightCm) => {
+  const w = Number(weightKg);
+  const h = Number(heightCm);
+  if (!w || !h) return null;
+  const m = h / 100;
+  if (!m) return null;
+  return w / (m * m);
+};
+
+const isMeaningfulHealthValue = (v) => {
+  if (v == null) return false;
+  const s = v.toString().trim();
+  if (!s) return false;
+  const lower = s.toLowerCase();
+  if (["ไม่มี", "none", "no", "-", "ไม่ระบุ"].includes(lower)) return false;
+  return true;
+};
+
+const normalizeListText = (value = "") =>
+  String(value)
+    .split(/[,|;]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+const computeAbilityScoreFromItem = (item) => {
+  const skillValues = new Set();
+  normalizeListText(item.specialSkills).forEach((skill) =>
+    skillValues.add(skill.toLowerCase())
+  );
+  normalizeListText(item.previousJob).forEach((job) =>
+    skillValues.add(job.toLowerCase())
+  );
+
+  let base = 40;
+  base += Math.min(skillValues.size * 8, 40);
+
+  if (Array.isArray(item.certificates)) {
+    base += Math.min(item.certificates.length * 3, 20);
+  }
+  if (item.experienced && Number.isFinite(Number(item.experienced))) {
+    base += Math.min(Number(item.experienced) * 2, 10);
+  }
+
+  return clampScore(base);
+};
+
+// ------------------------------------------
+// ฟังก์ชันคำนวณ radar profile
+// ------------------------------------------
+const buildRadarProfileForItem = (item) => {
+  if (!item) return null;
+
+  // ---------- สุขภาพ ----------
+  const chronicList = Array.isArray(item?.chronicDiseases)
+    ? item.chronicDiseases.filter(isMeaningfulHealthValue)
+    : [];
+  const foodList = Array.isArray(item?.foodAllergies)
+    ? item.foodAllergies.filter(isMeaningfulHealthValue)
+    : [];
+  const drugList = Array.isArray(item?.drugAllergies)
+    ? item.drugAllergies.filter(isMeaningfulHealthValue)
+    : [];
+  const hasHealthNote = isMeaningfulHealthValue(item?.medicalNotes);
+
+  let healthScore = 100;
+  healthScore -= chronicList.length * 10; // โรคประจำตัว
+  if (hasHealthNote) healthScore -= 5; // หมายเหตุแพทย์
+  const allergyCount = foodList.length + drugList.length;
+  healthScore -= allergyCount * 5; // อาการแพ้
+  healthScore = clampScore(healthScore, 0, 100);
+
+  // ---------- การศึกษา ----------
+  const eduText = (item.education || "").toLowerCase();
+  let educationScore = 20;
+
+  if (
+    eduText.includes("phd") ||
+    eduText.includes("doctor") ||
+    eduText.includes("เอก") ||
+    eduText.includes("โท") ||
+    eduText.includes("master") ||
+    eduText.includes("ma") ||
+    eduText.includes("msc") ||
+    eduText.includes("ตรี") ||
+    eduText.includes("bachelor") ||
+    eduText.includes("ป.ตรี")
+  ) {
+    educationScore = 100;
+  } else if (eduText.includes("ปวส") || eduText.includes("diploma")) {
+    educationScore = 80;
+  } else if (
+    eduText.includes("ม.6") ||
+    eduText.includes("high school") ||
+    eduText.includes("มัธยมปลาย")
+  ) {
+    educationScore = 60;
+  } else if (eduText.includes("ม.3") || eduText.includes("มัธยมต้น")) {
+    educationScore = 40;
+  }
+  educationScore = clampScore(educationScore, 0, 100);
+
+  // ---------- ทักษะ ----------
+  // ใช้ฟังก์ชันที่เราทำไว้ก่อนหน้า
+  const abilityScore = computeAbilityScoreFromItem(item);
+
+  // ---------- ร่างกาย ----------
+  const bmi = computeBmi(item.weightKg, item.heightCm);
+  let fitnessScore = 0;
+  if (bmi) {
+    const LOW = 18.5;
+    const HIGH = 22.9;
+    if (bmi >= LOW && bmi <= HIGH) {
+      fitnessScore = 100;
+    } else {
+      const diff = bmi < LOW ? LOW - bmi : bmi - HIGH;
+      fitnessScore = 100 - diff * 5;
+    }
+  }
+
+  const accidentText = (item.accidentHistory ?? "")
+    .toString()
+    .trim()
+    .toLowerCase();
+  const surgeryText = (item.surgeryHistory ?? "")
+    .toString()
+    .trim()
+    .toLowerCase();
+
+  const yesWords = ["true", "yes", "เคย", "มี", "y"];
+
+  const hadAccident = yesWords.some((w) => accidentText.includes(w));
+  const hadSurgery = yesWords.some((w) => surgeryText.includes(w));
+
+  if (hadAccident) fitnessScore -= 15;
+  if (hadSurgery) fitnessScore -= 15;
+  fitnessScore = clampScore(fitnessScore, 0, 100);
+
+  // ---------- ครอบครัว ----------
+  const famText = (item.familyStatus || "").toString().trim();
+  let familyScoreBase = 70;
+
+  if (famText.includes("บิดา–มารดาอยู่ด้วยกัน")) {
+    familyScoreBase = 90;
+  } else if (famText.includes("บิดา–มารดาแยกกันอยู่")) {
+    familyScoreBase = 80;
+  } else if (famText.includes("บิดาและมารดาเสียชีวิต")) {
+    familyScoreBase = 60;
+  } else if (
+    famText.includes("บิดาเสียชีวิต") ||
+    famText.includes("มารดาเสียชีวิต")
+  ) {
+    familyScoreBase = 70;
+  }
+
+  const emergencyText = (item.emergencyName || "").toString().toLowerCase();
+  let familyDelta = 0;
+
+  const closeWords = [
+    "พ่อ",
+    "แม่",
+    "บิดา",
+    "มารดา",
+    "สามี",
+    "ภรรยา",
+    "คู่สมรส",
+    "ลูก",
+    "บุตร",
+    "ปู่",
+    "ย่า",
+    "ตา",
+    "ยาย",
+    "พี่",
+    "น้อง",
+  ];
+  const mediumWords = ["ป้า", "อา", "ลุง", "น้า", "ญาติ", "ครอบครัว"];
+  const friendWords = ["เพื่อน"];
+
+  if (!emergencyText) {
+    familyDelta = -10;
+  } else if (closeWords.some((w) => emergencyText.includes(w))) {
+    familyDelta = 10;
+  } else if (mediumWords.some((w) => emergencyText.includes(w))) {
+    familyDelta = 0;
+  } else if (friendWords.some((w) => emergencyText.includes(w))) {
+    familyDelta = -5;
+  } else {
+    familyDelta = -5;
+  }
+
+  const familyScore = clampScore(familyScoreBase + familyDelta, 0, 100);
+
+  return {
+    indicators: [
+      { name: "สุขภาพ", max: 100 },
+      { name: "การศึกษา", max: 100 },
+      { name: "ทักษะ", max: 100 },
+      { name: "ร่างกาย", max: 100 },
+      { name: "ครอบครัว", max: 100 },
+    ],
+    values: [
+      healthScore,
+      educationScore,
+      abilityScore,
+      fitnessScore,
+      familyScore,
+    ],
+    breakdown: [
+      { label: "สุขภาพ", score: healthScore },
+      { label: "การศึกษา", score: educationScore },
+      { label: "ทักษะ", score: abilityScore },
+      { label: "ร่างกาย", score: fitnessScore },
+      { label: "ครอบครัว", score: familyScore },
+    ],
+  };
+};
+
 module.exports = {
   createIntake: async (input = {}) => {
     ensureModelAvailable();
     const data = normalizeInput(input);
+
     const duplicate = await prisma.soldierIntake.findFirst({
       where: { citizenId: data.citizenId },
       select: { id: true },
@@ -308,6 +533,37 @@ module.exports = {
       err.code = "VALIDATION_ERROR";
       throw err;
     }
+
+    // ✅ คำนวณ radar chart ก่อนเก็บข้อมูล
+    const radarProfile = buildRadarProfileForItem(data);
+
+    // ถ้าใน Prisma model ใช้ field Json ชื่อ radarProfile
+    data.radarProfile = radarProfile;
+
+    data.combatReadiness = {
+      score:
+        radarProfile.values[0] +
+        radarProfile.values[1] +
+        radarProfile.values[2] +
+        radarProfile.values[3] +
+        radarProfile.values[4],
+      percent: clampScore(
+        (
+          radarProfile.values[0] +
+          radarProfile.values[1] +
+          radarProfile.values[2] +
+          radarProfile.values[3] +
+          radarProfile.values[4]
+        ) /
+          5,
+        0,
+        100
+      ),
+    };
+
+    // ถ้าตารางเป็น string แทน ให้ใช้แบบนี้แทน:
+    // data.radarProfileJson = JSON.stringify(radarProfile);
+
     return prisma.soldierIntake.create({ data });
   },
 
@@ -443,7 +699,9 @@ module.exports = {
     ensureModelAvailable();
     battalionCode = normalizeString(battalionCode);
     companyCode = normalizeString(companyCode);
-    const requestedBattalionCodes = battalionCode ? [battalionCode] : BATTALION_CODES;
+    const requestedBattalionCodes = battalionCode
+      ? [battalionCode]
+      : BATTALION_CODES;
     const requestedCompanyCodes = companyCode ? [companyCode] : COMPANY_CODES;
     const [
       total,
@@ -457,7 +715,7 @@ module.exports = {
         where: { battalionCode, companyCode },
       }),
       prisma.soldierIntake.count({
-        where: { serviceYears: { lte: 0.6 }, battalionCode, companyCode }
+        where: { serviceYears: { lte: 0.6 }, battalionCode, companyCode },
       }),
       prisma.soldierIntake.count({
         where: { serviceYears: { equals: 1 }, battalionCode, companyCode },
@@ -523,15 +781,32 @@ module.exports = {
       BATTALION_CODES,
       "battalionCode"
     );
-    const bloodGroupCounts = await prisma.soldierIntake.groupBy({
-      by: ["bloodGroup"],
-      _count: { bloodGroup: true },
-      where: { bloodGroup: { not: null }, battalionCode, companyCode },
-    }).then((groups) => formatGroupCounts(
-      groups,
-      ["A", "B", "AB", "O", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
-      "bloodGroup"
-    ));
+    const bloodGroupCounts = await prisma.soldierIntake
+      .groupBy({
+        by: ["bloodGroup"],
+        _count: { bloodGroup: true },
+        where: { bloodGroup: { not: null }, battalionCode, companyCode },
+      })
+      .then((groups) =>
+        formatGroupCounts(
+          groups,
+          [
+            "A",
+            "B",
+            "AB",
+            "O",
+            "A+",
+            "A-",
+            "B+",
+            "B-",
+            "AB+",
+            "AB-",
+            "O+",
+            "O-",
+          ],
+          "bloodGroup"
+        )
+      );
     return {
       total,
       sixMonths,
@@ -575,13 +850,25 @@ module.exports = {
       }
 
       const data = {};
-      if (row.battalionCode !== undefined && row.battalionCode !== null && row.battalionCode !== "") {
+      if (
+        row.battalionCode !== undefined &&
+        row.battalionCode !== null &&
+        row.battalionCode !== ""
+      ) {
         data.battalionCode = String(row.battalionCode).trim();
       }
-      if (row.companyCode !== undefined && row.companyCode !== null && row.companyCode !== "") {
+      if (
+        row.companyCode !== undefined &&
+        row.companyCode !== null &&
+        row.companyCode !== ""
+      ) {
         data.companyCode = String(row.companyCode).trim();
       }
-      if (row.platoonCode !== undefined && row.platoonCode !== null && row.platoonCode !== "") {
+      if (
+        row.platoonCode !== undefined &&
+        row.platoonCode !== null &&
+        row.platoonCode !== ""
+      ) {
         const platoon = Number(row.platoonCode);
         if (!Number.isInteger(platoon) || platoon <= 0) {
           result.skipped += 1;
@@ -589,7 +876,11 @@ module.exports = {
         }
         data.platoonCode = platoon;
       }
-      if (row.sequenceNumber !== undefined && row.sequenceNumber !== null && row.sequenceNumber !== "") {
+      if (
+        row.sequenceNumber !== undefined &&
+        row.sequenceNumber !== null &&
+        row.sequenceNumber !== ""
+      ) {
         const seq = Number(row.sequenceNumber);
         if (!Number.isInteger(seq) || seq <= 0) {
           result.skipped += 1;
