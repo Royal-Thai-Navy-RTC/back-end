@@ -39,6 +39,7 @@ model User {
   updatedAt                   DateTime                    @updatedAt
   evaluationsReceived         EvaluationSheet[]           @relation("TeacherEvaluations")
   examResultsImported         ExamResult[]
+  personalMeritScoresImported PersonalMeritScore[] @relation("PersonalMeritScoreImportedBy")
   featureTogglesUpdated       FeatureToggle[]             @relation("FeatureToggleUpdatedBy")
   notificationReads           NotificationRead[]
   studentEvaluationsEvaluated StudentEvaluation[]         @relation("StudentEvaluationEvaluatedPerson")
@@ -187,6 +188,29 @@ model ExamResult {
   @@index([timestamp])
   @@index([navyNumber])
   @@index([importedById], map: "ExamResult_importedById_fkey")
+}
+
+model PersonalMeritScore {
+  id             Int      @id @default(autoincrement())
+  rankTitle      String?  @db.VarChar(64)
+  soldierName    String   @db.VarChar(255)
+  rawName        String?  @db.VarChar(255)
+  battalion      String?  @db.VarChar(64)
+  company        String?  @db.VarChar(64)
+  knowledgeScore Float?
+  disciplineScore Float?
+  physicalScore  Float?
+  totalScore     Float?
+  ranking        Int?
+  batchId        String?  @db.VarChar(64)
+  sourceFile     String?  @db.VarChar(255)
+  sheetName      String?  @db.VarChar(120)
+  importedAt     DateTime @default(now())
+  importedById   Int?
+  importedBy     User?    @relation("PersonalMeritScoreImportedBy", fields: [importedById], references: [id])
+
+  @@index([batchId])
+  @@index([importedById], map: "PersonalMeritScore_importedById_fkey")
 }
 
 model FeatureToggle {
@@ -473,4 +497,27 @@ model News {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model SoldierPersonalScore {
+  id              Int      @id @default(autoincrement())
+
+  orderNumber     Int?     // ลำดับ (คอลัมน์ที่ 1)
+  rankAndName     String   // ยศ ชื่อ -สกุล (คอลัมน์ที่ 2)
+
+  battalion       String?  // กองพัน (คอลัมน์ที่ 3)
+  company         String?  // กองร้อย (คอลัมน์ที่ 4)
+
+  knowledgeScore  Float?   // ความรู้ (20)   (คอลัมน์ที่ 5)
+  disciplineScore Float?   // วินัย (20)    (คอลัมน์ที่ 6)
+  physicalScore   Float?   // ร่างกาย (20)  (คอลัมน์ที่ 7)
+  totalScore      Float?   // คะแนนรวม (60/100 แล้วแต่เกณฑ์) (คอลัมน์ที่ 8)
+
+  ranking         Int?     // ลำดับที่ (คอลัมน์ที่ 9)
+  remark          String?  // หมายเหตุ (คอลัมน์ที่ 10)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([battalion, company])
 }

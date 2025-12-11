@@ -241,6 +241,32 @@ Submission (ADMIN หรือ TEACHER):
 - `DELETE /api/exam-results` — ลบผลสอบทั้งหมด
 - `GET /api/exam-results/overview` — สรุปจำนวนทั้งหมด ค่าเฉลี่ยคะแนน และรายการล่าสุด `{ overview: { total, averageScore, latest } }`
 - `GET /api/exam-results/export` — ส่งออกไฟล์ Excel แยก sheet ตามกองร้อย (ดึงจากสังกัดรูปแบบ `ร้อย.<เลข> พัน.<เลข>`)
+- `POST /api/personal-merit-scores/import` — Auth (`EXAM_UPLOADER` หรือบัญชีที่ผ่าน `authorizeExamAccess`); upload Excel (`file`/`excel`/`upload`/`sheet`) ต้องมี sheet ชื่อ `คะแนนรายบุคคล` ที่มีหัวตาราง `ยศ ชื่อ - สกุล` และ `คะแนนรวม`
+- `GET /api/personal-merit-scores` — ดึงผลการนำเข้าทั้งหมด (auth เดียวกัน); รองรับ query `batchId`, `soldierName`, `page`, `pageSize<=200`; คืน `page,pageSize,total,totalPages,data[]`
+
+```http
+POST /api/personal-merit-scores/import
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+file = merit-scores.xlsx
+```
+
+Response 201:
+
+```json
+{
+  "message": "นำเข้าข้อมูลคะแนนบุคคลสำเร็จ",
+  "summary": {
+    "sheetName": "คะแนนรายบุคคล",
+    "batchId": "personal-merit-1700000000000",
+    "totalRows": 42,
+    "parsedRows": 38,
+    "inserted": 38,
+    "skippedRows": 4
+  }
+}
+```
 
 ---
 
