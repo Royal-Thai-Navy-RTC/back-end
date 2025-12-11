@@ -11,6 +11,7 @@ const libraryRoutes = require("./library");
 const soldierIntakeRoutes = require("./soldierIntake");
 const examRoutes = require("./exam");
 const personalMeritRoutes = require("./personalMerit");
+const physicalAssessmentRoutes = require("./physicalAssessment");
 const newsRoutes = require("./news");
 
 const router = express.Router();
@@ -27,6 +28,7 @@ router.use("/", libraryRoutes);
 router.use("/", soldierIntakeRoutes);
 router.use("/", examRoutes);
 router.use("/", personalMeritRoutes);
+router.use("/", physicalAssessmentRoutes);
 router.use("/", newsRoutes);
 
 module.exports = router;

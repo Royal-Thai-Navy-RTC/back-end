@@ -504,8 +504,10 @@ const importPhysicalAssessments = async (req, res) => {
 
       records.push({
         orderNumber,
-        battalion: battalionValue || null,
-        company: companyValue || null,
+        battalion: companyValue || null,
+        company:
+          orderLabelValue ||
+          (orderNumber != null ? String(orderNumber) : null),
         sitUpScore,
         pushUpScore,
         runScore,
