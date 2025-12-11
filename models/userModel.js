@@ -221,12 +221,11 @@ const computeSkillScore = (profile = {}) => {
   return clampScore(score);
 };
 
-const computeEngagementScore = (stats = {}) => {
-  const sheets = Number(stats.totalSheets) || Number(stats.total) || 0;
-  const evaluations = Number(stats.totalRatings) || Number(stats.avgInteractions) || 0;
-  const base = Math.max(sheets, evaluations);
-  if (!base) return 40;
-  return clampScore(Math.min(100, base * 5));
+const computeLeaveScore = (leaveStats = {}) => {
+  const totalLeaves = Number(leaveStats.total) || 0;
+  const capped = Math.min(Math.max(totalLeaves, 0), 12);
+  const deduction = capped * 8;
+  return clampScore(100 - deduction);
 };
 
 const USER_RADAR_INDICATORS = [
@@ -234,7 +233,7 @@ const USER_RADAR_INDICATORS = [
   { name: "การศึกษา", max: 100 },
   { name: "คะแนนนักเรียน", max: 100 },
   { name: "ทักษะพิเศษ", max: 100 },
-  { name: "ความร่วมมือ", max: 100 },
+  { name: "การลา", max: 100 },
 ];
 
 const buildUserRadarProfile = (profile = {}, stats = {}) => {
@@ -243,15 +242,13 @@ const buildUserRadarProfile = (profile = {}, stats = {}) => {
   const educationScore = computeEducationScore(sanitizedProfile.education);
   const evaluationScore = computeEvaluationScore(stats?.studentEvaluationStats);
   const skillScore = computeSkillScore(sanitizedProfile);
-  const engagementScore = computeEngagementScore(
-    stats?.studentEvaluationStats || stats?.teacherEvaluationStats
-  );
+  const leaveScore = computeLeaveScore(stats?.leaveStats);
   const rawValues = [
     healthScore,
     educationScore,
     evaluationScore,
     skillScore,
-    engagementScore,
+    leaveScore,
   ];
   const formatValue = (value) => roundTwoDecimals(value);
 
@@ -452,6 +449,15 @@ const getUserAdminDetail = async (id) => {
     lastEvaluatedAt: teacherSheetAggregate._max?.evaluatedAt || null,
     lastSheet: latestTeacherSheet || null,
   };
+  const approvedLeaveTotal = leaveGroups.reduce((sum, group) => {
+    const count = group._count?._all || 0;
+    return group.status === "APPROVED" ? sum + count : sum;
+  }, 0);
+  const leaveStats = {
+    total: approvedLeaveTotal,
+    byStatus: leaveByStatus,
+    lastLeave: latestLeave || null,
+  };
   const radarProfile = buildUserRadarProfile(profile, {
     studentEvaluationStats: studentStats,
     teacherEvaluationStats: {
@@ -459,6 +465,7 @@ const getUserAdminDetail = async (id) => {
       averageOverallScore: evaluationAggregate._avg?.overallScore ?? null,
       lastSubmittedAt: evaluationAggregate._max?.submittedAt || null,
     },
+    leaveStats,
   });
   return {
     ...profile,
@@ -472,15 +479,7 @@ const getUserAdminDetail = async (id) => {
         evaluationAggregate._avg?.overallScore ?? null,
       lastSubmittedAt: evaluationAggregate._max?.submittedAt || null,
     },
-    leaveStats: {
-      // total นับเฉพาะ APPROVED
-      total: leaveGroups.reduce((sum, group) => {
-        const count = group._count?._all || 0;
-        return group.status === "APPROVED" ? sum + count : sum;
-      }, 0),
-      byStatus: leaveByStatus,
-      lastLeave: latestLeave || null,
-    },
+    leaveStats,
   };
 };
 
