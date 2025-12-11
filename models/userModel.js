@@ -61,15 +61,20 @@ const normalizeRankValue = (value) => {
   throw err;
 };
 
-const withThaiRank = (payload) => {
-  if (!payload) return payload;
-  if (Array.isArray(payload)) {
-    return payload.map(withThaiRank);
-  }
-  if (payload.rank) {
-    return { ...payload, rank: rankLabelMap[payload.rank] || payload.rank };
-  }
-  return payload;
+const PLACEHOLDER_STRINGS = new Set([
+  "-",
+  "ไม่มี",
+  "ไม่ระบุ",
+  "n/a",
+  "none",
+]);
+
+const sanitizeStringValue = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const trimmed = String(value).trim();
+  if (!trimmed) return undefined;
+  if (PLACEHOLDER_STRINGS.has(trimmed.toLowerCase())) return undefined;
+  return trimmed;
 };
 
 const normalizeStringList = (value) => {
@@ -81,9 +86,183 @@ const normalizeStringList = (value) => {
         .split(/\r?\n|,/)
         .map((entry) => entry.trim());
   const normalized = sourceArray
-    .map((entry) => (typeof entry === "string" ? entry.trim() : String(entry || "").trim()))
-    .filter((entry) => entry.length > 0);
+    .map((entry) => sanitizeStringValue(entry))
+    .filter((entry) => entry !== undefined);
   return normalized;
+};
+
+const sanitizeStringListOutput = (value) => {
+  if (!Array.isArray(value)) return value;
+  const cleaned = value
+    .map((entry) => sanitizeStringValue(entry))
+    .filter((entry) => entry !== undefined);
+  return cleaned;
+};
+
+const sanitizeUserPayload = (payload) => {
+  if (!payload) return payload;
+  const cleaned = { ...payload };
+  const fieldsToSanitize = [
+    "fullAddress",
+    "education",
+    "position",
+    "division",
+    "email",
+    "phone",
+    "emergencyContactName",
+    "emergencyContactPhone",
+    "medicalHistory",
+    "religion",
+    "specialSkills",
+    "secondaryOccupation",
+  ];
+  for (const field of fieldsToSanitize) {
+    const value = cleaned[field];
+    if (value !== undefined) {
+      cleaned[field] = sanitizeStringValue(value);
+    }
+  }
+  for (const listField of [
+    "chronicDiseases",
+    "drugAllergies",
+    "foodAllergies",
+  ]) {
+    const value = cleaned[listField];
+    if (Array.isArray(value)) {
+      cleaned[listField] = sanitizeStringListOutput(value);
+    }
+  }
+  return cleaned;
+};
+
+const withThaiRank = (payload) => {
+  if (!payload) return payload;
+  if (Array.isArray(payload)) {
+    return payload.map(withThaiRank);
+  }
+  const rankLabel =
+    payload.rank && rankLabelMap[payload.rank]
+      ? rankLabelMap[payload.rank]
+      : payload.rank;
+  return sanitizeUserPayload({ ...payload, rank: rankLabel });
+};
+
+const clampScore = (val, min = 0, max = 100) =>
+  Math.min(max, Math.max(min, Number.isFinite(val) ? val : 0));
+
+const roundTwoDecimals = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Number(num.toFixed(2));
+};
+
+const computeEducationScore = (education = "") => {
+  const text = String(education || "").trim().toLowerCase();
+  let score = 30;
+  if (
+    text.includes("phd") ||
+    text.includes("doctor") ||
+    text.includes("เอก") ||
+    text.includes("โท") ||
+    text.includes("master") ||
+    text.includes("msc") ||
+    text.includes("bachelor") ||
+    text.includes("ตรี")
+  ) {
+    score = 100;
+  } else if (text.includes("ปวส") || text.includes("diploma")) {
+    score = 80;
+  } else if (
+    text.includes("มัธยมปลาย") ||
+    text.includes("ม.6") ||
+    text.includes("high school")
+  ) {
+    score = 60;
+  } else if (text.includes("ม.3") || text.includes("มัธยมต้น")) {
+    score = 45;
+  }
+  return clampScore(score);
+};
+
+const normalizeSkillEntries = (value) => {
+  const list = normalizeStringList(value);
+  if (!list) return [];
+  return list.map((item) => item.toLowerCase());
+};
+
+const computeHealthScore = (profile = {}) => {
+  let score = 100;
+  const chronicCount = Array.isArray(profile.chronicDiseases)
+    ? profile.chronicDiseases.length
+    : 0;
+  const allergyCount =
+    (Array.isArray(profile.foodAllergies) ? profile.foodAllergies.length : 0) +
+    (Array.isArray(profile.drugAllergies) ? profile.drugAllergies.length : 0);
+  if (profile.medicalHistory) score -= 10;
+  score -= chronicCount * 15;
+  score -= allergyCount * 5;
+  return clampScore(score);
+};
+
+const computeEvaluationScore = (stats = {}) => {
+  const avg = Number(stats.averageRating);
+  if (!Number.isFinite(avg)) return 45;
+  return clampScore((avg / 5) * 100);
+};
+
+const computeSkillScore = (profile = {}) => {
+  const skills = new Set(normalizeSkillEntries(profile.specialSkills));
+  const secondary = profile.secondaryOccupation
+    ? String(profile.secondaryOccupation).trim()
+    : "";
+  let score = 30;
+  score += Math.min(skills.size * 10, 40);
+  if (secondary) score += 15;
+  return clampScore(score);
+};
+
+const computeEngagementScore = (stats = {}) => {
+  const sheets = Number(stats.totalSheets) || Number(stats.total) || 0;
+  const evaluations = Number(stats.totalRatings) || Number(stats.avgInteractions) || 0;
+  const base = Math.max(sheets, evaluations);
+  if (!base) return 40;
+  return clampScore(Math.min(100, base * 5));
+};
+
+const USER_RADAR_INDICATORS = [
+  { name: "สุขภาพ", max: 100 },
+  { name: "การศึกษา", max: 100 },
+  { name: "คะแนนนักเรียน", max: 100 },
+  { name: "ทักษะพิเศษ", max: 100 },
+  { name: "ความร่วมมือ", max: 100 },
+];
+
+const buildUserRadarProfile = (profile = {}, stats = {}) => {
+  const sanitizedProfile = sanitizeUserPayload(profile) || {};
+  const healthScore = computeHealthScore(sanitizedProfile);
+  const educationScore = computeEducationScore(sanitizedProfile.education);
+  const evaluationScore = computeEvaluationScore(stats?.studentEvaluationStats);
+  const skillScore = computeSkillScore(sanitizedProfile);
+  const engagementScore = computeEngagementScore(
+    stats?.studentEvaluationStats || stats?.teacherEvaluationStats
+  );
+  const rawValues = [
+    healthScore,
+    educationScore,
+    evaluationScore,
+    skillScore,
+    engagementScore,
+  ];
+  const formatValue = (value) => roundTwoDecimals(value);
+
+  return {
+    indicators: USER_RADAR_INDICATORS,
+    values: rawValues.map(formatValue),
+    breakdown: USER_RADAR_INDICATORS.map((indicator, index) => ({
+      label: indicator.name,
+      score: formatValue(rawValues[index]),
+    })),
+  };
 };
 
 const USER_PROFILE_SELECT = {
@@ -263,19 +442,29 @@ const getUserAdminDetail = async (id) => {
     return acc;
   }, {});
 
+  const studentStats = {
+    totalSheets: teacherSheetAggregate._count?._all || 0,
+    averageRating: teacherRatingAggregate._avg?.rating ?? null,
+    totalRatings:
+      typeof teacherRatingAggregate._count === "number"
+        ? teacherRatingAggregate._count
+        : teacherRatingAggregate._count?._all || 0,
+    lastEvaluatedAt: teacherSheetAggregate._max?.evaluatedAt || null,
+    lastSheet: latestTeacherSheet || null,
+  };
+  const radarProfile = buildUserRadarProfile(profile, {
+    studentEvaluationStats: studentStats,
+    teacherEvaluationStats: {
+      total: evaluationAggregate._count?._all || 0,
+      averageOverallScore: evaluationAggregate._avg?.overallScore ?? null,
+      lastSubmittedAt: evaluationAggregate._max?.submittedAt || null,
+    },
+  });
   return {
     ...profile,
+    radarProfile,
     // evaluationStats = นักเรียนประเมินครู (sheet ที่ครูเป็นผู้ถูกประเมิน)
-    studentEvaluationStats: {
-      totalSheets: teacherSheetAggregate._count?._all || 0,
-      averageRating: teacherRatingAggregate._avg?.rating ?? null,
-      totalRatings:
-        typeof teacherRatingAggregate._count === "number"
-          ? teacherRatingAggregate._count
-          : teacherRatingAggregate._count?._all || 0,
-      lastEvaluatedAt: teacherSheetAggregate._max?.evaluatedAt || null,
-      lastSheet: latestTeacherSheet || null,
-    },
+    studentEvaluationStats: studentStats,
     // teacherEvaluationStats = ครูประเมินนักเรียน (evaluation ที่ครูเป็นผู้ประเมิน)
     teacherEvaluationStats: {
       total: evaluationAggregate._count?._all || 0,
@@ -306,9 +495,14 @@ const normalizeAndValidateUserInput = (input = {}) => {
     "phone",
   ];
 
-  const missing = requiredFields.filter(
-    (k) => input[k] === undefined || input[k] === null || input[k] === ""
-  );
+  const missing = requiredFields.filter((k) => {
+    const value = input[k];
+    if (value === undefined || value === null) return true;
+    if (k === "password") {
+      return String(value).trim().length === 0;
+    }
+    return sanitizeStringValue(value) === undefined;
+  });
 
   if (missing.length) {
     const err = new Error(`ข้อมูลไม่ครบถ้วน: ต้องมี ${missing.join(", ")}`);
@@ -348,8 +542,9 @@ const normalizeAndValidateUserInput = (input = {}) => {
     input.division !== undefined && input.division !== null
       ? String(input.division).trim()
       : undefined;
+  const divisionValue = sanitizeStringValue(divisionValueRaw);
 
-  if (normalizedRole === "TEACHER" && !divisionValueRaw) {
+  if (normalizedRole === "TEACHER" && !divisionValue) {
     const err = new Error("ต้องระบุ division (หมวดวิชา) สำหรับครูผู้สอน");
     err.code = "VALIDATION_ERROR";
     throw err;
@@ -366,31 +561,21 @@ const normalizeAndValidateUserInput = (input = {}) => {
     isActive:
       input.isActive !== undefined ? Boolean(input.isActive) : undefined, // default true จาก schema
     rank: rankValue || undefined, // ใช้ค่า default ใน schema ถ้าไม่ส่งมา
-    fullAddress: input.fullAddress
-      ? String(input.fullAddress).trim()
-      : "-",
-    education: input.education ?? undefined,
-    position: input.position ?? undefined,
-    division: divisionValueRaw || undefined,
-    email: String(input.email).trim(),
-    phone: input.phone ? String(input.phone).trim() : undefined,
-    emergencyContactName: input.emergencyContactName
-      ? String(input.emergencyContactName).trim()
-      : undefined,
-    emergencyContactPhone: input.emergencyContactPhone
-      ? String(input.emergencyContactPhone).trim()
-      : undefined,
-    medicalHistory: input.medicalHistory ?? undefined,
+    fullAddress: sanitizeStringValue(input.fullAddress),
+    education: sanitizeStringValue(input.education),
+    position: sanitizeStringValue(input.position),
+    division: divisionValue,
+    email: sanitizeStringValue(input.email),
+    phone: sanitizeStringValue(input.phone),
+    emergencyContactName: sanitizeStringValue(input.emergencyContactName),
+    emergencyContactPhone: sanitizeStringValue(input.emergencyContactPhone),
+    medicalHistory: sanitizeStringValue(input.medicalHistory),
     chronicDiseases,
     drugAllergies,
     foodAllergies,
-    religion: input.religion ? String(input.religion).trim() : undefined,
-    specialSkills: input.specialSkills
-      ? String(input.specialSkills).trim()
-      : undefined,
-    secondaryOccupation: input.secondaryOccupation
-      ? String(input.secondaryOccupation).trim()
-      : undefined,
+    religion: sanitizeStringValue(input.religion),
+    specialSkills: sanitizeStringValue(input.specialSkills),
+    secondaryOccupation: sanitizeStringValue(input.secondaryOccupation),
     avatar: avatarValue,
   };
 
@@ -690,8 +875,12 @@ module.exports = {
       prisma.user.count({ where: whereClause }),
     ]);
 
+    const itemsWithRadar = withThaiRank(itemsRaw).map((item) => ({
+      ...item,
+      radarProfile: buildUserRadarProfile(item),
+    }));
     return {
-      items: withThaiRank(itemsRaw),
+      items: itemsWithRadar,
       total,
       page: Number(page) || 1,
       pageSize: take,
