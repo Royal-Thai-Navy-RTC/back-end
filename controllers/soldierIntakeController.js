@@ -22,6 +22,54 @@ const deleteIfExists = (filePath) => {
   }
 };
 
+const padTwo = (value) => String(value ?? "").padStart(2, "0");
+
+const formatDateOnly = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${padTwo(date.getMonth() + 1)}-${padTwo(
+    date.getDate()
+  )}`;
+};
+
+const formatDateTime = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${formatDateOnly(date)} ${padTwo(date.getHours())}:${padTwo(
+    date.getMinutes()
+  )}:${padTwo(date.getSeconds())}`;
+};
+
+const formatListField = (value) => {
+  if (Array.isArray(value)) {
+    return value.filter((item) => item != null && item !== "").join(", ");
+  }
+  if (value === undefined || value === null) return "";
+  return String(value);
+};
+
+const formatBooleanLabel = (value) => {
+  if (value === true) return "ใช่";
+  if (value === false) return "ไม่";
+  return "";
+};
+
+const autoFitColumns = (rows) => {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const headers = Object.keys(rows[0]);
+  const widths = headers.map((header) => Math.max(header.length, 8));
+  rows.forEach((row) => {
+    headers.forEach((header, idx) => {
+      const cell = row[header];
+      const length = cell != null ? String(cell).length : 0;
+      if (length > widths[idx]) widths[idx] = length;
+    });
+  });
+  return widths.map((width) => ({ wch: width + 2 }));
+};
+
 const createIntake = async (req, res) => {
   const uploaded = req.file;
   try {
@@ -72,7 +120,7 @@ const listIntakes = async (req, res) => {
       filters.battalionCode = unitFilter.battalionCode;
       filters.companyCode = unitFilter.companyCode;
     }
-    const result = await SoldierIntake.listIntakes(filters, filters.battalionCode, filters.companyCode);
+    const result = await SoldierIntake.listIntakes(filters);
     res.json({
       data: result.items,
       page: result.page, 
@@ -83,6 +131,95 @@ const listIntakes = async (req, res) => {
   } catch (err) {
     console.error("Failed to list soldier intakes", err);
     res.status(500).json({ message: "ไม่สามารถดึงข้อมูลได้" });
+  }
+};
+
+const exportIntakes = async (req, res) => {
+  try {
+    const filters = { ...(req.query || {}) };
+    const unitFilter = mapRoleToUnitFilter(req.userRole);
+
+    if (unitFilter) {
+      filters.battalionCode = unitFilter.battalionCode;
+      filters.companyCode = unitFilter.companyCode;
+    }
+
+    const records = await SoldierIntake.getIntakesForExport(filters);
+    if (!records.length) {
+      return res.status(404).json({ message: "ไม่พบข้อมูลทหารใหม่สำหรับส่งออก" });
+    }
+
+    const rows = records.map((item) => ({
+      "เลขบัตรประชาชน": item.citizenId || "",
+      "ชื่อ": item.firstName || "",
+      "นามสกุล": item.lastName || "",
+      "วันเกิด": formatDateOnly(item.birthDate),
+      "น้ำหนัก (กก.)": item.weightKg ?? "",
+      "ส่วนสูง (ซม.)": item.heightCm ?? "",
+      "อายุราชการ (ปี)": item.serviceYears ?? "",
+      "กรุ๊ปเลือด": item.bloodGroup || "",
+      "กองพัน": item.battalionCode || "",
+      "กองร้อย": item.companyCode || "",
+      "หมวด": item.platoonCode ?? "",
+      "ลำดับ": item.sequenceNumber ?? "",
+      "การศึกษา": item.education || "",
+      "อาชีพก่อนเป็นทหาร": item.previousJob || "",
+      "ศาสนา": item.religion || "",
+      "ว่ายน้ำได้": formatBooleanLabel(item.canSwim),
+      "ทักษะพิเศษ": item.specialSkills || "",
+      "ที่อยู่": item.addressLine || "",
+      "จังหวัด": item.province || "",
+      "อำเภอ": item.district || "",
+      "ตำบล": item.subdistrict || "",
+      "รหัสไปรษณีย์": item.postalCode || "",
+      "อีเมล": item.email || "",
+      "เบอร์โทรศัพท์": item.phone || "",
+      "ผู้ติดต่อฉุกเฉิน": item.emergencyName || "",
+      "เบอร์ฉุกเฉิน": item.emergencyPhone || "",
+      "โรคประจำตัว": formatListField(item.chronicDiseases),
+      "แพ้อาหาร": formatListField(item.foodAllergies),
+      "แพ้ยา": formatListField(item.drugAllergies),
+      "หมายเหตุแพทย์": item.medicalNotes || "",
+      "เคยประสบอุบัติเหตุ": formatBooleanLabel(item.accidentHistory),
+      "เคยผ่าตัด": formatBooleanLabel(item.surgeryHistory),
+      "มีรอยสัก": formatBooleanLabel(item.tattoo),
+      "ประสบการณ์ก่อนเป็นทหาร (ปี)": item.experienced ?? "",
+      "สถานะครอบครัว": item.familyStatus || "",
+      "ประกาศนียบัตร": formatListField(item.certificates),
+      "รูปบัตรประชาชน (URL)": item.idCardImageUrl || "",
+      "คะแนนความพร้อมรบ": item.combatReadiness?.score ?? "",
+      "เปอร์เซ็นต์ความพร้อมรบ": item.combatReadiness?.percent ?? "",
+      "สร้างเมื่อ": formatDateTime(item.createdAt),
+      "อัปเดตล่าสุด": formatDateTime(item.updatedAt),
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    const sheetName = "ทหารใหม่".slice(0, 31);
+    const worksheet =
+      rows.length > 0
+        ? XLSX.utils.json_to_sheet(rows)
+        : XLSX.utils.aoa_to_sheet([["ไม่มีข้อมูล"]]);
+    if (rows.length > 0) {
+      worksheet["!cols"] = autoFitColumns(rows);
+    }
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "buffer" });
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="soldier-intakes.xlsx"'
+    );
+    return res.send(buffer);
+  } catch (err) {
+    console.error("Failed to export soldier intakes", err);
+    return res
+      .status(500)
+      .json({ message: "ไม่สามารถส่งออกข้อมูลได้", detail: err.message });
   }
 };
 
@@ -270,6 +407,7 @@ const importUnitAssignments = async (req, res) => {
 module.exports = {
   createIntake,
   listIntakes,
+  exportIntakes,
   getIntakeById,
   updateIntake,
   deleteIntake,

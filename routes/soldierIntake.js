@@ -34,6 +34,13 @@ router.get(
   soldierIntakeController.listIntakes
 );
 
+router.get(
+  "/admin/soldier-intakes/export",
+  middleware.verifyToken,
+  middleware.authorizeSoldierData,
+  soldierIntakeController.exportIntakes
+);
+
 router.delete(
   "/admin/soldier-intakes",
   middleware.verifyToken,

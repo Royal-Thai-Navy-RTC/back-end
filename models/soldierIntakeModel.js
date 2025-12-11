@@ -289,6 +289,47 @@ const normalizeInput = (input = {}) => {
   };
 };
 
+const buildIntakeWhereClause = (filters = {}) => {
+  const where = {};
+
+  const battalionCode = normalizeString(filters?.battalionCode);
+  if (battalionCode) {
+    where.battalionCode = battalionCode;
+  }
+
+  const companyCode = normalizeString(filters?.companyCode);
+  if (companyCode) {
+    where.companyCode = companyCode;
+  }
+
+  if (
+    filters?.platoonCode !== undefined &&
+    filters?.platoonCode !== null &&
+    String(filters.platoonCode).trim() !== ""
+  ) {
+    const platoonValue = Number(filters.platoonCode);
+    if (Number.isInteger(platoonValue) && platoonValue > 0) {
+      where.platoonCode = platoonValue;
+    }
+  }
+
+  if (filters?.search) {
+    const q = String(filters.search).trim();
+    if (q) {
+      where.OR = [
+        { firstName: { contains: q } },
+        { lastName: { contains: q } },
+        { citizenId: { contains: q } },
+        { phone: { contains: q } },
+        { religion: { contains: q } },
+        { education: { contains: q } },
+      ];
+    }
+  }
+
+  return where;
+};
+
 const ensureModelAvailable = () => {
   if (!prisma.soldierIntake) {
     const err = new Error(
@@ -672,48 +713,13 @@ module.exports = {
     return prisma.soldierIntake.create({ data });
   },
 
-  listIntakes: async (filters = {}, battalionCode, companyCode) => {
+  listIntakes: async (filters = {}) => {
     ensureModelAvailable();
     const pageSize = Math.max(1, Math.min(Number(filters.pageSize) || 20, 100));
     const page = Math.max(1, Number(filters.page) || 1);
     const skip = (page - 1) * pageSize;
 
-    const where = {};
-
-    battalionCode = normalizeString(filters.battalionCode);
-    if (battalionCode) {
-      where.battalionCode = battalionCode;
-    }
-
-    companyCode = normalizeString(filters.companyCode);
-    if (companyCode) {
-      where.companyCode = companyCode;
-    }
-    // console.log(battalionCode, companyCode)
-    if (
-      filters.platoonCode !== undefined &&
-      filters.platoonCode !== null &&
-      String(filters.platoonCode).trim() !== ""
-    ) {
-      const p = Number(filters.platoonCode);
-      if (Number.isInteger(p) && p > 0) {
-        where.platoonCode = p;
-      }
-    }
-
-    if (filters.search) {
-      const q = String(filters.search).trim();
-      if (q) {
-        where.OR = [
-          { firstName: { contains: q } },
-          { lastName: { contains: q } },
-          { citizenId: { contains: q } },
-          { phone: { contains: q } },
-          { religion: { contains: q } },
-          { education: { contains: q } },
-        ];
-      }
-    }
+    const where = buildIntakeWhereClause(filters);
 
     const [items, total] = await Promise.all([
       prisma.soldierIntake.findMany({
@@ -837,6 +843,20 @@ module.exports = {
     ensureModelAvailable();
     const deleted = await prisma.soldierIntake.deleteMany({});
     return { deleted: deleted.count };
+  },
+
+  getIntakesForExport: async (filters = {}) => {
+    ensureModelAvailable();
+    const where = buildIntakeWhereClause(filters);
+    const items = await prisma.soldierIntake.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+    return items.map((item) => ({
+      ...item,
+      radarProfile: sanitizeRadarProfile(item.radarProfile),
+      combatReadiness: sanitizeCombatReadiness(item.combatReadiness),
+    }));
   },
 
   summary: async (battalionCode, companyCode) => {
