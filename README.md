@@ -243,6 +243,9 @@ Submission (ADMIN หรือ TEACHER):
 - `GET /api/exam-results/export` — ส่งออกไฟล์ Excel แยก sheet ตามกองร้อย (ดึงจากสังกัดรูปแบบ `ร้อย.<เลข> พัน.<เลข>`)
 - `POST /api/personal-merit-scores/import` — Auth (`EXAM_UPLOADER` หรือบัญชีที่ผ่าน `authorizeExamAccess`); upload Excel (`file`/`excel`/`upload`/`sheet`) ต้องมี sheet ชื่อ `คะแนนรายบุคคล` ที่มีหัวตาราง `ยศ ชื่อ - สกุล` และ `คะแนนรวม`
 - `GET /api/personal-merit-scores` — ดึงผลการนำเข้าทั้งหมด (auth เดียวกัน); รองรับ query `batchId`, `soldierName`, `page`, `pageSize<=200`; คืน `page,pageSize,total,totalPages,data[]`
+- `POST /api/physical-assessments/import` — Auth เดียวกัน; upload Excel ที่มี sheet `ด้านร่างกาย` โดยต้องมี col `กองร้อยฝึก`, `กองพันฝึก`, ช่องประเมินแต่ละสถานี (`สถานีลุก-นั่ง`, `สถานีดันพื้น`, `สถานีวิ่ง 2.4 กม.`, `กายบริหารราชนาวี`) รวมถึง `คะแนนรวม` และ `คะแนนรวมเฉลี่ย`
+  - สามารถส่ง `company`/`battalion` (หรือ `defaultCompany`/`defaultBattalion`) ใน body หรือ query string เพื่อใช้เป็นสังกัด/กองพันเริ่มต้นเมื่อแถวยังไม่มีข้อมูลเฉพาะ เช่น `company=กองร้อยฝึก` และ `battalion=กองพันฝึก`
+- `GET /api/physical-assessments` — list ข้อมูลที่นำเข้า (query `batchId`,`battalion`,`company`,`page`,`pageSize<=200`), เสิร์ฟ `page,pageSize,total,totalPages,data[]`
 
 ```http
 POST /api/personal-merit-scores/import
