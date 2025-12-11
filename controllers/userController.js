@@ -8,7 +8,9 @@ const {
 
 const getMe = async (req, res) => {
   try {
-    const me = await User.getUserById(req.userId);
+    const me =
+      (await User.getUserAdminDetail(req.userId)) ||
+      (await User.getUserById(req.userId));
     if (!me) return res.status(404).json({ message: "User not found" });
     res.json(me);
   } catch (err) {
