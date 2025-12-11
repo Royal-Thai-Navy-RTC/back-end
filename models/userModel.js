@@ -550,6 +550,7 @@ const normalizeAndValidateUserInput = (input = {}) => {
   }
 
   // เตรียมข้อมูลตาม schema (field ชื่อให้ตรง)
+  const fullAddressValue = sanitizeStringValue(input.fullAddress);
   const data = {
     username: String(input.username).trim(),
     // passwordHash จะถูกเติมภายหลังจาก hash
@@ -560,7 +561,8 @@ const normalizeAndValidateUserInput = (input = {}) => {
     isActive:
       input.isActive !== undefined ? Boolean(input.isActive) : undefined, // default true จาก schema
     rank: rankValue || undefined, // ใช้ค่า default ใน schema ถ้าไม่ส่งมา
-    fullAddress: sanitizeStringValue(input.fullAddress),
+    fullAddress:
+      fullAddressValue === undefined ? "" : fullAddressValue,
     education: sanitizeStringValue(input.education),
     position: sanitizeStringValue(input.position),
     division: divisionValue,

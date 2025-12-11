@@ -191,6 +191,10 @@ const register = async (req, res) => {
 
   const localFilePath = tryPickupLocalFileFromBody(req.body);
   const base64Image = parseBase64Image(profileImage || avatar);
+  const fullAddressValue =
+    fullAddress === undefined || fullAddress === null
+      ? ""
+      : String(fullAddress).trim();
   const requiredFields = [
     { key: "username", value: username },
     { key: "password", value: password },
@@ -237,7 +241,7 @@ const register = async (req, res) => {
       rank,
       profileImage: avatarPayload,
       birthDate,
-      fullAddress,
+      fullAddress: fullAddressValue,
       emergencyContactName,
       emergencyContactPhone,
       role,

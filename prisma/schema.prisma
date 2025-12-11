@@ -41,6 +41,7 @@ model User {
   examResultsImported         ExamResult[]
   personalMeritScoresImported PersonalMeritScore[] @relation("PersonalMeritScoreImportedBy")
   physicalAssessmentsImported    PhysicalAssessment[] @relation("PhysicalAssessmentImportedBy")
+  ethicsAssessmentsImported     EthicsAssessment[]        @relation("EthicsAssessmentImportedBy")
   featureTogglesUpdated       FeatureToggle[]             @relation("FeatureToggleUpdatedBy")
   notificationReads           NotificationRead[]
   studentEvaluationsEvaluated StudentEvaluation[]         @relation("StudentEvaluationEvaluatedPerson")
@@ -212,6 +213,30 @@ model PersonalMeritScore {
 
   @@index([batchId])
   @@index([importedById], map: "PersonalMeritScore_importedById_fkey")
+}
+
+model EthicsAssessment {
+  id           Int      @id @default(autoincrement())
+  orderNumber  Int?
+  battalion    String?  @db.VarChar(64)
+  company      String?  @db.VarChar(64)
+  score20      Float?
+  percentage   Float?
+  average100   Float?
+  note         String?  @db.VarChar(255)
+  ranking      Int?
+  batchId      String?  @db.VarChar(64)
+  sourceFile   String?  @db.VarChar(255)
+  sheetName    String?  @db.VarChar(120)
+  importedAt   DateTime @default(now())
+  importedById Int?
+  importedBy   User?    @relation("EthicsAssessmentImportedBy", fields: [importedById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([batchId])
+  @@index([battalion, company])
+  @@index([importedById], map: "EthicsAssessment_importedById_fkey")
 }
 
 model FeatureToggle {

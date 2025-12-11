@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE `PhysicalAssessment` ALTER COLUMN `updatedAt` DROP DEFAULT;
+-- no-op: the table was created later, so no schema change is required here.
