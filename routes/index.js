@@ -12,6 +12,7 @@ const soldierIntakeRoutes = require("./soldierIntake");
 const examRoutes = require("./exam");
 const personalMeritRoutes = require("./personalMerit");
 const physicalAssessmentRoutes = require("./physicalAssessment");
+const knowledgeAssessmentRoutes = require("./knowledgeAssessment");
 const newsRoutes = require("./news");
 const ethicsRoutes = require("./ethics");
 
@@ -30,6 +31,7 @@ router.use("/", soldierIntakeRoutes);
 router.use("/", examRoutes);
 router.use("/", personalMeritRoutes);
 router.use("/", physicalAssessmentRoutes);
+router.use("/", knowledgeAssessmentRoutes);
 router.use("/", ethicsRoutes);
 router.use("/", newsRoutes);
 

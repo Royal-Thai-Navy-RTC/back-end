@@ -58,6 +58,14 @@ const parseRankingFromNote = (note) => {
 const normalizeText = (value) =>
   safeString(value).toLowerCase().replace(/\s+/g, " ");
 
+const extractDigitsFromText = (value) => {
+  const text = safeString(value);
+  if (!text) return null;
+  const normalized = thaiDigitsToArabic(text);
+  const match = normalized.match(/\d+/);
+  return match ? match[0] : null;
+};
+
 const MIN_HEADER_ROW = 0;
 
 const getMergedCellValue = (rowIndex, colIndex, rows, worksheet, merges) => {
@@ -424,13 +432,16 @@ const importKnowledgeAssessments = async (req, res) => {
       merges,
       headerRowIndex
     );
-    const fallbackCompanyColumn = deduceLocationFromHeaderRows(
+    const fallbackCompanyColumnRaw = deduceLocationFromHeaderRows(
       columnMap.company,
       headerIndices,
       rows,
       worksheet,
       merges,
       headerRowIndex
+    );
+    const fallbackCompanyColumn = extractDigitsFromText(
+      fallbackCompanyColumnRaw
     );
     const fallbackBattalionColumn = deduceLocationFromHeaderRows(
       columnMap.battalion,
@@ -443,11 +454,10 @@ const importKnowledgeAssessments = async (req, res) => {
 
     const records = [];
     let lastOrderLabel = null;
-    let lastCompanyColumnValue = null;
+    let lastCompanyValue = null;
     let lastBattalionValue = null;
     for (let idx = 0; idx < dataRows.length; idx++) {
       const rowIndex = dataStartIndex + idx;
-
       const rawOrderLabelText = columnMap.order
         ? safeString(getCellValue(rowIndex, columnMap.order))
         : "";
@@ -462,17 +472,14 @@ const importKnowledgeAssessments = async (req, res) => {
       } else if (fallbackOrderLabel) {
         orderLabelValue = fallbackOrderLabel;
       }
-      const rawCompanyColumnText = columnMap.company
-        ? safeString(getCellValue(rowIndex, columnMap.company))
-        : "";
-      const normalizedCompanyColumnText =
-        thaiDigitsToArabic(rawCompanyColumnText) || "";
+      const companyCellValue = getCellValue(rowIndex, columnMap.company);
+      const companyDigits = extractDigitsFromText(companyCellValue);
       let companyValue = null;
-      if (normalizedCompanyColumnText) {
-        companyValue = normalizedCompanyColumnText;
-        lastCompanyColumnValue = normalizedCompanyColumnText;
-      } else if (lastCompanyColumnValue) {
-        companyValue = lastCompanyColumnValue;
+      if (companyDigits) {
+        companyValue = companyDigits;
+        lastCompanyValue = companyDigits;
+      } else if (lastCompanyValue) {
+        companyValue = lastCompanyValue;
       } else if (fallbackCompanyColumn) {
         companyValue = fallbackCompanyColumn;
       }
@@ -534,13 +541,12 @@ const importKnowledgeAssessments = async (req, res) => {
       const orderNumber =
         parsedOrder != null ? parsedOrder : records.length + 1;
 
+      const companyResult = companyValue || null;
+
       records.push({
         orderNumber,
         battalion: battalionValue || null,
-        company:
-          companyValue ||
-          orderLabelValue ||
-          (orderNumber != null ? String(orderNumber) : null),
+        company: companyResult,
         practicalScore,
         theoryScore,
         totalScore,

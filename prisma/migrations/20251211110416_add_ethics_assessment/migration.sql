@@ -1,6 +1,3 @@
--- AlterTable
-ALTER TABLE `PhysicalAssessment` ALTER COLUMN `updatedAt` DROP DEFAULT;
-
 -- CreateTable
 CREATE TABLE `EthicsAssessment` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,

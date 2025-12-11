@@ -41,6 +41,7 @@ model User {
   examResultsImported         ExamResult[]
   personalMeritScoresImported PersonalMeritScore[] @relation("PersonalMeritScoreImportedBy")
   physicalAssessmentsImported    PhysicalAssessment[] @relation("PhysicalAssessmentImportedBy")
+  knowledgeAssessmentsImported KnowledgeAssessment[] @relation("KnowledgeAssessmentImportedBy")
   ethicsAssessmentsImported     EthicsAssessment[]        @relation("EthicsAssessmentImportedBy")
   featureTogglesUpdated       FeatureToggle[]             @relation("FeatureToggleUpdatedBy")
   notificationReads           NotificationRead[]
@@ -546,6 +547,31 @@ model SoldierPersonalScore {
   updatedAt       DateTime @updatedAt
 
   @@index([battalion, company])
+}
+
+model KnowledgeAssessment {
+  id                  Int      @id @default(autoincrement())
+  orderNumber         Int?
+  battalion           String?  @db.VarChar(64)
+  company             String?  @db.VarChar(64)
+  practicalScore      Float?
+  theoryScore         Float?
+  totalScore          Float?
+  averagePercentage   Float?
+  note                String?  @db.VarChar(255)
+  ranking             Int?
+  batchId             String?  @db.VarChar(64)
+  sourceFile          String?  @db.VarChar(255)
+  sheetName           String?  @db.VarChar(120)
+  importedAt          DateTime @default(now())
+  importedById        Int?
+  importedBy          User?    @relation("KnowledgeAssessmentImportedBy", fields: [importedById], references: [id])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([battalion, company])
+  @@index([batchId])
+  @@index([importedById], map: "KnowledgeAssessment_importedById_fkey")
 }
 
 model PhysicalAssessment {

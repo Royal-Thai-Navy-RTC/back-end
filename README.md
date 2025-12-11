@@ -246,6 +246,9 @@ Submission (ADMIN หรือ TEACHER):
 - `POST /api/physical-assessments/import` — Auth เดียวกัน; upload Excel ที่มี sheet `ด้านร่างกาย` โดยต้องมี col `กองร้อยฝึก`, `กองพันฝึก`, ช่องประเมินแต่ละสถานี (`สถานีลุก-นั่ง`, `สถานีดันพื้น`, `สถานีวิ่ง 2.4 กม.`, `กายบริหารราชนาวี`) รวมถึง `คะแนนรวม` และ `คะแนนรวมเฉลี่ย`
   - ระบบจะอ่านชื่อ `company`/`battalion` จาก header ของ sheet (เช่น `กองร้อยฝึก`, `กองพันฝึก`) เพื่อเติมข้อมูลเมื่อแถวยังไม่มีชื่อหน่วยหรือกองพันเฉพาะตัว
 - `GET /api/physical-assessments` — list ข้อมูลที่นำเข้า (query `batchId`,`battalion`,`company`,`page`,`pageSize<=200`), เสิร์ฟ `page,pageSize,total,totalPages,data[]`
+- `POST /api/knowledge-assessments/import` — Auth เดียวกัน; upload Excel ที่มี sheet `ความรู้` โดยต้องมี col `กองร้อยฝึก`, `กองพันฝึก`, `ภาคปฏิบัติ (60 คะแนน)`, `ภาคทฤษฎี (40 คะแนน)`, `คะแนนรวม (100 คะแนน)`, `คะแนนเฉลี่ย ร้อยละ`, `หมายเหตุ`, `อันดับ`
+  - ใช้ header เดียวกับ sheet ด้านร่างกายเพื่อค้นหาชื่อหน่วย / กองพัน แล้วอ่านคะแนนจากคอลัมน์ความรู้แต่ละแถว (รูปแบบเดียวกับ physicalAssessmentController)
+- `GET /api/knowledge-assessments` — list ผลการประเมินความรู้ (query `batchId`,`battalion`,`company`,`page`,`pageSize<=200`); response ประกอบด้วย `page,pageSize,total,totalPages,data[]`
 - `POST /api/ethics-assessments/import` — Auth เดียวกัน; upload Excel sheet `ด้านจริยธรรม` ที่มีคอลัมน์ `กองร้อยฝึก`, `กองพันฝึก`, `คุณธรรม จริยธรรม (20 คะแนน)`, `คิดเป็นร้อยละ`, `คะแนนรวมเฉลี่ย (100 คะแนน)` และ `หมายเหตุ`
   - โค้ดจะใช้ header row เดียวกับ sheet ด้านร่างกาย (คอลัมน์เดิมของ `company/battalion` และช่องคะแนนต่าง ๆ) เพื่อกำหนดหน่วยก่อนอ่านคะแนนแต่ละแถว
 - `GET /api/ethics-assessments` — list ข้อมูลที่นำเข้า (query `batchId`,`battalion`,`company`,`page`,`pageSize<=200`); response กลับ `page,pageSize,total,totalPages,data[]`
