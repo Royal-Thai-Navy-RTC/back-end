@@ -20,6 +20,7 @@ const HEADER_ALIASES = {
     "รหัส",
   ],
   unit: ["สังกัด", "หน่วย", "หน่วยงาน", "กองร้อย", "กองพัน"],
+  subject: ["วิชา", "subject", "course", "ชื่อวิชา"],
 };
 
 const safeString = (v) =>
@@ -122,7 +123,7 @@ const parseUnitCodes = (unitText) => {
   return { companyCode, battalionCode };
 };
 
-const buildExamRows = (rows, importedById) => {
+const buildExamRows = (rows, importedById, defaultSubject) => {
   if (!Array.isArray(rows) || rows.length < 2) {
     const err = new Error("ไฟล์ต้องมีข้อมูลอย่างน้อย 1 แถวหลังส่วนหัว");
     err.code = "VALIDATION_ERROR";
@@ -146,6 +147,11 @@ const buildExamRows = (rows, importedById) => {
     const fullName = safeString(row[headerIndexes.fullName]);
     const navyNumber = normalizeNavyNumber(row[headerIndexes.navyNumber]);
     const unit = safeString(row[headerIndexes.unit]) || null;
+    const columnSubject =
+      headerIndexes.subject !== undefined
+        ? safeString(row[headerIndexes.subject]) || null
+        : null;
+    const subject = defaultSubject || columnSubject;
     const ts =
       parseTimestamp(row[headerIndexes.timestamp]) ||
       new Date(); // fallback to now if missing
@@ -160,6 +166,7 @@ const buildExamRows = (rows, importedById) => {
       scoreText: score.scoreText,
       scoreValue: score.scoreValue,
       scoreTotal: score.scoreTotal,
+      subject,
       fullName: fullName || "ไม่ระบุชื่อ",
       navyNumber: navyNumber || null,
       unit,
@@ -177,7 +184,7 @@ const buildExamRows = (rows, importedById) => {
 };
 
 module.exports = {
-  importExamExcel: async (filePath, importedById) => {
+  importExamExcel: async (filePath, importedById, defaultSubject = null) => {
     if (!fs.existsSync(filePath)) {
       const err = new Error("ไม่พบไฟล์ที่อัปโหลด");
       err.code = "VALIDATION_ERROR";
@@ -192,7 +199,7 @@ module.exports = {
       blankrows: false,
     });
 
-    const records = buildExamRows(rows, importedById);
+    const records = buildExamRows(rows, importedById, defaultSubject);
     const created = await prisma.examResult.createMany({
       data: records,
       skipDuplicates: true,
@@ -230,6 +237,10 @@ module.exports = {
     }
     if (unit) {
       where.unit = { contains: unit };
+    }
+    const subject = safeString(filters.subject);
+    if (subject) {
+      where.subject = { contains: subject };
     }
 
     const sortRaw = safeString(filters.sort).toLowerCase();
@@ -279,9 +290,16 @@ module.exports = {
       Array.isArray(filters.companyCodesList) && filters.companyCodesList.length
         ? filters.companyCodesList.map((c) => safeString(c)).filter(Boolean)
         : ["1", "2", "3", "4", "5"];
+    const subject = safeString(filters.subject);
+
+    const where = {};
+    if (subject) {
+      where.subject = { contains: subject };
+    }
 
     const rows = await prisma.examResult.findMany({
       select: { unit: true, scoreValue: true },
+      where,
     });
 
     const key = (b, c) => `${b || ""}__${c || ""}`;
@@ -368,8 +386,15 @@ module.exports = {
     };
   },
 
-  getExamResultsForExport: async () => {
+  getExamResultsForExport: async (filters = {}) => {
+    const subject = safeString(filters.subject);
+    const where = {};
+    if (subject) {
+      where.subject = { contains: subject };
+    }
+
     const rows = await prisma.examResult.findMany({
+      where,
       orderBy: [{ timestamp: "desc" }, { id: "desc" }],
     });
 

@@ -40,8 +40,19 @@ const importExamExcel = async (req, res) => {
       .json({ message: "กรุณาอัปโหลดไฟล์ Excel ในฟิลด์ 'file'" });
   }
   const filePath = req.file.path;
+  const overrideSubject =
+    (req.body && typeof req.body.subject === "string"
+      ? req.body.subject.trim()
+      : "") ||
+    (req.query && typeof req.query.subject === "string"
+      ? req.query.subject.trim()
+      : "");
   try {
-    const result = await ExamModel.importExamExcel(filePath, req.userId);
+    const result = await ExamModel.importExamExcel(
+      filePath,
+      req.userId,
+      overrideSubject || null
+    );
     return res.status(201).json({
       message: "นำเข้าข้อมูลสอบสำเร็จ",
       summary: {
@@ -64,13 +75,14 @@ const importExamExcel = async (req, res) => {
 
 const listExamResults = async (req, res) => {
   try {
-    const { page, pageSize, search, unit, navyNumber, sort } = req.query || {};
+    const { page, pageSize, search, unit, navyNumber, sort, subject } = req.query || {};
     const data = await ExamModel.listExamResults({
       page,
       pageSize,
       search,
       unit,
       navyNumber,
+      subject,
       sort,
     });
     return res.json(data);
@@ -81,12 +93,13 @@ const listExamResults = async (req, res) => {
 
 const summarizeExamResults = async (req, res) => {
   try {
-    const { battalionCodes, companyCodes } = req.query || {};
+    const { battalionCodes, companyCodes, subject } = req.query || {};
     const battalionCodesList = typeof battalionCodes === "string" ? battalionCodes.split(",") : [];
     const companyCodesList = typeof companyCodes === "string" ? companyCodes.split(",") : [];
     const data = await ExamModel.summarizeExamResults({
       battalionCodesList,
       companyCodesList,
+      subject,
     });
     return res.json(data);
   } catch (err) {
@@ -124,9 +137,10 @@ const getExamOverview = async (_req, res) => {
   }
 };
 
-const exportExamResults = async (_req, res) => {
+const exportExamResults = async (req, res) => {
   try {
-    const groups = await ExamModel.getExamResultsForExport();
+    const { subject } = req.query || {};
+    const groups = await ExamModel.getExamResultsForExport({ subject });
     if (!groups.length) {
       return res.status(404).json({ message: "ไม่มีข้อมูลผลสอบสำหรับส่งออก" });
     }
@@ -135,6 +149,7 @@ const exportExamResults = async (_req, res) => {
     groups.forEach((group) => {
       const rows = group.items.map((item) => ({
         "ประทับเวลา": formatDateTime(item.timestamp),
+        "วิชา": item.subject || "",
         "คะแนน": item.scoreText || "",
         "คะแนนที่ได้": item.scoreValue ?? "",
         "คะแนนรวม": item.scoreTotal ?? "",
