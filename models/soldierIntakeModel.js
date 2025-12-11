@@ -299,9 +299,46 @@ const ensureModelAvailable = () => {
   }
 };
 
-// ถ้ามี helper พวกนี้อยู่แล้วไม่ต้องประกาศซ้ำ
 const clampScore = (val, min = 0, max = 100) =>
   Math.min(max, Math.max(min, Number.isFinite(val) ? val : 0));
+
+const formatRadarScore = (value) => {
+  if (!Number.isFinite(value)) return 0;
+  return Number(value.toFixed(2));
+};
+
+const roundTwoDecimals = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Number(num.toFixed(2));
+};
+
+const sanitizeRadarProfile = (radarProfile) => {
+  if (!radarProfile) return radarProfile;
+  const normalizedValues = Array.isArray(radarProfile.values)
+    ? radarProfile.values.map(formatRadarScore)
+    : radarProfile.values;
+  const normalizedBreakdown = Array.isArray(radarProfile.breakdown)
+    ? radarProfile.breakdown.map((item) => ({
+        ...item,
+        score: formatRadarScore(item.score),
+      }))
+    : radarProfile.breakdown;
+  return {
+    ...radarProfile,
+    values: normalizedValues,
+    breakdown: normalizedBreakdown,
+  };
+};
+
+const sanitizeCombatReadiness = (combatReadiness) => {
+  if (!combatReadiness) return combatReadiness;
+  return {
+    ...combatReadiness,
+    score: roundTwoDecimals(combatReadiness.score),
+    percent: roundTwoDecimals(combatReadiness.percent),
+  };
+};
 
 const computeBmi = (weightKg, heightCm) => {
   const w = Number(weightKg);
@@ -494,6 +531,12 @@ const buildRadarProfileForItem = (item) => {
 
   const familyScore = clampScore(familyScoreBase + familyDelta, 0, 100);
 
+  const roundedHealthScore = formatRadarScore(healthScore);
+  const roundedEducationScore = formatRadarScore(educationScore);
+  const roundedAbilityScore = formatRadarScore(abilityScore);
+  const roundedFitnessScore = formatRadarScore(fitnessScore);
+  const roundedFamilyScore = formatRadarScore(familyScore);
+
   return {
     indicators: [
       { name: "สุขภาพ", max: 100 },
@@ -503,18 +546,18 @@ const buildRadarProfileForItem = (item) => {
       { name: "ครอบครัว", max: 100 },
     ],
     values: [
-      healthScore,
-      educationScore,
-      abilityScore,
-      fitnessScore,
-      familyScore,
+      roundedHealthScore,
+      roundedEducationScore,
+      roundedAbilityScore,
+      roundedFitnessScore,
+      roundedFamilyScore,
     ],
     breakdown: [
-      { label: "สุขภาพ", score: healthScore },
-      { label: "การศึกษา", score: educationScore },
-      { label: "ทักษะ", score: abilityScore },
-      { label: "ร่างกาย", score: fitnessScore },
-      { label: "ครอบครัว", score: familyScore },
+      { label: "สุขภาพ", score: roundedHealthScore },
+      { label: "การศึกษา", score: roundedEducationScore },
+      { label: "ทักษะ", score: roundedAbilityScore },
+      { label: "ร่างกาย", score: roundedFitnessScore },
+      { label: "ครอบครัว", score: roundedFamilyScore },
     ],
   };
 };
@@ -547,7 +590,7 @@ const computeAge = (birthDate) => {
   return age;
 };
 
-// ใช้เงื่อนไขที่คุยไว้: ว่ายน้ำได้, อายุ ≤ 23, ไม่มีโรคประจำตัว, ไม่มีรอยสักในร่มผ้า
+// ใช้เงื่อนไข: ว่ายน้ำได้, อายุ ≤ 23, ไม่มีโรคประจำตัว, ไม่มีรอยสักในร่มผ้า
 const isEligibleNcoStudent = (item) => {
   const age = computeAge(item.birthDate);
   if (age == null) return false;
@@ -605,23 +648,22 @@ module.exports = {
     // ถ้าใน Prisma model ใช้ field Json ชื่อ radarProfile
     data.radarProfile = radarProfile;
 
+    const radarValues = Array.isArray(radarProfile?.values)
+      ? radarProfile.values
+      : [];
+    const radarSum = radarValues.reduce(
+      (acc, cur) => acc + (Number.isFinite(cur) ? cur : 0),
+      0
+    );
+    const radarPercent = clampScore(
+      radarValues.length ? radarSum / radarValues.length : 0,
+      0,
+      100
+    );
+
     data.combatReadiness = {
-      score:
-        radarProfile.values[0] +
-        radarProfile.values[1] +
-        radarProfile.values[2] +
-        radarProfile.values[3] +
-        radarProfile.values[4],
-      percent: clampScore(
-        (radarProfile.values[0] +
-          radarProfile.values[1] +
-          radarProfile.values[2] +
-          radarProfile.values[3] +
-          radarProfile.values[4]) /
-          5,
-        0,
-        100
-      ),
+      score: roundTwoDecimals(radarSum),
+      percent: roundTwoDecimals(radarPercent),
     };
 
     // ถ้าตารางเป็น string แทน ให้ใช้แบบนี้แทน:
@@ -683,8 +725,14 @@ module.exports = {
       prisma.soldierIntake.count({ where }),
     ]);
 
+    const normalizedItems = items.map((item) => ({
+      ...item,
+      radarProfile: sanitizeRadarProfile(item.radarProfile),
+      combatReadiness: sanitizeCombatReadiness(item.combatReadiness),
+    }));
+
     return {
-      items,
+      items: normalizedItems,
       total,
       page,
       pageSize,
@@ -708,7 +756,11 @@ module.exports = {
       err.code = "NOT_FOUND";
       throw err;
     }
-    return record;
+    return {
+      ...record,
+      radarProfile: sanitizeRadarProfile(record.radarProfile),
+      combatReadiness: sanitizeCombatReadiness(record.combatReadiness),
+    };
   },
 
   updateIntake: async (id, input = {}) => {
@@ -738,23 +790,22 @@ module.exports = {
 
     // ถ้าใน Prisma model ใช้ field Json ชื่อ radarProfile
     data.radarProfile = radarProfile;
+    const radarValues = Array.isArray(radarProfile?.values)
+      ? radarProfile.values
+      : [];
+    const radarSum = radarValues.reduce(
+      (acc, cur) => acc + (Number.isFinite(cur) ? cur : 0),
+      0
+    );
+    const radarPercent = clampScore(
+      radarValues.length ? radarSum / radarValues.length : 0,
+      0,
+      100
+    );
+
     data.combatReadiness = {
-      score:
-        radarProfile.values[0] +
-        radarProfile.values[1] +
-        radarProfile.values[2] +
-        radarProfile.values[3] +
-        radarProfile.values[4],
-      percent: clampScore(
-        (radarProfile.values[0] +
-          radarProfile.values[1] +
-          radarProfile.values[2] +
-          radarProfile.values[3] +
-          radarProfile.values[4]) /
-          5,
-        0,
-        100
-      ),
+      score: roundTwoDecimals(radarSum),
+      percent: roundTwoDecimals(radarPercent),
     };
     return prisma.soldierIntake.update({
       where: { id: intakeId },
