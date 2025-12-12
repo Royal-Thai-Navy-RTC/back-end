@@ -1000,7 +1000,7 @@ module.exports = {
     const battalionCountsRaw = await prisma.soldierIntake.groupBy({
       by: ["battalionCode"],
       _count: { battalionCode: true },
-      where: { battalionCode: { not: null } },
+      where: { battalionCode, companyCode },
     });
 
     const companyCounts = formatComboCounts(
