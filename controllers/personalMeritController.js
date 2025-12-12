@@ -299,12 +299,18 @@ const listPersonalMeritScores = async (req, res) => {
       totalScore: formatScore(item.totalScore),
     }));
 
+    const formattedItems = formatted.map(item => ({
+      ...item,
+      battalion: item.battalion ? parseInt(item.battalion.split(".")[1]) : null,
+      company: item.company ? parseInt(item.company.split(".")[1]) : null
+    }));
+
     return res.json({
       page,
       pageSize,
       total,
       totalPages: Math.ceil(total / pageSize),
-      data: formatted,
+      data: formattedItems,
     });
   } catch (err) {
     console.error("listPersonalMeritScores failed:", err);
