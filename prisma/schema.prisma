@@ -375,7 +375,54 @@ model NotificationRead {
   @@index([userId])
 }
 
+model SoldierIntake {
+  id              Int      @id @default(autoincrement())
+  firstName       String   @db.VarChar(100)
+  lastName        String   @db.VarChar(100)
+  citizenId       String   @db.VarChar(50)
+  birthDate       DateTime
+  weightKg        Float?
+  heightCm        Float?
+  education       String?  @db.VarChar(150)
+  previousJob     String?  @db.VarChar(150)
+  religion        String?  @db.VarChar(100)
+  canSwim         Boolean?
+  specialSkills   String?  @db.VarChar(255)
+  addressLine     String?  @db.VarChar(255)
+  province        String?  @db.VarChar(100)
+  district        String?  @db.VarChar(100)
+  subdistrict     String?  @db.VarChar(100)
+  postalCode      String?  @db.VarChar(20)
+  email           String?
+  phone           String?  @db.VarChar(32)
+  emergencyName   String?  @db.VarChar(100)
+  emergencyPhone  String?  @db.VarChar(32)
+  chronicDiseases Json?
+  foodAllergies   Json?
+  drugAllergies   Json?
+  medicalNotes    String?  @db.Text
+  idCardImageUrl  String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  serviceYears    Float?
+  bloodGroup      String?  @db.VarChar(8)
+  battalionCode   String?  @db.VarChar(50)
+  companyCode     String?  @db.VarChar(50)
+  platoonCode     Int?
+  sequenceNumber  Int?
+  accidentHistory Boolean? @default(false)
+  surgeryHistory  Boolean? @default(false)
+  tattoo          Boolean? @default(false)
+  experienced     Int?
+  familyStatus    String?  @db.VarChar(100)
+  certificates    Json?
+  radarProfile    Json?
+  combatReadiness Json?
 
+  @@index([citizenId])
+  @@index([phone])
+  @@index([email])
+}
 
 enum Role {
   OWNER          @map("Owner")
