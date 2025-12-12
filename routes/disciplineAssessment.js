@@ -20,4 +20,18 @@ router.get(
   disciplineAssessmentController.listDisciplineAssessments
 );
 
+router.delete(
+  "/discipline-assessments/:id",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  disciplineAssessmentController.deleteDisciplineAssessmentById
+);
+
+router.delete(
+  "/discipline-assessments",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  disciplineAssessmentController.deleteAllDisciplineAssessments
+);
+
 module.exports = router;
