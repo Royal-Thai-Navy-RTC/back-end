@@ -320,4 +320,42 @@ const listPersonalMeritScores = async (req, res) => {
   }
 };
 
-module.exports = { importPersonalMeritScores, listPersonalMeritScores };
+const deletePersonalMeritScoreById = async (req, res) => {
+  const intakeId = Number(req.params.id);
+  if (!Number.isInteger(intakeId) || intakeId <= 0) {
+    return res.status(400).json({ message: "id ไม่ถูกต้อง" });
+  }
+  try {
+    const deleted = await prisma.personalMeritScore.delete({
+      where: { id: intakeId },
+    });
+    return res.json({ message: "ลบข้อมูลสำเร็จ", deleted });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ message: "ไม่พบข้อมูลคะแนนบุคคล" });
+    }
+    console.error("deletePersonalMeritScoreById failed:", err);
+    return res
+      .status(500)
+      .json({ message: "ไม่สามารถลบข้อมูลคะแนนบุคคลได้", detail: err?.message });
+  }
+};
+
+const deleteAllPersonalMeritScores = async (_req, res) => {
+  try {
+    const result = await prisma.personalMeritScore.deleteMany();
+    return res.json({ message: "ลบข้อมูลทั้งหมดสำเร็จ", deleted: result.count });
+  } catch (err) {
+    console.error("deleteAllPersonalMeritScores failed:", err);
+    return res
+      .status(500)
+      .json({ message: "ไม่สามารถลบข้อมูลได้", detail: err?.message });
+  }
+};
+
+module.exports = {
+  importPersonalMeritScores,
+  listPersonalMeritScores,
+  deletePersonalMeritScoreById,
+  deleteAllPersonalMeritScores,
+};

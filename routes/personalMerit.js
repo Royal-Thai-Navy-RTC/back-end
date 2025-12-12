@@ -20,4 +20,18 @@ router.get(
   personalMeritController.listPersonalMeritScores
 );
 
+router.delete(
+  "/personal-merit-scores/:id",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  personalMeritController.deletePersonalMeritScoreById
+);
+
+router.delete(
+  "/personal-merit-scores",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  personalMeritController.deleteAllPersonalMeritScores
+);
+
 module.exports = router;
