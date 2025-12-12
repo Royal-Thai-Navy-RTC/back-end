@@ -20,4 +20,18 @@ router.get(
   physicalAssessmentController.listPhysicalAssessments
 );
 
+router.delete(
+  "/physical-assessments/:id",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  physicalAssessmentController.deletePhysicalAssessmentById
+);
+
+router.delete(
+  "/physical-assessments",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  physicalAssessmentController.deleteAllPhysicalAssessments
+);
+
 module.exports = router;

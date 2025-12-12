@@ -619,7 +619,44 @@ const listPhysicalAssessments = async (req, res) => {
   }
 };
 
+const deletePhysicalAssessmentById = async (req, res) => {
+  const assessmentId = Number(req.params.id);
+  if (!Number.isInteger(assessmentId) || assessmentId <= 0) {
+    return res.status(400).json({ message: "id ไม่ถูกต้อง" });
+  }
+  try {
+    const deleted = await prisma.physicalAssessment.delete({
+      where: { id: assessmentId },
+    });
+    return res.json({ message: "ลบข้อมูลสำเร็จ", deleted });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ message: "ไม่พบข้อมูลการประเมินด้านร่างกาย" });
+    }
+    console.error("deletePhysicalAssessmentById failed:", err);
+    return res.status(500).json({
+      message: "ไม่สามารถลบข้อมูลผลการประเมินด้านร่างกายได้",
+      detail: err?.message,
+    });
+  }
+};
+
+const deleteAllPhysicalAssessments = async (_req, res) => {
+  try {
+    const result = await prisma.physicalAssessment.deleteMany();
+    return res.json({ message: "ลบข้อมูลทั้งหมดสำเร็จ", deleted: result.count });
+  } catch (err) {
+    console.error("deleteAllPhysicalAssessments failed:", err);
+    return res.status(500).json({
+      message: "ไม่สามารถลบข้อมูลได้",
+      detail: err?.message,
+    });
+  }
+};
+
 module.exports = {
   importPhysicalAssessments,
   listPhysicalAssessments,
+  deletePhysicalAssessmentById,
+  deleteAllPhysicalAssessments,
 };
