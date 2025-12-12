@@ -88,7 +88,8 @@ const createIntake = async (req, res) => {
     }
     if (err.code === "MIGRATION_REQUIRED") {
       return res.status(500).json({
-        message: "ยังไม่ได้ setup ตาราง SoldierIntake (โปรดรัน prisma migrate/generate)",
+        message:
+          "ยังไม่ได้ setup ตาราง SoldierIntake (โปรดรัน prisma migrate/generate)",
       });
     }
     console.error("Failed to create soldier intake", err);
@@ -105,14 +106,13 @@ const mapRoleToUnitFilter = (role) => {
   if (!match) return null;
 
   return {
-    battalionCode: String(Number(match[1])), 
-    companyCode: String(Number(match[2])),   
+    battalionCode: String(Number(match[1])),
+    companyCode: String(Number(match[2])),
   };
 };
 
 const listIntakes = async (req, res) => {
   try {
-    // เอา query จาก client มาก่อน
     const filters = { ...(req.query || {}) };
     const unitFilter = mapRoleToUnitFilter(req.userRole);
 
@@ -120,10 +120,18 @@ const listIntakes = async (req, res) => {
       filters.battalionCode = unitFilter.battalionCode;
       filters.companyCode = unitFilter.companyCode;
     }
-    const result = await SoldierIntake.listIntakes(filters);
+
+    const combatReadinessSort = filters.combatReadinessSort;
+    delete filters.combatReadinessSort;
+
+    const result = await SoldierIntake.listIntakes({
+      ...filters,
+      combatReadinessSort,
+    });
+
     res.json({
       data: result.items,
-      page: result.page, 
+      page: result.page,
       pageSize: result.pageSize,
       total: result.total,
       totalPages: result.totalPages,
@@ -146,51 +154,53 @@ const exportIntakes = async (req, res) => {
 
     const records = await SoldierIntake.getIntakesForExport(filters);
     if (!records.length) {
-      return res.status(404).json({ message: "ไม่พบข้อมูลทหารใหม่สำหรับส่งออก" });
+      return res
+        .status(404)
+        .json({ message: "ไม่พบข้อมูลทหารใหม่สำหรับส่งออก" });
     }
 
     const rows = records.map((item) => ({
-      "เลขบัตรประชาชน": item.citizenId || "",
-      "ชื่อ": item.firstName || "",
-      "นามสกุล": item.lastName || "",
-      "วันเกิด": formatDateOnly(item.birthDate),
+      เลขบัตรประชาชน: item.citizenId || "",
+      ชื่อ: item.firstName || "",
+      นามสกุล: item.lastName || "",
+      วันเกิด: formatDateOnly(item.birthDate),
       "น้ำหนัก (กก.)": item.weightKg ?? "",
       "ส่วนสูง (ซม.)": item.heightCm ?? "",
       "อายุราชการ (ปี)": item.serviceYears ?? "",
-      "กรุ๊ปเลือด": item.bloodGroup || "",
-      "กองพัน": item.battalionCode || "",
-      "กองร้อย": item.companyCode || "",
-      "หมวด": item.platoonCode ?? "",
-      "ลำดับ": item.sequenceNumber ?? "",
-      "การศึกษา": item.education || "",
-      "อาชีพก่อนเป็นทหาร": item.previousJob || "",
-      "ศาสนา": item.religion || "",
-      "ว่ายน้ำได้": formatBooleanLabel(item.canSwim),
-      "ทักษะพิเศษ": item.specialSkills || "",
-      "ที่อยู่": item.addressLine || "",
-      "จังหวัด": item.province || "",
-      "อำเภอ": item.district || "",
-      "ตำบล": item.subdistrict || "",
-      "รหัสไปรษณีย์": item.postalCode || "",
-      "อีเมล": item.email || "",
-      "เบอร์โทรศัพท์": item.phone || "",
-      "ผู้ติดต่อฉุกเฉิน": item.emergencyName || "",
-      "เบอร์ฉุกเฉิน": item.emergencyPhone || "",
-      "โรคประจำตัว": formatListField(item.chronicDiseases),
-      "แพ้อาหาร": formatListField(item.foodAllergies),
-      "แพ้ยา": formatListField(item.drugAllergies),
-      "หมายเหตุแพทย์": item.medicalNotes || "",
-      "เคยประสบอุบัติเหตุ": formatBooleanLabel(item.accidentHistory),
-      "เคยผ่าตัด": formatBooleanLabel(item.surgeryHistory),
-      "มีรอยสัก": formatBooleanLabel(item.tattoo),
+      กรุ๊ปเลือด: item.bloodGroup || "",
+      กองพัน: item.battalionCode || "",
+      กองร้อย: item.companyCode || "",
+      หมวด: item.platoonCode ?? "",
+      ลำดับ: item.sequenceNumber ?? "",
+      การศึกษา: item.education || "",
+      อาชีพก่อนเป็นทหาร: item.previousJob || "",
+      ศาสนา: item.religion || "",
+      ว่ายน้ำได้: formatBooleanLabel(item.canSwim),
+      ทักษะพิเศษ: item.specialSkills || "",
+      ที่อยู่: item.addressLine || "",
+      จังหวัด: item.province || "",
+      อำเภอ: item.district || "",
+      ตำบล: item.subdistrict || "",
+      รหัสไปรษณีย์: item.postalCode || "",
+      อีเมล: item.email || "",
+      เบอร์โทรศัพท์: item.phone || "",
+      ผู้ติดต่อฉุกเฉิน: item.emergencyName || "",
+      เบอร์ฉุกเฉิน: item.emergencyPhone || "",
+      โรคประจำตัว: formatListField(item.chronicDiseases),
+      แพ้อาหาร: formatListField(item.foodAllergies),
+      แพ้ยา: formatListField(item.drugAllergies),
+      หมายเหตุแพทย์: item.medicalNotes || "",
+      เคยประสบอุบัติเหตุ: formatBooleanLabel(item.accidentHistory),
+      เคยผ่าตัด: formatBooleanLabel(item.surgeryHistory),
+      มีรอยสัก: formatBooleanLabel(item.tattoo),
       "ประสบการณ์ก่อนเป็นทหาร (ปี)": item.experienced ?? "",
-      "สถานะครอบครัว": item.familyStatus || "",
-      "ประกาศนียบัตร": formatListField(item.certificates),
+      สถานะครอบครัว: item.familyStatus || "",
+      ประกาศนียบัตร: formatListField(item.certificates),
       "รูปบัตรประชาชน (URL)": item.idCardImageUrl || "",
-      "คะแนนความพร้อมรบ": item.combatReadiness?.score ?? "",
-      "เปอร์เซ็นต์ความพร้อมรบ": item.combatReadiness?.percent ?? "",
-      "สร้างเมื่อ": formatDateTime(item.createdAt),
-      "อัปเดตล่าสุด": formatDateTime(item.updatedAt),
+      คะแนนความพร้อมรบ: item.combatReadiness?.score ?? "",
+      เปอร์เซ็นต์ความพร้อมรบ: item.combatReadiness?.percent ?? "",
+      สร้างเมื่อ: formatDateTime(item.createdAt),
+      อัปเดตล่าสุด: formatDateTime(item.updatedAt),
     }));
 
     const workbook = XLSX.utils.book_new();
@@ -222,7 +232,6 @@ const exportIntakes = async (req, res) => {
       .json({ message: "ไม่สามารถส่งออกข้อมูลได้", detail: err.message });
   }
 };
-
 
 const getIntakeById = async (req, res) => {
   try {
@@ -297,7 +306,10 @@ const summary = async (req, res) => {
       filters.battalionCode = unitFilter.battalionCode;
       filters.companyCode = unitFilter.companyCode;
     }
-    const data = await SoldierIntake.summary(filters.battalionCode, filters.companyCode);
+    const data = await SoldierIntake.summary(
+      filters.battalionCode,
+      filters.companyCode
+    );
     res.json({ data });
   } catch (err) {
     console.error("Failed to summarize soldier intake", err);
@@ -365,20 +377,29 @@ const importUnitAssignments = async (req, res) => {
       return text || undefined;
     };
     const normalizeCitizenId = (val) => {
-      const text = typeof val === "string" || typeof val === "number" ? String(val) : "";
+      const text =
+        typeof val === "string" || typeof val === "number" ? String(val) : "";
       const digits = text.replace(/\D/g, "").trim();
       return digits || undefined;
     };
 
     const records = rawRows.map((row) => ({
       battalionCode:
-        normalizeNumber(row["กองพัน"]) ?? normalizeNumber(row["battalion"]) ?? normalizeString(row["กองพัน"]),
+        normalizeNumber(row["กองพัน"]) ??
+        normalizeNumber(row["battalion"]) ??
+        normalizeString(row["กองพัน"]),
       companyCode:
-        normalizeNumber(row["กองร้อย"]) ?? normalizeNumber(row["company"]) ?? normalizeString(row["กองร้อย"]),
+        normalizeNumber(row["กองร้อย"]) ??
+        normalizeNumber(row["company"]) ??
+        normalizeString(row["กองร้อย"]),
       platoonCode:
-        normalizeNumber(row["หมวด"]) ?? normalizeNumber(row["platoon"]) ?? normalizeString(row["หมวด"]),
+        normalizeNumber(row["หมวด"]) ??
+        normalizeNumber(row["platoon"]) ??
+        normalizeString(row["หมวด"]),
       sequenceNumber:
-        normalizeNumber(row["ลำดับ"]) ?? normalizeNumber(row["seq"]) ?? normalizeNumber(row["sequence"]),
+        normalizeNumber(row["ลำดับ"]) ??
+        normalizeNumber(row["seq"]) ??
+        normalizeNumber(row["sequence"]),
       citizenId: normalizeCitizenId(row["เลขบัตรประชาชน"] ?? row["citizenId"]),
       firstName: normalizeString(row["ชื่อ"] ?? row["firstName"]),
       lastName: normalizeString(row["สกุล"] ?? row["lastName"]),

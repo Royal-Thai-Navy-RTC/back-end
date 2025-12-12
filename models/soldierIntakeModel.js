@@ -330,6 +330,43 @@ const buildIntakeWhereClause = (filters = {}) => {
   return where;
 };
 
+const parseCombatReadinessSort = (value) => {
+  if (value === undefined || value === null) return null;
+  const normalized = String(value).trim().toLowerCase();
+  const descKeywords = new Set([
+    "desc",
+    "descending",
+    "high-to-low",
+    "high to low",
+    "from-high",
+    "มากไปน้อย",
+    "มาก",
+    "max",
+    "high",
+  ]);
+  const ascKeywords = new Set([
+    "asc",
+    "ascending",
+    "low-to-high",
+    "low to high",
+    "from-low",
+    "น้อยไปมาก",
+    "น้อย",
+    "min",
+    "low",
+  ]);
+  if (descKeywords.has(normalized)) return "desc";
+  if (ascKeywords.has(normalized)) return "asc";
+  return null;
+};
+
+const normalizeIntakeRecords = (records = []) =>
+  records.map((record) => ({
+    ...record,
+    radarProfile: sanitizeRadarProfile(record.radarProfile),
+    combatReadiness: sanitizeCombatReadiness(record.combatReadiness),
+  }));
+
 const ensureModelAvailable = () => {
   if (!prisma.soldierIntake) {
     const err = new Error(
@@ -715,11 +752,40 @@ module.exports = {
 
   listIntakes: async (filters = {}) => {
     ensureModelAvailable();
+    const combatReadinessSort = parseCombatReadinessSort(filters.combatReadinessSort);
     const pageSize = Math.max(1, Math.min(Number(filters.pageSize) || 20, 100));
     const page = Math.max(1, Number(filters.page) || 1);
     const skip = (page - 1) * pageSize;
+    const whereFilters = { ...filters };
+    delete whereFilters.combatReadinessSort;
+    const where = buildIntakeWhereClause(whereFilters);
 
-    const where = buildIntakeWhereClause(filters);
+    if (combatReadinessSort) {
+      const items = await prisma.soldierIntake.findMany({
+        where,
+      });
+      const normalizedItems = normalizeIntakeRecords(items);
+      const getScore = (row) => {
+        const rawScore = row?.combatReadiness?.score;
+        if (Number.isFinite(rawScore)) return rawScore;
+        const rawPercent = row?.combatReadiness?.percent;
+        if (Number.isFinite(rawPercent)) return rawPercent;
+        return 0;
+      };
+      const sortedItems = normalizedItems.sort((a, b) => {
+        const diff = getScore(a) - getScore(b);
+        return combatReadinessSort === "asc" ? diff : -diff;
+      });
+      const pagedItems = sortedItems.slice(skip, skip + pageSize);
+      const total = normalizedItems.length;
+      return {
+        items: pagedItems,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      };
+    }
 
     const [items, total] = await Promise.all([
       prisma.soldierIntake.findMany({
@@ -731,11 +797,7 @@ module.exports = {
       prisma.soldierIntake.count({ where }),
     ]);
 
-    const normalizedItems = items.map((item) => ({
-      ...item,
-      radarProfile: sanitizeRadarProfile(item.radarProfile),
-      combatReadiness: sanitizeCombatReadiness(item.combatReadiness),
-    }));
+    const normalizedItems = normalizeIntakeRecords(items);
 
     return {
       items: normalizedItems,
