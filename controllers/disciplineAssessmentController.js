@@ -593,12 +593,18 @@ const listDisciplineAssessments = async (req, res) => {
       averageScore: formatScore(item.averageScore),
     }));
 
+    const formattedItems = formatted.map(item => ({
+      ...item,
+      battalion: item.battalion ? parseInt(item.battalion) : null,
+      company: item.company ? parseInt(item.company) : null
+    }));
+
     return res.json({
       page,
       pageSize,
       total,
       totalPages: Math.ceil(total / pageSize),
-      data: formatted,
+      data: formattedItems,
     });
   } catch (err) {
     console.error("listDisciplineAssessments failed:", err);

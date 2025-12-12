@@ -509,12 +509,18 @@ const listEthicsAssessments = async (req, res) => {
       average100: formatScore(item.average100),
     }));
 
+    const formattedItems = formatted.map(item => ({
+      ...item,
+      battalion: item.battalion ? parseInt(item.battalion) : null,
+      company: item.company ? parseInt(item.company) : null
+    }));
+
     return res.json({
       page,
       pageSize,
       total,
       totalPages: Math.ceil(total / pageSize),
-      data: formatted,
+      data: formattedItems,
     });
   } catch (err) {
     console.error("listEthicsAssessments failed:", err);
