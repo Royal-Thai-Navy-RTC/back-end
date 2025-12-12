@@ -330,6 +330,24 @@ const buildIntakeWhereClause = (filters = {}) => {
   return where;
 };
 
+const buildEducationCountsFromMap = (countsMap = new Map()) => {
+  const mapInstance = countsMap instanceof Map ? countsMap : new Map();
+  const baseCounts = EDUCATION_OPTIONS.map((option) => ({
+    ...option,
+    count: mapInstance.get(option.value) || 0,
+  }));
+  const extraCounts = [];
+  for (const [value, count] of mapInstance.entries()) {
+    if (!value) continue;
+    if (EDUCATION_OPTIONS.some((option) => option.value === value)) continue;
+    extraCounts.push({ value, label: value, count });
+  }
+  extraCounts.sort(
+    (a, b) => b.count - a.count || a.label.localeCompare(b.label)
+  );
+  return extraCounts.length ? baseCounts.concat(extraCounts) : baseCounts;
+};
+
 const parseCombatReadinessSort = (value) => {
   if (value === undefined || value === null) return null;
   const normalized = String(value).trim().toLowerCase();
@@ -1063,7 +1081,7 @@ module.exports = {
         religion: true,
         bloodGroup: true,
         serviceYears: true,
-        canSwim: true,
+        education: true,
       },
     });
 
@@ -1093,6 +1111,7 @@ module.exports = {
         bloodGroupCountsMap: new Map(),
         serviceYearsCountsMap: new Map(),
         canSwimCountsMap: new Map(),
+        educationCountsMap: new Map(),
       });
     });
 
@@ -1118,6 +1137,7 @@ module.exports = {
           bloodGroupCountsMap: new Map(),
           serviceYearsCountsMap: new Map(),
           canSwimCountsMap: new Map(),
+          educationCountsMap: new Map(),
         });
       }
 
@@ -1170,6 +1190,14 @@ module.exports = {
         const current = summary.canSwimCountsMap.get(cs) || 0;
         summary.canSwimCountsMap.set(cs, current + 1);
       }
+
+      if (row.education) {
+        const normalized = String(row.education).trim();
+        if (normalized) {
+          const current = summary.educationCountsMap.get(normalized) || 0;
+          summary.educationCountsMap.set(normalized, current + 1);
+        }
+      }
     });
 
     const companySummaries = Array.from(summaryMap.values())
@@ -1194,6 +1222,8 @@ module.exports = {
             count,
           }))
           .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+        const educationCounts = buildEducationCountsFromMap(item.educationCountsMap);
 
         const serviceYearsCounts = Array.from(item.serviceYearsCountsMap?.entries() || [])
           .map(([value, count]) => ({
@@ -1225,6 +1255,7 @@ module.exports = {
           combatHighCount: item.combatHighCount, //จำนวนคนที่พร้อมรบสูง (≥ 70 คะแนน)
           religionCounts,
           bloodGroupCounts,
+          educationCounts,
           serviceYearsCounts,
           canSwimCounts,
         };
