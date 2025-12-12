@@ -58,6 +58,16 @@ const parseRankingFromNote = (note) => {
   return Number.isFinite(num) ? Math.round(num) : null;
 };
 
+const extractRankingFromCell = (cellValue) => {
+  const text = safeString(cellValue);
+  if (!text) return null;
+  const match = text.match(/([0-9๐-๙]+)/);
+  if (!match) return null;
+  const digits = thaiDigitsToArabic(match[1]);
+  const num = Number(digits);
+  return Number.isFinite(num) ? Math.round(num) : null;
+};
+
 const RANGE_START_COL_INDEX = 6; // Column G
 const RANGE_END_COL_INDEX = 13; // Column N
 const RANGE_END_ROW_INDEX = 22; // Row 23 (0-based)
@@ -254,6 +264,46 @@ const buildColumnMap = (
   return map;
 };
 
+const findColumnByKeyword = (
+  worksheet,
+  rows,
+  merges,
+  headerRows,
+  startCol,
+  endCol,
+  keywords
+) => {
+  const uniqueRows = Array.from(new Set(headerRows));
+  const extraSearchRows = Array.from(
+    { length: RANGE_END_ROW_INDEX + 1 },
+    (_, idx) => idx
+  ).filter(
+    (r) =>
+      r >= 0 &&
+      r <= RANGE_END_ROW_INDEX &&
+      !uniqueRows.includes(r) &&
+      rows[r]
+  );
+  const candidateRows = [...uniqueRows, ...extraSearchRows];
+  for (const rowIndex of candidateRows) {
+    const normalized = getNormalizedRow(
+      rowIndex,
+      worksheet,
+      rows,
+      merges,
+      maxCols,
+      { startCol, endCol }
+    );
+    for (let offset = 0; offset < normalized.length; offset++) {
+      const value = normalized[offset];
+      if (containsAny(value, keywords)) {
+        return startCol + offset;
+      }
+    }
+  }
+  return null;
+};
+
 const importDisciplineAssessments = async (req, res) => {
   if (!req.file || !req.file.path) {
     return res
@@ -324,6 +374,18 @@ const importDisciplineAssessments = async (req, res) => {
       maxCols,
       rangeOptions
     );
+    columnMap.note =
+      columnMap.note ??
+      findColumnByKeyword(
+        worksheet,
+        rows,
+        merges,
+        headerRows,
+        RANGE_START_COL_INDEX,
+        RANGE_END_COL_INDEX,
+        NOTE_HEADER_KEYWORDS
+      ) ??
+      (RANGE_END_COL_INDEX > 0 ? RANGE_END_COL_INDEX - 1 : RANGE_START_COL_INDEX);
     if (!columnMap.company || !columnMap.regulation || !columnMap.total) {
       return res.status(400).json({
         message:
@@ -348,6 +410,7 @@ const importDisciplineAssessments = async (req, res) => {
     const records = [];
     let lastCompany = null;
     let lastBattalion = null;
+    let lastRanking = null;
 
     for (let rowIndex = dataStartIndex; rowIndex <= dataEndIndex; rowIndex++) {
       const rawCompany = safeString(
@@ -423,7 +486,18 @@ const importDisciplineAssessments = async (req, res) => {
         practiceParts.length > 0
           ? practiceParts.reduce((sum, value) => sum + value, 0)
           : null;
-      const ranking = parseRankingFromNote(noteValue);
+      let ranking = parseRankingFromNote(noteValue);
+      if (ranking == null) {
+        ranking = extractRankingFromCell(
+          getCellValue(rowIndex, RANGE_END_COL_INDEX)
+        );
+      }
+      if (ranking == null && lastRanking != null) {
+        ranking = lastRanking;
+      }
+      if (ranking != null) {
+        lastRanking = ranking;
+      }
       const orderNumber = records.length + 1;
 
       records.push({
