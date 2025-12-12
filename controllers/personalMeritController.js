@@ -273,11 +273,17 @@ const listPersonalMeritScores = async (req, res) => {
         mode: "insensitive",
       };
     }
+    // เรียงลำดับ: อันดับ (น้อยไปมาก) > คะแนนรวม (มากไปน้อย)
+    const orderBy = [
+      { ranking: "asc" }, // อันดับน้อยไปมาก
+      { totalScore: "desc" }, // คะแนนรวมมากไปน้อย
+      { id: "asc" }, // กรณีเท่ากัน ให้เก็บลำดับเดิมตาม id
+    ];
 
     const total = await prisma.personalMeritScore.count({ where: filters });
     const items = await prisma.personalMeritScore.findMany({
       where: filters,
-      orderBy: { importedAt: "desc" },
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
     });
