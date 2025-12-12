@@ -20,4 +20,18 @@ router.get(
   knowledgeAssessmentController.listKnowledgeAssessments
 );
 
+router.delete(
+  "/knowledge-assessments/:id",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  knowledgeAssessmentController.deleteKnowledgeAssessmentById
+);
+
+router.delete(
+  "/knowledge-assessments",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  knowledgeAssessmentController.deleteAllKnowledgeAssessments
+);
+
 module.exports = router;

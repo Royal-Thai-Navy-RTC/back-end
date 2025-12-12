@@ -654,7 +654,44 @@ const listKnowledgeAssessments = async (req, res) => {
   }
 };
 
+const deleteKnowledgeAssessmentById = async (req, res) => {
+  const assessmentId = Number(req.params.id);
+  if (!Number.isInteger(assessmentId) || assessmentId <= 0) {
+    return res.status(400).json({ message: "id ไม่ถูกต้อง" });
+  }
+  try {
+    const deleted = await prisma.knowledgeAssessment.delete({
+      where: { id: assessmentId },
+    });
+    return res.json({ message: "ลบข้อมูลสำเร็จ", deleted });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ message: "ไม่พบข้อมูลการประเมินด้านความรู้" });
+    }
+    console.error("deleteKnowledgeAssessmentById failed:", err);
+    return res.status(500).json({
+      message: "ไม่สามารถลบข้อมูลผลการประเมินด้านความรู้ได้",
+      detail: err?.message,
+    });
+  }
+};
+
+const deleteAllKnowledgeAssessments = async (_req, res) => {
+  try {
+    const result = await prisma.knowledgeAssessment.deleteMany();
+    return res.json({ message: "ลบข้อมูลทั้งหมดสำเร็จ", deleted: result.count });
+  } catch (err) {
+    console.error("deleteAllKnowledgeAssessments failed:", err);
+    return res.status(500).json({
+      message: "ไม่สามารถลบข้อมูลได้",
+      detail: err?.message,
+    });
+  }
+};
+
 module.exports = {
   importKnowledgeAssessments,
   listKnowledgeAssessments,
+  deleteKnowledgeAssessmentById,
+  deleteAllKnowledgeAssessments,
 };
