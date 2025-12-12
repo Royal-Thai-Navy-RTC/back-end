@@ -42,6 +42,7 @@ model User {
   personalMeritScoresImported PersonalMeritScore[] @relation("PersonalMeritScoreImportedBy")
   physicalAssessmentsImported    PhysicalAssessment[] @relation("PhysicalAssessmentImportedBy")
   knowledgeAssessmentsImported KnowledgeAssessment[] @relation("KnowledgeAssessmentImportedBy")
+  disciplineAssessmentsImported DisciplineAssessment[] @relation("DisciplineAssessmentImportedBy")
   ethicsAssessmentsImported     EthicsAssessment[]        @relation("EthicsAssessmentImportedBy")
   featureTogglesUpdated       FeatureToggle[]             @relation("FeatureToggleUpdatedBy")
   notificationReads           NotificationRead[]
@@ -599,4 +600,31 @@ model PhysicalAssessment {
   @@index([battalion, company])
   @@index([batchId])
   @@index([importedById], map: "PhysicalAssessment_importedById_fkey")
+}
+
+model DisciplineAssessment {
+  id             Int      @id @default(autoincrement())
+  orderNumber    Int?
+  battalion      String?  @db.VarChar(64)
+  company        String?  @db.VarChar(64)
+  infantryScore  Float?
+  drillScore     Float?
+  practiceScore  Float?
+  regulationScore Float?
+  totalScore     Float?
+  averageScore   Float?
+  note           String?  @db.VarChar(255)
+  ranking        Int?
+  batchId        String?  @db.VarChar(64)
+  sourceFile     String?  @db.VarChar(255)
+  sheetName      String?  @db.VarChar(120)
+  importedAt     DateTime @default(now())
+  importedById   Int?
+  importedBy     User?    @relation("DisciplineAssessmentImportedBy", fields: [importedById], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([battalion, company])
+  @@index([batchId])
+  @@index([importedById], map: "DisciplineAssessment_importedById_fkey")
 }
