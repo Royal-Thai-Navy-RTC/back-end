@@ -20,4 +20,18 @@ router.get(
   ethicsController.listEthicsAssessments
 );
 
+router.delete(
+  "/ethics-assessments/:id",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  ethicsController.deleteEthicsAssessmentById
+);
+
+router.delete(
+  "/ethics-assessments",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  ethicsController.deleteAllEthicsAssessments
+);
+
 module.exports = router;

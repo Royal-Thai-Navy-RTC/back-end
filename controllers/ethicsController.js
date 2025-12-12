@@ -531,7 +531,46 @@ const listEthicsAssessments = async (req, res) => {
   }
 };
 
+const deleteEthicsAssessmentById = async (req, res) => {
+  const assessmentId = Number(req.params.id);
+  if (!Number.isInteger(assessmentId) || assessmentId <= 0) {
+    return res.status(400).json({ message: "id ไม่ถูกต้อง" });
+  }
+  try {
+    const deleted = await prisma.ethicsAssessment.delete({
+      where: { id: assessmentId },
+    });
+    return res.json({ message: "ลบข้อมูลสำเร็จ", deleted });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({
+        message: "ไม่พบข้อมูลการประเมินด้านจริยธรรม",
+      });
+    }
+    console.error("deleteEthicsAssessmentById failed:", err);
+    return res.status(500).json({
+      message: "ไม่สามารถลบข้อมูลการประเมินด้านจริยธรรมได้",
+      detail: err?.message,
+    });
+  }
+};
+
+const deleteAllEthicsAssessments = async (_req, res) => {
+  try {
+    const result = await prisma.ethicsAssessment.deleteMany();
+    return res.json({ message: "ลบข้อมูลทั้งหมดสำเร็จ", deleted: result.count });
+  } catch (err) {
+    console.error("deleteAllEthicsAssessments failed:", err);
+    return res.status(500).json({
+      message: "ไม่สามารถลบข้อมูลได้",
+      detail: err?.message,
+    });
+  }
+};
+
 module.exports = {
   importEthicsAssessments,
   listEthicsAssessments,
+  deleteEthicsAssessmentById,
+  deleteAllEthicsAssessments,
 };
