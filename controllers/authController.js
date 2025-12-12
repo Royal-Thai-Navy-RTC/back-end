@@ -225,6 +225,13 @@ const register = async (req, res) => {
       .status(400)
       .json({ message: `ข้อมูลไม่ครบถ้วน: ต้องมี ${missing.join(", ")}` });
   }
+  const passwordString =
+    password === undefined || password === null ? "" : String(password);
+  if (passwordString.length < 8) {
+    return res
+      .status(400)
+      .json({ message: "รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร" });
+  }
 
   try {
     const avatarPayload =
