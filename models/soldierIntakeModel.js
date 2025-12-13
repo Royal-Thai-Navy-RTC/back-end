@@ -376,9 +376,17 @@ const buildIntakeWhereClause = (filters = {}) => {
   } else {
     applyStringContainsFilter(where, "religion", filters.religion);
   }
-  applyStringContainsFilter(where, "province", filters.province);
-  applyStringContainsFilter(where, "education", filters.education);
-  applyStringContainsFilter(where, "bloodGroup", filters.bloodGroup);
+    applyStringContainsFilter(where, "province", filters.province);
+    applyStringContainsFilter(where, "education", filters.education);
+    applyStringContainsFilter(where, "bloodGroup", filters.bloodGroup);
+
+    if (
+      filters?.serviceYears !== undefined &&
+      filters?.serviceYears !== null &&
+      Number.isFinite(Number(filters.serviceYears))
+    ) {
+      where.serviceYears = Number(filters.serviceYears);
+    }
 
   return where;
 };

@@ -158,6 +158,19 @@ const listIntakes = async (req, res) => {
     applyStringFilter("provinceFilter", "province");
     applyStringFilter("educationFilter", "education");
     applyStringFilter("bloodFilter", "bloodGroup");
+
+    const parseFloatFilter = (value) => {
+      if (value === undefined || value === null || value === "") return undefined;
+      const num = Number(value);
+      return Number.isFinite(num) ? num : undefined;
+    };
+
+    const serviceYearsValue = parseFloatFilter(req.query.serviceYears);
+    if (serviceYearsValue !== undefined) {
+      filters.serviceYears = serviceYearsValue;
+    } else {
+      delete filters.serviceYears;
+    }
     const hasSpecialSkills = normalizePresenceFilter(
       req.query.specialSkillFilter
     );
