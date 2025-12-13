@@ -97,6 +97,8 @@ const EDUCATION_OPTIONS = [
   { value: "ต่ำกว่าประถมศึกษาปีที่ 6", label: "ต่ำกว่าประถมศึกษาปีที่ 6" },
 ];
 
+const MAJOR_RELIGIONS = ["พุทธ", "อิสลาม", "คริสต์"];
+
 const COMPANY_CODES = ["1", "2", "3", "4", "5"];
 const BATTALION_CODES = ["1", "2", "3", "4"];
 
@@ -289,6 +291,22 @@ const normalizeInput = (input = {}) => {
   };
 };
 
+const applyStringContainsFilter = (where, field, value) => {
+  const normalized = normalizeString(value);
+  if (!normalized) return;
+  where[field] = {
+    contains: normalized,
+  };
+};
+
+const applyJsonArrayContainsFilter = (where, field, value) => {
+  const normalized = normalizeString(value);
+  if (!normalized) return;
+  where[field] = {
+    array_contains: [normalized],
+  };
+};
+
 const buildIntakeWhereClause = (filters = {}) => {
   const where = {};
 
@@ -326,6 +344,41 @@ const buildIntakeWhereClause = (filters = {}) => {
       ];
     }
   }
+  if (filters?.hasSpecialSkills === true) {
+    where.specialSkills = { not: null };
+  } else if (filters?.hasSpecialSkills === false) {
+    where.specialSkills = null;
+  }
+
+  const ensureAnd = () => {
+    if (!where.AND) where.AND = [];
+    return where.AND;
+  };
+
+  if (filters?.hasChronicDiseases === true) {
+    const and = ensureAnd();
+    and.push({ chronicDiseases: { not: null } });
+    and.push({ chronicDiseases: { not: [] } });
+  } else if (filters?.hasChronicDiseases === false) {
+    const and = ensureAnd();
+    and.push({
+      OR: [
+        { chronicDiseases: { equals: null } },
+        { chronicDiseases: { equals: [] } },
+      ],
+    });
+  }
+
+  if (filters?.religionOther) {
+    where.religion = {
+      notIn: MAJOR_RELIGIONS,
+    };
+  } else {
+    applyStringContainsFilter(where, "religion", filters.religion);
+  }
+  applyStringContainsFilter(where, "province", filters.province);
+  applyStringContainsFilter(where, "education", filters.education);
+  applyStringContainsFilter(where, "bloodGroup", filters.bloodGroup);
 
   return where;
 };

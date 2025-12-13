@@ -3,6 +3,7 @@ const path = require("path");
 const XLSX = require("xlsx");
 const SoldierIntake = require("../models/soldierIntakeModel");
 const FeatureToggle = require("../models/featureToggleModel");
+const { ChildProcess } = require("child_process");
 
 const ID_CARD_PUBLIC_PREFIX = "/uploads/idcards";
 
@@ -54,6 +55,30 @@ const formatBooleanLabel = (value) => {
   if (value === true) return "ใช่";
   if (value === false) return "ไม่";
   return "";
+};
+
+const normalizePresenceFilter = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return undefined;
+  const positive = new Set(["yes", "y", "true", "1", "has", "มี"]);
+  const negative = new Set(["no", "n", "false", "0", "none", "ไม่มี"]);
+  if (positive.has(normalized)) return true;
+  if (negative.has(normalized)) return false;
+  return undefined;
+};
+
+const normalizeFilterString = (value) => {
+  if (value === undefined || value === null) return undefined;
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((item) => (item === undefined || item === null ? "" : String(item).trim()))
+      .filter((item) => item);
+    if (!normalized.length) return undefined;
+    return normalized.join(", ");
+  }
+  const text = String(value).trim();
+  return text || undefined;
 };
 
 const autoFitColumns = (rows) => {
@@ -115,6 +140,53 @@ const listIntakes = async (req, res) => {
   try {
     const filters = { ...(req.query || {}) };
     const unitFilter = mapRoleToUnitFilter(req.userRole);
+
+    const applyStringFilter = (queryKey, filterKey = queryKey) => {
+      const value = normalizeFilterString(req.query[queryKey]);
+      if (value) {
+        filters[filterKey] = value;
+      } else {
+        delete filters[filterKey];
+      }
+      if (filterKey !== queryKey) {
+        delete filters[queryKey];
+      }
+    };
+
+    applyStringFilter("battalionCode");
+    applyStringFilter("companyCode");
+    applyStringFilter("provinceFilter", "province");
+    applyStringFilter("educationFilter", "education");
+    applyStringFilter("bloodFilter", "bloodGroup");
+    const hasSpecialSkills = normalizePresenceFilter(
+      req.query.specialSkillFilter
+    );
+    if (hasSpecialSkills !== undefined) {
+      filters.hasSpecialSkills = hasSpecialSkills;
+      delete filters.specialSkillFilter;
+    } else {
+      delete filters.hasSpecialSkills;
+    }
+
+    const hasChronicDiseases = normalizePresenceFilter(req.query.healthFilter);
+    if (hasChronicDiseases !== undefined) {
+      filters.hasChronicDiseases = hasChronicDiseases;
+      delete filters.healthFilter;
+    } else {
+      delete filters.hasChronicDiseases;
+    }
+
+    const normalizedReligion = normalizeFilterString(req.query.religionFilter);
+    if (normalizedReligion === "อื่นๆ") {
+      filters.religionOther = true;
+      delete filters.religion;
+    } else if (normalizedReligion) {
+      filters.religion = normalizedReligion;
+      delete filters.religionOther;
+    } else {
+      delete filters.religion;
+      delete filters.religionOther;
+    }
 
     if (unitFilter) {
       filters.battalionCode = unitFilter.battalionCode;

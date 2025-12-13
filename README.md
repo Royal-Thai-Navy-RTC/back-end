@@ -168,8 +168,8 @@ Content-Type: application/json
 - `GET /public/soldier-intake/status` — ตรวจสอบว่าเปิดรับแบบฟอร์มอยู่หรือไม่ (ไม่ต้อง login)
 - `PATCH /admin/soldier-intake/status` — body `{ enabled: boolean }` เปิด/ปิดแบบฟอร์ม (ADMIN)
 - `POST /soldier-intakes` — public form + upload บัตรประชาชน (multipart ฟิลด์ไฟล์ `file`); body fields: `firstName,lastName,citizenId,birthDate` (required) และ `weightKg,heightCm,serviceYears,bloodGroup,battalionCode,companyCode,platoonCode (int),sequenceNumber (int),education,previousJob,religion,canSwim,specialSkills,addressLine,province,district,subdistrict,postalCode,email,phone,emergencyName,emergencyPhone,chronicDiseases[],foodAllergies[],drugAllergies[],medicalNotes`; ระบบบันทึก `idCardImageUrl` ไปที่ `/uploads/idcards/...` `accidentHistory` `surgeryHistory` `experienced` `familyStatus` `certificates[]`
-- `GET /admin/soldier-intakes` (ADMIN) — query `page,pageSize,search` (ค้นหา firstName,lastName,citizenId,phone)
-- `GET /admin/soldier-intakes/export` (ADMIN) — ส่งออก Excel รายการทหารใหม่; รองรับ `search,battalionCode,companyCode,platoonCode` เหมือนหน้า list
+- `GET /admin/soldier-intakes` (ADMIN) — query `page,pageSize,search,battalionCode,companyCode,specialSkillFilter=(true|false),healthFilter=(true|false),religionFilter=(พุทธ|อิสลาม|คริสต์|อื่นๆ),provinceFilter,educationFilter,bloodFilter` (ค้นหา firstName,lastName,citizenId,phone) — `อื่นๆ` จะแสดงศาสนาที่ไม่ใช่ พุทธ/อิสลาม/คริสต์
+- `GET /admin/soldier-intakes/export` (ADMIN) — ส่งออก Excel รายการทหารใหม่; รองรับ `search,battalionCode,companyCode,specialSkillFilter=(true|false),healthFilter=(true|false),religionFilter=(พุทธ|อิสลาม|คริสต์|อื่นๆ),provinceFilter,educationFilter,bloodFilter` เหมือนหน้า list (เฉพาะ `อื่นๆ` จะไม่รวม พุทธ/อิสลาม/คริสต์)
 - `GET /admin/soldier-intakes/:id` (ADMIN) — ดูรายละเอียด intake
 - `PUT /admin/soldier-intakes/:id` (ADMIN) — แก้ไข intake; รองรับอัปโหลดบัตรใหม่ (multipart `file`)
 - `DELETE /admin/soldier-intakes/:id` (ADMIN) — ลบ intake
