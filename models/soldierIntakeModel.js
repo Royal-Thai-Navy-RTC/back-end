@@ -63,6 +63,13 @@ const normalizeBloodGroup = (value) => {
   const val = normalizeString(value);
   if (!val) return val;
   const normalized = val.toUpperCase();
+  const unknownTokens = new Set([
+    "ไม่ทราบ",
+    "UNKNOWN",
+    "NOT KNOWN",
+    "N/A",
+    "NA",
+  ]);
   const allowed = new Set([
     "A",
     "B",
@@ -77,8 +84,13 @@ const normalizeBloodGroup = (value) => {
     "O+",
     "O-",
   ]);
+  if (unknownTokens.has(normalized) || unknownTokens.has(val)) {
+    return "ไม่ทราบ";
+  }
   if (!allowed.has(normalized)) {
-    const err = new Error("หมู่เลือดไม่ถูกต้อง (ระบุเป็น A/B/AB/O หรือมี +/-)");
+    const err = new Error(
+      "หมู่เลือดไม่ถูกต้อง (ระบุเป็น A/B/AB/O หรือมี +/- หรือใส่ 'ไม่ทราบ')"
+    );
     err.code = "VALIDATION_ERROR";
     throw err;
   }
