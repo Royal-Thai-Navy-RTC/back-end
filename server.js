@@ -6,6 +6,7 @@ const rateLimit = require("express-rate-limit");
 const routes = require("./routes");
 const morgan = require("morgan");
 const config = require("./config");
+const { verifyToken, authorizeSoldierData } = require("./middlewares/middleware");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -43,6 +44,24 @@ app.use(
 
 // ---------- Static uploads ----------
 const uploadsDir = path.join(__dirname, "uploads");
+const idCardsDir = path.join(uploadsDir, "idcards");
+
+// Protect sensitive ID card images with token auth
+app.use(
+  "/uploads/idcards",
+  verifyToken,
+  authorizeSoldierData,
+  express.static(idCardsDir, {
+    setHeaders: (res, filePath) => {
+      if (/\.(png|jpe?g|webp|gif|svg)$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "private, max-age=600");
+      } else {
+        res.setHeader("Cache-Control", "private, max-age=600");
+      }
+    },
+  })
+);
+
 app.use(
   "/uploads",
   express.static(uploadsDir, {
