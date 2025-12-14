@@ -410,17 +410,27 @@ const buildIntakeWhereClause = (filters = {}) => {
   } else {
     applyStringContainsFilter(where, "religion", filters.religion);
   }
-    applyStringContainsFilter(where, "province", filters.province);
-    applyStringContainsFilter(where, "education", filters.education);
-    applyStringContainsFilter(where, "bloodGroup", filters.bloodGroup);
-
-    if (
-      filters?.serviceYears !== undefined &&
-      filters?.serviceYears !== null &&
-      Number.isFinite(Number(filters.serviceYears))
-    ) {
-      where.serviceYears = Number(filters.serviceYears);
+  // province: now expect numeric code; if digits, match exact; else fallback to contains
+  if (filters?.province !== undefined && filters?.province !== null) {
+    const provinceText = String(filters.province).trim();
+    if (provinceText) {
+      if (/^\d+$/.test(provinceText)) {
+        where.province = provinceText;
+      } else {
+        applyStringContainsFilter(where, "province", provinceText);
+      }
     }
+  }
+  applyStringContainsFilter(where, "education", filters.education);
+  applyStringContainsFilter(where, "bloodGroup", filters.bloodGroup);
+
+  if (
+    filters?.serviceYears !== undefined &&
+    filters?.serviceYears !== null &&
+    Number.isFinite(Number(filters.serviceYears))
+  ) {
+    where.serviceYears = Number(filters.serviceYears);
+  }
 
   return where;
 };

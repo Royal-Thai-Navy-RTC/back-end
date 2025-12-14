@@ -155,7 +155,6 @@ const listIntakes = async (req, res) => {
 
     applyStringFilter("battalionCode");
     applyStringFilter("companyCode");
-    applyStringFilter("provinceFilter", "province");
     applyStringFilter("educationFilter", "education");
     applyStringFilter("bloodFilter", "bloodGroup");
 
@@ -194,6 +193,19 @@ const listIntakes = async (req, res) => {
     } else {
       delete filters.hasChronicDiseases;
     }
+
+    // province filter: expect numeric province id (string or number)
+    const provinceRaw = req.query.provinceFilter;
+    const provinceCode =
+      provinceRaw === undefined || provinceRaw === null || provinceRaw === ""
+        ? undefined
+        : Number(provinceRaw);
+    if (provinceCode !== undefined && Number.isInteger(provinceCode)) {
+      filters.province = String(provinceCode);
+    } else {
+      delete filters.province;
+    }
+    delete filters.provinceFilter;
 
     const platoonCodeValue = parsePositiveIntFilter(req.query.platoonCode);
     if (platoonCodeValue !== undefined) {
@@ -256,6 +268,19 @@ const exportIntakes = async (req, res) => {
       filters.battalionCode = unitFilter.battalionCode;
       filters.companyCode = unitFilter.companyCode;
     }
+
+    // province filter: expect numeric province id
+    const provinceRaw = req.query.provinceFilter;
+    const provinceCode =
+      provinceRaw === undefined || provinceRaw === null || provinceRaw === ""
+        ? undefined
+        : Number(provinceRaw);
+    if (provinceCode !== undefined && Number.isInteger(provinceCode)) {
+      filters.province = String(provinceCode);
+    } else {
+      delete filters.province;
+    }
+    delete filters.provinceFilter;
 
     const records = await SoldierIntake.getIntakesForExport(filters);
     if (!records.length) {
