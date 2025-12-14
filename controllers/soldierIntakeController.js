@@ -159,6 +159,12 @@ const listIntakes = async (req, res) => {
     applyStringFilter("educationFilter", "education");
     applyStringFilter("bloodFilter", "bloodGroup");
 
+    const parsePositiveIntFilter = (value) => {
+      if (value === undefined || value === null || value === "") return undefined;
+      const num = Number(value);
+      return Number.isInteger(num) && num > 0 ? num : undefined;
+    };
+
     const parseFloatFilter = (value) => {
       if (value === undefined || value === null || value === "") return undefined;
       const num = Number(value);
@@ -187,6 +193,20 @@ const listIntakes = async (req, res) => {
       delete filters.healthFilter;
     } else {
       delete filters.hasChronicDiseases;
+    }
+
+    const platoonCodeValue = parsePositiveIntFilter(req.query.platoonCode);
+    if (platoonCodeValue !== undefined) {
+      filters.platoonCode = platoonCodeValue;
+    } else {
+      delete filters.platoonCode;
+    }
+
+    const sequenceNumberValue = parsePositiveIntFilter(req.query.sequenceNumber);
+    if (sequenceNumberValue !== undefined) {
+      filters.sequenceNumber = sequenceNumberValue;
+    } else {
+      delete filters.sequenceNumber;
     }
 
     const normalizedReligion = normalizeFilterString(req.query.religionFilter);

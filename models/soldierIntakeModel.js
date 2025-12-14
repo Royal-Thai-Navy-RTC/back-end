@@ -354,6 +354,17 @@ const buildIntakeWhereClause = (filters = {}) => {
     }
   }
 
+  if (
+    filters?.sequenceNumber !== undefined &&
+    filters?.sequenceNumber !== null &&
+    String(filters.sequenceNumber).trim() !== ""
+  ) {
+    const seqValue = Number(filters.sequenceNumber);
+    if (Number.isInteger(seqValue) && seqValue > 0) {
+      where.sequenceNumber = seqValue;
+    }
+  }
+
   if (filters?.search) {
     const q = String(filters.search).trim();
     if (q) {
