@@ -817,7 +817,7 @@ module.exports = {
       select: { id: true },
     });
     if (duplicate) {
-      const err = new Error("มีข้อมูลเลขบัตรประชาชนนี้แล้ว, คุณเพิ่มช้อมูลไปก่อนหน้าแล้ว");
+      const err = new Error("มีข้อมูลเลขบัตรประชาชนนี้แล้ว, คุณเพิ่มข้อมูลไปก่อนหน้าแล้ว");
       err.code = "VALIDATION_ERROR";
       throw err;
     }
