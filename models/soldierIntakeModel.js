@@ -229,6 +229,17 @@ const normalizePositiveInt = (value, field) => {
   return num;
 };
 
+const normalizeNonNegativeInt = (value, field) => {
+  if (value === undefined || value === null || value === "") return undefined;
+  const num = Number(value);
+  if (!Number.isInteger(num) || num < 0) {
+    const err = new Error(`${field} ต้องเป็นจำนวนเต็มศูนย์หรือบวก`);
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  return num;
+};
+
 const normalizeInput = (input = {}) => {
   const firstName = normalizeString(input.firstName);
   const lastName = normalizeString(input.lastName);
@@ -258,9 +269,9 @@ const normalizeInput = (input = {}) => {
   const tattoo = normalizeBool(input.tattoo);
   const accidentHistory = normalizeBool(input.accidentHistory);
   const surgeryHistory = normalizeBool(input.surgeryHistory);
-  const experienced = normalizePositiveInt(input.experienced, "experienced");
   const familyStatus = normalizeString(input.familyStatus);
   const certificates = splitList(input.certificates);
+  const experienced = normalizeNonNegativeInt(input.experienced, "experienced");
 
   return {
     firstName,
