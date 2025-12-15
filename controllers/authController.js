@@ -168,13 +168,16 @@ const saveBase64Avatar = async (userId, parsed) => {
 };
 
 // ------------------------------------------------------------------
-// ✅ Cloudflare Turnstile verify (เพิ่มใหม่)
+// ✅ Cloudflare Turnstile verify (prod เท่านั้น)
 // ตั้งค่า env: TURNSTILE_SECRET_KEY=xxxx
 // หรือเพิ่มใน config: turnstileSecret
 // ------------------------------------------------------------------
 const TURNSTILE_SECRET =
   config.turnstileSecret || process.env.TURNSTILE_SECRET_KEY || "";
-const TURNSTILE_ENABLED = Boolean(TURNSTILE_SECRET);
+
+// ✅ เฉพาะ production เท่านั้น (localhost/dev จะไม่บังคับ)
+const IS_PROD = String(process.env.NODE_ENV || "").toLowerCase() === "production";
+const TURNSTILE_ENABLED = Boolean(IS_PROD && TURNSTILE_SECRET);
 
 const verifyTurnstile = async (token, remoteip) => {
   try {
@@ -186,7 +189,10 @@ const verifyTurnstile = async (token, remoteip) => {
     const resp = await axios.post(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
       params,
-      { headers: { "Content-Type": "application/x-www-form-urlencoded" }, timeout: 8000 }
+      {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        timeout: 8000,
+      }
     );
 
     const data = resp?.data || {};
@@ -244,7 +250,10 @@ const register = async (req, res) => {
     .filter(({ value }) => value === undefined || value === null || value === "")
     .map(({ key }) => key);
   const normalizedRole = role ? String(role).trim().toUpperCase() : "";
-  if (normalizedRole === "TEACHER" && (!division || String(division).trim() === "")) {
+  if (
+    normalizedRole === "TEACHER" &&
+    (!division || String(division).trim() === "")
+  ) {
     missing.push("division");
   }
   const hasUploadedAvatar =
@@ -271,9 +280,7 @@ const register = async (req, res) => {
 
   try {
     const avatarPayload =
-      req.file || localFilePath || base64Image
-        ? undefined
-        : profileImage || avatar;
+      req.file || localFilePath || base64Image ? undefined : profileImage || avatar;
     const newUser = await User.createUser({
       username,
       password,
@@ -321,33 +328,30 @@ const register = async (req, res) => {
     if (req.file) {
       await cleanupUploadedFile(req.file);
     }
-    // Prisma unique constraint หรือ validation อื่น ๆ
     if (err.code === "VALIDATION_ERROR") {
       return res.status(400).json({ message: err.message });
     }
     if (err.code === "P2002") {
-      // P2002: Unique constraint failed
       return res
         .status(409)
         .json({ message: "ข้อมูล (username/email/phone) ซ้ำในระบบ" });
     }
     console.error("Register error:", err);
-    res
-      .status(500)
-      .json({ message: "Error registering user", detail: err.message });
+    res.status(500).json({ message: "Error registering user", detail: err.message });
   }
 };
 
 const login = async (req, res) => {
-  // ✅ รับ cfTurnstileToken มาด้วย (frontend ส่ง field นี้)
   const { username, password, cfTurnstileToken } = req.body;
 
   try {
-    // ✅ ตรวจ Turnstile ก่อนตรวจ user/pass (ลด brute force)
+    // ✅ ตรวจ Turnstile เฉพาะ production (localhost/dev จะไม่บังคับ)
     if (TURNSTILE_ENABLED) {
       if (!cfTurnstileToken || typeof cfTurnstileToken !== "string") {
         registerLoginFailure(req);
-        return res.status(400).json({ message: "กรุณายืนยัน Cloudflare challenge" });
+        return res
+          .status(400)
+          .json({ message: "กรุณายืนยัน Cloudflare challenge" });
       }
 
       const remoteip =
@@ -364,39 +368,41 @@ const login = async (req, res) => {
         registerLoginFailure(req);
         return res.status(403).json({
           message: "Cloudflare challenge ไม่ผ่าน",
-          // detail: result.errorCodes, // ถ้าจะ debug ค่อยเปิด
+          // detail: result.errorCodes,
         });
       }
     }
 
-    const user = await User.findUserByUsername(username); // ค้นหาผู้ใช้จากชื่อผู้ใช้
+    const user = await User.findUserByUsername(username);
     if (!user) {
-      // หากไม่พบผู้ใช้
       registerLoginFailure(req);
       return res.status(401).json({ message: "Invalid username or password" });
     }
-    // หากรหัสผ่านไม่ตรงกับที่เก็บไว้ในฐานข้อมูล
+
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
       registerLoginFailure(req);
       return res.status(401).json({ message: "Invalid username or password" });
     }
-    // บล็อกผู้ใช้ที่ถูกปิดการใช้งานไม่ให้เข้าสู่ระบบ
+
     if (user.isActive === false) {
       return res.status(403).json({ message: "บัญชีผู้ใช้นี้ถูกปิดการใช้งาน" });
     }
+
     const tokens = await issueTokensForUser(user);
     registerLoginSuccess(req);
     res.json(buildLoginResponse(user, tokens));
   } catch (err) {
-    // หากเกิดข้อผิดพลาดในการเข้าสู่ระบบ
     res.status(500).json({ message: "Error logging in" });
   }
 };
 
 const refreshToken = async (req, res) => {
   const providedToken =
-    (req.body && (req.body.refreshToken || req.body.refresh_token || req.body.token)) ||
+    (req.body &&
+      (req.body.refreshToken ||
+        req.body.refresh_token ||
+        req.body.token)) ||
     req.headers["x-refresh-token"];
 
   if (!providedToken || typeof providedToken !== "string") {
@@ -414,10 +420,7 @@ const refreshToken = async (req, res) => {
       await User.clearRefreshTokenForUser(user.id);
       return res.status(403).json({ message: "บัญชีผู้ใช้นี้ถูกปิดการใช้งาน" });
     }
-    if (
-      !user.refreshTokenExpiresAt ||
-      user.refreshTokenExpiresAt.getTime() < Date.now()
-    ) {
+    if (!user.refreshTokenExpiresAt || user.refreshTokenExpiresAt.getTime() < Date.now()) {
       await User.clearRefreshTokenForUser(user.id);
       return res.status(401).json({ message: "refresh token หมดอายุ" });
     }
