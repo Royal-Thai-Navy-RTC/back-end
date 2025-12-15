@@ -355,6 +355,69 @@ const listPersonalMeritScores = async (req, res) => {
   }
 };
 
+const getPersonalMeritScoresOverview = async (_req, res) => {
+  try {
+    const aggregate = await prisma.personalMeritScore.aggregate({
+      _count: true,
+      _avg: {
+        knowledgeScore: true,
+        disciplineScore: true,
+        physicalScore: true,
+        totalScore: true,
+      },
+      _min: {
+        knowledgeScore: true,
+        disciplineScore: true,
+        physicalScore: true,
+        totalScore: true,
+      },
+      _max: {
+        knowledgeScore: true,
+        disciplineScore: true,
+        physicalScore: true,
+        totalScore: true,
+      },
+    });
+
+    return res.json({
+      total: aggregate._count,
+      // totalAvgScores: aggregate._avg,
+      averageScores: {
+        knowledgeScore: aggregate._avg.knowledgeScore
+          ? Number(aggregate._avg.knowledgeScore.toFixed(2))
+          : null,
+        disciplineScore: aggregate._avg.disciplineScore
+          ? Number(aggregate._avg.disciplineScore.toFixed(2))
+          : null,
+        physicalScore: aggregate._avg.physicalScore
+          ? Number(aggregate._avg.physicalScore.toFixed(2))
+          : null,
+        totalScore: aggregate._avg.totalScore
+          ? Number(aggregate._avg.totalScore.toFixed(2))
+          : null,
+      },
+      // minScores: {
+      //   knowledgeScore: aggregate._min.knowledgeScore,
+      //   disciplineScore: aggregate._min.disciplineScore,
+      //   physicalScore: aggregate._min.physicalScore,
+      //   totalScore: aggregate._min.totalScore,
+      // },
+      // maxScores: {
+      //   knowledgeScore: aggregate._max.knowledgeScore,
+      //   disciplineScore: aggregate._max.disciplineScore,
+      //   physicalScore: aggregate._max.physicalScore,
+      //   totalScore: aggregate._max.totalScore,
+      // },
+    });
+  } catch (err) {
+    console.error("getPersonalMeritScoresOverview failed:", err);
+    return res.status(500).json({
+      message: "ไม่สามารถดึงสรุปผลคะแนนบุคคลได้",
+      detail: err?.message,
+    });
+  }
+};
+
 const deletePersonalMeritScoreById = async (req, res) => {
   const intakeId = Number(req.params.id);
   if (!Number.isInteger(intakeId) || intakeId <= 0) {
@@ -397,4 +460,5 @@ module.exports = {
   listPersonalMeritScores,
   deletePersonalMeritScoreById,
   deleteAllPersonalMeritScores,
+  getPersonalMeritScoresOverview,
 };

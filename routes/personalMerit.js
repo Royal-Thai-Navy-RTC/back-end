@@ -20,6 +20,13 @@ router.get(
   personalMeritController.listPersonalMeritScores
 );
 
+router.get(
+  "/personal-merit-scores/overview",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  personalMeritController.getPersonalMeritScoresOverview
+);
+
 router.delete(
   "/personal-merit-scores/:id",
   middleware.verifyToken,
