@@ -24,7 +24,8 @@ const thaiDigitsToArabic = (value) => {
     .join("");
 };
 
-const safeString = (value) => (value === undefined || value === null ? "" : String(value).trim());
+const safeString = (value) =>
+  value === undefined || value === null ? "" : String(value).trim();
 
 const roundScore = (value) => {
   if (value === undefined || value === null) return null;
@@ -76,7 +77,8 @@ const findHeaderRowIndex = (rows) => {
     if (!Array.isArray(row)) return false;
     const normalized = row.map((cell) => safeString(cell).toLowerCase());
     const hasName = normalized.some(
-      (cell) => cell.includes("ยศ") && (cell.includes("ชื่อ") || cell.includes("สกุล"))
+      (cell) =>
+        cell.includes("ยศ") && (cell.includes("ชื่อ") || cell.includes("สกุล"))
     );
     const hasTotal = normalized.some((cell) => cell.includes("คะแนนรวม"));
     const nextRow = rows[idx + 1];
@@ -99,7 +101,9 @@ const buildColumnMap = (headerRow, nextRow = []) => {
   primaryRow.forEach((_cell, idx) => {
     const primaryNormalized = safeString(primaryRow[idx]).toLowerCase();
     const secondaryNormalized = safeString(secondaryRow[idx]).toLowerCase();
-    const normalized = [primaryNormalized, secondaryNormalized].filter(Boolean).join(" ");
+    const normalized = [primaryNormalized, secondaryNormalized]
+      .filter(Boolean)
+      .join(" ");
     if (!normalized) return;
     if (!map.name && normalized.includes("ยศ") && normalized.includes("ชื่อ")) {
       map.name = idx;
@@ -177,8 +181,7 @@ const importPersonalMeritScores = async (req, res) => {
     );
     if (!columnMap.name || !columnMap.total) {
       return res.status(400).json({
-        message:
-          "หัวตารางไม่ครบถ้วน (ต้องมี 'ยศ ชื่อ - สกุล' และ 'คะแนนรวม')",
+        message: "หัวตารางไม่ครบถ้วน (ต้องมี 'ยศ ชื่อ - สกุล' และ 'คะแนนรวม')",
       });
     }
 
@@ -251,9 +254,10 @@ const importPersonalMeritScores = async (req, res) => {
     });
   } catch (err) {
     console.error("importPersonalMeritScores failed:", err);
-    return res
-      .status(500)
-      .json({ message: "ไม่สามารถอ่านหรือบันทึกข้อมูลได้", detail: err?.message });
+    return res.status(500).json({
+      message: "ไม่สามารถอ่านหรือบันทึกข้อมูลได้",
+      detail: err?.message,
+    });
   } finally {
     fs.existsSync(filePath) && fs.unlinkSync(filePath);
   }
@@ -263,21 +267,55 @@ const listPersonalMeritScores = async (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
     const pageSize = Math.min(200, Math.max(1, Number(req.query.pageSize) || 50));
+
+    const safeString = (value) =>
+      value === undefined || value === null ? "" : String(value).trim();
+
     const filters = {};
+
     if (req.query.batchId) {
       filters.batchId = safeString(req.query.batchId);
     }
+
+    // ✅ Prisma ของคุณ error เรื่อง mode -> ตัด mode ออก
     if (req.query.soldierName) {
-      filters.soldierName = {
-        contains: safeString(req.query.soldierName),
-        mode: "insensitive",
-      };
+      filters.soldierName = { contains: safeString(req.query.soldierName) };
     }
-    // เรียงลำดับ: อันดับ (น้อยไปมาก) > คะแนนรวม (มากไปน้อย)
+
+    // ✅ SEARCH รองรับ: "พัน.1", "พัน1", "BN.1", "bn1", "ร้อย.1", "CO.1", "co1", และ "1"
+    const searchRaw = safeString(req.query.search);
+    const s = searchRaw.replace(/\s+/g, "");
+
+    if (s) {
+      const bnMatch = s.match(/^(?:พัน|bn)\.?(?<n>\d{1,2})$/i);
+      const coMatch = s.match(/^(?:ร้อย|co)\.?(?<n>\d{1,2})$/i);
+
+      const mapped = [];
+      if (bnMatch?.groups?.n) mapped.push(`BN.${Number(bnMatch.groups.n)}`);
+      if (coMatch?.groups?.n) mapped.push(`CO.${Number(coMatch.groups.n)}`);
+
+      if (/^\d{1,2}$/.test(s)) {
+        mapped.push(`BN.${Number(s)}`, `CO.${Number(s)}`);
+      }
+
+      const terms = [searchRaw, s, ...mapped].filter(Boolean);
+
+      filters.OR = terms.flatMap((t) => [
+        { soldierName: { contains: t } },
+        { rankTitle: { contains: t } },
+        { battalion: { contains: t } },
+        { company: { contains: t } },
+      ]);
+    }
+
+    // ✅ sort ranking มาก->น้อย / น้อย->มาก ด้วย query: ?rankingOrder=asc|desc
+    const rankingOrder = (safeString(req.query.rankingOrder) || "asc").toLowerCase();
+    const rankingSort = rankingOrder === "desc" ? "desc" : "asc";
+
     const orderBy = [
-      { ranking: "asc" }, // อันดับน้อยไปมาก
-      { totalScore: "desc" }, // คะแนนรวมมากไปน้อย
-      { id: "asc" }, // กรณีเท่ากัน ให้เก็บลำดับเดิมตาม id
+      { ranking: rankingSort }, // ✅ ปรับตาม rankingOrder
+      { totalScore: "desc" },
+      { id: "asc" },
     ];
 
     const total = await prisma.personalMeritScore.count({ where: filters });
@@ -291,18 +329,14 @@ const listPersonalMeritScores = async (req, res) => {
     const formatScore = (value) =>
       value == null ? null : Number(Number(value).toFixed(2));
 
-    const formatted = items.map((item) => ({
+    const formattedItems = items.map((item) => ({
       ...item,
       knowledgeScore: formatScore(item.knowledgeScore),
       disciplineScore: formatScore(item.disciplineScore),
       physicalScore: formatScore(item.physicalScore),
       totalScore: formatScore(item.totalScore),
-    }));
-
-    const formattedItems = formatted.map(item => ({
-      ...item,
-      battalion: item.battalion ? parseInt(item.battalion.split(".")[1]) : null,
-      company: item.company ? parseInt(item.company.split(".")[1]) : null
+      battalion: item.battalion ? parseInt(String(item.battalion).split(".")[1]) : null,
+      company: item.company ? parseInt(String(item.company).split(".")[1]) : null,
     }));
 
     return res.json({
@@ -314,9 +348,10 @@ const listPersonalMeritScores = async (req, res) => {
     });
   } catch (err) {
     console.error("listPersonalMeritScores failed:", err);
-    return res
-      .status(500)
-      .json({ message: "ไม่สามารถดึงข้อมูลคะแนนบุคคลได้", detail: err?.message });
+    return res.status(500).json({
+      message: "ไม่สามารถดึงข้อมูลคะแนนบุคคลได้",
+      detail: err?.message,
+    });
   }
 };
 
@@ -335,16 +370,20 @@ const deletePersonalMeritScoreById = async (req, res) => {
       return res.status(404).json({ message: "ไม่พบข้อมูลคะแนนบุคคล" });
     }
     console.error("deletePersonalMeritScoreById failed:", err);
-    return res
-      .status(500)
-      .json({ message: "ไม่สามารถลบข้อมูลคะแนนบุคคลได้", detail: err?.message });
+    return res.status(500).json({
+      message: "ไม่สามารถลบข้อมูลคะแนนบุคคลได้",
+      detail: err?.message,
+    });
   }
 };
 
 const deleteAllPersonalMeritScores = async (_req, res) => {
   try {
     const result = await prisma.personalMeritScore.deleteMany();
-    return res.json({ message: "ลบข้อมูลทั้งหมดสำเร็จ", deleted: result.count });
+    return res.json({
+      message: "ลบข้อมูลทั้งหมดสำเร็จ",
+      deleted: result.count,
+    });
   } catch (err) {
     console.error("deleteAllPersonalMeritScores failed:", err);
     return res
