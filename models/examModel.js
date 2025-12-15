@@ -361,17 +361,27 @@ module.exports = {
     return { deleted: res.count };
   },
 
-  getExamOverview: async () => {
+  getExamOverview: async (subject) => {
+    const where = {};
+
+    const q = (subject ?? "").toString().trim();
+    if (q) {
+      where.subject = { contains: q };
+    }
+
     const [aggregate, latest] = await Promise.all([
       prisma.examResult.aggregate({
+        where,
         _count: true,
         _avg: { scoreValue: true },
       }),
       prisma.examResult.findFirst({
+        where,
         orderBy: { timestamp: "desc" },
         select: { id: true, timestamp: true },
       }),
     ]);
+
     return {
       total: aggregate?._count || 0,
       averageScore:

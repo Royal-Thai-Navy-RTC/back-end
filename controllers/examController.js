@@ -128,9 +128,11 @@ const deleteAllExamResults = async (_req, res) => {
   }
 };
 
-const getExamOverview = async (_req, res) => {
+const getExamOverview = async (req, res) => {
   try {
-    const overview = await ExamModel.getExamOverview();
+    // req subject
+    const { subject } = req.query || {};
+    const overview = await ExamModel.getExamOverview(subject);
     return res.json({ overview });
   } catch (err) {
     return handleError(err, res, "ไม่สามารถดึงสรุปผลสอบได้");
