@@ -3,6 +3,7 @@ const path = require("path");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken"); // เรียกใช้งาน jwt เพื่อใช้ในการสร้าง token
 const bcrypt = require("bcryptjs"); // เรียกใช้งาน bcryptjs เพื่อใช้ในการเข้ารหัสรหัสผ่าน
+const axios = require("axios"); // ✅ เพิ่ม: ใช้เรียก Cloudflare siteverify
 const config = require("../config"); // เรียกใช้งานไฟล์ config.js ที่เราสร้างไว้
 const User = require("../models/userModel"); // เรียกใช้งาน userModel.js ที่เราสร้างไว้
 const {
@@ -166,6 +167,41 @@ const saveBase64Avatar = async (userId, parsed) => {
   return publicPath;
 };
 
+// ------------------------------------------------------------------
+// ✅ Cloudflare Turnstile verify (เพิ่มใหม่)
+// ตั้งค่า env: TURNSTILE_SECRET_KEY=xxxx
+// หรือเพิ่มใน config: turnstileSecret
+// ------------------------------------------------------------------
+const TURNSTILE_SECRET =
+  config.turnstileSecret || process.env.TURNSTILE_SECRET_KEY || "";
+const TURNSTILE_ENABLED = Boolean(TURNSTILE_SECRET);
+
+const verifyTurnstile = async (token, remoteip) => {
+  try {
+    const params = new URLSearchParams();
+    params.append("secret", TURNSTILE_SECRET);
+    params.append("response", String(token || ""));
+    if (remoteip) params.append("remoteip", String(remoteip));
+
+    const resp = await axios.post(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      params,
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" }, timeout: 8000 }
+    );
+
+    const data = resp?.data || {};
+    return {
+      ok: Boolean(data.success),
+      errorCodes: data["error-codes"] || [],
+      // hostname: data.hostname,
+      // action: data.action,
+      // cdata: data.cdata,
+    };
+  } catch (err) {
+    return { ok: false, errorCodes: ["turnstile-verify-failed"] };
+  }
+};
+
 const register = async (req, res) => {
   const {
     username,
@@ -303,8 +339,36 @@ const register = async (req, res) => {
 };
 
 const login = async (req, res) => {
-  const { username, password } = req.body; // รับข้อมูล username และ password จาก body ของ request
+  // ✅ รับ cfTurnstileToken มาด้วย (frontend ส่ง field นี้)
+  const { username, password, cfTurnstileToken } = req.body;
+
   try {
+    // ✅ ตรวจ Turnstile ก่อนตรวจ user/pass (ลด brute force)
+    if (TURNSTILE_ENABLED) {
+      if (!cfTurnstileToken || typeof cfTurnstileToken !== "string") {
+        registerLoginFailure(req);
+        return res.status(400).json({ message: "กรุณายืนยัน Cloudflare challenge" });
+      }
+
+      const remoteip =
+        (req.headers["cf-connecting-ip"] ||
+          req.headers["x-forwarded-for"] ||
+          req.ip ||
+          "")
+          .toString()
+          .split(",")[0]
+          .trim();
+
+      const result = await verifyTurnstile(cfTurnstileToken.trim(), remoteip);
+      if (!result.ok) {
+        registerLoginFailure(req);
+        return res.status(403).json({
+          message: "Cloudflare challenge ไม่ผ่าน",
+          // detail: result.errorCodes, // ถ้าจะ debug ค่อยเปิด
+        });
+      }
+    }
+
     const user = await User.findUserByUsername(username); // ค้นหาผู้ใช้จากชื่อผู้ใช้
     if (!user) {
       // หากไม่พบผู้ใช้
