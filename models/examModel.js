@@ -5,13 +5,7 @@ const prisma = require("../utils/prisma");
 const HEADER_ALIASES = {
   timestamp: ["ประทับเวลา", "timestamp", "time", "datetime", "วันที่"],
   score: ["คะแนน", "score", "ผลสอบ", "ผลคะแนน"],
-  fullName: [
-    "ยศชื่อสกุล",
-    "ยศ-ชื่อ-สกุล",
-    "ชื่อ",
-    "ชื่อสกุล",
-    "fullname",
-  ],
+  fullName: ["ยศชื่อสกุล", "ยศ-ชื่อ-สกุล", "ชื่อ", "ชื่อสกุล", "fullname"],
   navyNumber: [
     "หมายเลขทร",
     "หมายเลขทร5ตัว",
@@ -116,8 +110,12 @@ const normalizeNavyNumber = (value) => {
 // ดึงรหัสกองร้อย/กองพันจากข้อความสังกัด เช่น "ร้อย.1 พัน.1"
 const parseUnitCodes = (unitText) => {
   const text = safeString(unitText).replace(/\s+/g, "");
-  const companyMatch = text.match(/ร้อย\.?(\d+)/) || text.match(/company\.?(\d+)/i);
-  const battalionMatch = text.match(/พัน\.?(\d+)/) || text.match(/battalion\.?(\d+)/i);
+  const battalionMatch =
+    text.match(/พัน\.?(?:ฝ\.)?\s*(\d+)/) || text.match(/battalion\.?\s*(\d+)/i);
+
+  const companyMatch =
+    text.match(/ร้อย\.?(?:ฝ\.)?\s*(\d+)/) || text.match(/company\.?\s*(\d+)/i);
+
   const companyCode = companyMatch ? companyMatch[1] : null;
   const battalionCode = battalionMatch ? battalionMatch[1] : null;
   return { companyCode, battalionCode };
@@ -152,9 +150,7 @@ const buildExamRows = (rows, importedById, defaultSubject) => {
         ? safeString(row[headerIndexes.subject]) || null
         : null;
     const subject = defaultSubject || columnSubject;
-    const ts =
-      parseTimestamp(row[headerIndexes.timestamp]) ||
-      new Date(); // fallback to now if missing
+    const ts = parseTimestamp(row[headerIndexes.timestamp]) || new Date(); // fallback to now if missing
     const score = parseScore(row[headerIndexes.score]);
 
     if (!fullName && !score.scoreText && !navyNumber) {
@@ -214,10 +210,7 @@ module.exports = {
 
   listExamResults: async (filters = {}) => {
     const page = Math.max(Number(filters.page) || 1, 1);
-    const pageSize = Math.max(
-      1,
-      Math.min(Number(filters.pageSize) || 20, 200)
-    );
+    const pageSize = Math.max(1, Math.min(Number(filters.pageSize) || 20, 200));
     const skip = (page - 1) * pageSize;
 
     const search = safeString(filters.search);
@@ -283,7 +276,8 @@ module.exports = {
 
   summarizeExamResults: async (filters = {}) => {
     const battalionCodesList =
-      Array.isArray(filters.battalionCodesList) && filters.battalionCodesList.length
+      Array.isArray(filters.battalionCodesList) &&
+      filters.battalionCodesList.length
         ? filters.battalionCodesList.map((c) => safeString(c)).filter(Boolean)
         : ["1", "2", "3", "4"];
     const companyCodesList =
@@ -336,7 +330,9 @@ module.exports = {
         { sum: 0, count: 0 }
       );
       const averageScore =
-        totals.count > 0 ? Number((totals.sum / totals.count).toFixed(2)) : null;
+        totals.count > 0
+          ? Number((totals.sum / totals.count).toFixed(2))
+          : null;
       return {
         battalionCode: bCode,
         averageScore,
@@ -411,7 +407,9 @@ module.exports = {
     });
 
     return Array.from(groups.values()).sort((a, b) => {
-      const battalionCmp = String(a.battalionCode).localeCompare(String(b.battalionCode));
+      const battalionCmp = String(a.battalionCode).localeCompare(
+        String(b.battalionCode)
+      );
       if (battalionCmp !== 0) return battalionCmp;
       return String(a.companyCode).localeCompare(String(b.companyCode));
     });
