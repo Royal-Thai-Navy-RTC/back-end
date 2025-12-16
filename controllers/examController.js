@@ -175,13 +175,15 @@ const exportExamResults = async (req, res) => {
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
-    res.setHeader("Content-Disposition", 'attachment; filename="exam-results.xlsx"');
+    res.setHeader("Content-Disposition", 'attachment; filename="' +
+      `exam_results${subject ? `_${subject}` : ""}_${new Date()
+        .toISOString()
+        .slice(0, 10)}.xlsx"`);
     return res.send(buffer);
   } catch (err) {
-    return handleError(err, res, "ไม่สามารถส่งออกผลสอบได้");
+    return handleError(err, res, "ไม่สามารถส่งออกผลสอบเป็นไฟล์ Excel ได้");
   }
-};
-
+}
 module.exports = {
   importExamExcel,
   listExamResults,
