@@ -931,7 +931,7 @@ module.exports = {
     if (eligibleNcoMode === "eligible" || eligibleNcoMode === "ineligible") {
       const today = new Date();
       const cutoffBirthDate = new Date(
-        today.getFullYear() - 23,
+        today.getFullYear() - 24,
         today.getMonth(),
         today.getDate()
       );
