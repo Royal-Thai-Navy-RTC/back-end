@@ -26,12 +26,15 @@ services:
     ports:
       - "8080:80"
     environment:
-      TZ: Asia/Bangkok                # phpMyAdmin ใช้เวลา Asia/Bangkok ด้วย
+      TZ: Asia/Bangkok
       PMA_HOST: db
       PMA_USER: root
       PMA_PASSWORD: rootpass
+      UPLOAD_LIMIT: 1024M
+      MEMORY_LIMIT: 1024M
     depends_on:
       - db
+
 
 volumes:
   db_data:
