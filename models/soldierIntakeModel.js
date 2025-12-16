@@ -893,28 +893,28 @@ module.exports = {
 
     const where = buildIntakeWhereClause(whereFilters);
 
-    // ✅ Education: ม.6 ขึ้นไป
+    // ✅ Education: ม.6 ขึ้นไป (ตัด mode ออก)
     const EDUCATION_MIN_M6 = [
       "ม.6",
       "ม 6",
       "มัธยมศึกษาปีที่ 6",
       "มัธยมปลาย",
       "ปวช",
+      "ปวช.",
       "ปวส",
+      "ปวส.",
       "อนุปริญญา",
       "ปริญญาตรี",
       "ปริญญาโท",
       "ปริญญาเอก",
     ];
 
-    // ✅ แก้: ตัด mode: "insensitive" ออก
     const educationEligibleCond = {
       OR: EDUCATION_MIN_M6.map((kw) => ({
         education: { contains: kw },
       })),
     };
 
-    // ✅ แก้: ตัด mode: "insensitive" ออก
     const educationIneligibleCond = {
       OR: [
         { education: null },
@@ -926,7 +926,7 @@ module.exports = {
       ],
     };
 
-    // ✅ NCO eligibility filter (field จริงตามตัวอย่างข้อมูล)
+    // ✅ NCO eligibility filter
     if (eligibleNcoMode === "eligible" || eligibleNcoMode === "ineligible") {
       const today = new Date();
       const cutoffBirthDate = new Date(
@@ -935,10 +935,11 @@ module.exports = {
         today.getDate()
       );
 
-      const tattooTrue = { tattoo: true };
-      const tattooFalse = { tattoo: false };
-      const swimTrue = { canSwim: true };
-      const swimFalse = { canSwim: false };
+      // ✅ แก้: ใช้ 0/1 ให้ตรงกับข้อมูลจริง
+      const tattooTrue = { tattoo: 1 };
+      const tattooFalse = { tattoo: 0 };
+      const swimTrue = { canSwim: 1 };
+      const swimFalse = { canSwim: 0 };
 
       const hasChronic = { NOT: { chronicDiseases: { equals: [] } } };
       const noChronic = { chronicDiseases: { equals: [] } };
@@ -947,16 +948,16 @@ module.exports = {
         // อายุไม่เกิน 24
         where.birthDate = { ...(where.birthDate || {}), gte: cutoffBirthDate };
 
-        // ใช้ AND ร่วมกับฟิลเตอร์เดิม
+        // AND ร่วมกับฟิลเตอร์เดิม
         where.AND = Array.isArray(where.AND) ? [...where.AND] : [];
 
         // ไม่มีโรคประจำตัว
         where.AND.push(noChronic);
 
-        // ไม่มีรอยสัก + ว่ายน้ำได้
+        // ไม่มีรอยสัก + ว่ายน้ำได้ (0/1)
         where.AND.push(tattooFalse, swimTrue);
 
-        // ✅ การศึกษา ม.6 ขึ้นไป
+        // การศึกษา ม.6 ขึ้นไป
         where.AND.push(educationEligibleCond);
 
         delete where.OR;
@@ -967,7 +968,6 @@ module.exports = {
           hasChronic,
           tattooTrue,
           swimFalse,
-          // ✅ การศึกษาไม่ถึง ม.6 (หรือ null)
           educationIneligibleCond,
         ];
 
@@ -975,7 +975,6 @@ module.exports = {
           ? [...where.OR, ...ineligibleOr]
           : ineligibleOr;
 
-        // กันชนกับ birthDate แบบ AND เดิม
         if (where.birthDate) delete where.birthDate;
       }
     }
