@@ -551,15 +551,6 @@ const computeBmi = (weightKg, heightCm) => {
   return w / (m * m);
 };
 
-const isMeaningfulHealthValue = (v) => {
-  if (v == null) return false;
-  const s = v.toString().trim();
-  if (!s) return false;
-  const lower = s.toLowerCase();
-  if (["ไม่มี", "none", "no", "-", "ไม่ระบุ"].includes(lower)) return false;
-  return true;
-};
-
 const normalizeListText = (value = "") =>
   String(value)
     .split(/[,|;]/)
@@ -764,6 +755,21 @@ const buildRadarProfileForItem = (item) => {
   };
 };
 
+// เทียบเท่า isMeaningfulHealthValue แบบใช้งานจริง
+const isMeaningfulHealthValue = (v) => {
+  if (v === undefined || v === null) return false;
+  const s = String(v).trim().toLowerCase();
+  if (!s) return false;
+
+  // ค่าที่ถือว่า "ไม่มี/ไม่ระบุ"
+  const NO = new Set([
+    "-", "ไม่", "ไม่มี", "ไม่มีโรค", "ไม่มีโรคประจำตัว",
+    "none", "n/a", "na", "null",
+  ]);
+
+  return !NO.has(s);
+};
+
 const hasChronicDisease = (item) => {
   const list = Array.isArray(item?.chronicDiseases)
     ? item.chronicDiseases.filter(isMeaningfulHealthValue)
@@ -783,25 +789,49 @@ const hasAnyAllergy = (item) => {
 
 const computeAge = (birthDate) => {
   if (!birthDate) return null;
+  const bd = new Date(birthDate);
+  if (Number.isNaN(bd.getTime())) return null;
+
   const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const m = today.getMonth() - birthDate.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
+  let age = today.getFullYear() - bd.getFullYear();
+  const m = today.getMonth() - bd.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < bd.getDate())) age--;
   return age;
 };
 
-// ใช้เงื่อนไข: ว่ายน้ำได้, อายุ ≤ 23, ไม่มีโรคประจำตัว, ไม่มีรอยสักในร่มผ้า
+const EDUCATION_MIN_M6 = [
+  "ม.6",
+  "ม 6",
+  "มัธยมศึกษาปีที่ 6",
+  "มัธยมปลาย",
+  "ปวช",
+  "ปวช.",
+  "ปวส",
+  "ปวส.",
+  "อนุปริญญา",
+  "ปริญญาตรี",
+  "ปริญญาโท",
+  "ปริญญาเอก",
+];
+
+const isEducationEligible = (item) => {
+  const edu = (item?.education ?? "").toString().trim();
+  if (!edu) return false;
+  return EDUCATION_MIN_M6.some((kw) => edu.includes(kw));
+};
+
+
 const isEligibleNcoStudent = (item) => {
   const age = computeAge(item.birthDate);
   if (age == null) return false;
 
   const canSwim = !!item.canSwim;
   const chronic = hasChronicDisease(item);
-  const tattoo = !!item.tattoo; // ถ้า field ชื่ออื่น เปลี่ยนตรงนี้
+  const tattoo = !!item.tattoo;
 
-  return canSwim && age <= 23 && !chronic && !tattoo;
+  const eduOk = isEducationEligible(item);
+
+  return canSwim && age <= 24 && !chronic && !tattoo && eduOk;
 };
 
 // คะแนนความพร้อมรบแบบง่ายๆ 0–100
