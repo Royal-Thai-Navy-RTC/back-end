@@ -137,19 +137,38 @@ exports.getNewsForHome = async (req, res) => {
  */
 exports.getNewsById = async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const rawId = req.params.id;
+
+    if (!rawId || !/^\d+$/.test(rawId)) {
+      return res.status(400).json({
+        message: "รูปแบบรหัสข่าวไม่ถูกต้อง",
+      });
+    }
+
+    const id = Number(rawId);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({
+        message: "รูปแบบรหัสข่าวไม่ถูกต้อง",
+      });
+    }
+
     const news = await prisma.news.findUnique({
       where: { id },
     });
 
     if (!news) {
-      return res.status(404).json({ message: "ไม่พบข่าวที่ระบุ" });
+      return res.status(404).json({
+        message: "ไม่พบข่าวตามรหัสที่ระบุ",
+      });
     }
 
     return res.json({ data: news });
   } catch (err) {
     console.error("getNewsById error:", err);
-    return res.status(500).json({ message: "เกิดข้อผิดพลาดในระบบ" });
+    return res.status(500).json({
+      message: "ไม่สามารถดำเนินการได้ในขณะนี้",
+    });
   }
 };
 
