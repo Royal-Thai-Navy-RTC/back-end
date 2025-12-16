@@ -1054,6 +1054,20 @@ module.exports = {
       };
     }
 
+    // hasSpecialSkills filter hasSpecialSkills
+    if (filters.hasSpecialSkills === true) {
+      const and = where.AND || [];
+      and.push({ specialSkills: { not: null } });
+      and.push({ specialSkills: { not: "" } });
+      and.push({ specialSkills: { not: "-" } });
+      and.push({ specialSkills: { not: "ไม่มี" } });
+      where.AND = and;
+    } else if (filters.hasSpecialSkills === false) {
+      const and = where.AND || [];
+      and.push({ specialSkills: null });
+      where.AND = and;
+    }
+
     // -----------------------------
     // 2) Normal list (ให้ตารางตรงกับกราฟ)
     // -----------------------------
