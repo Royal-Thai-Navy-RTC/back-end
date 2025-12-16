@@ -893,7 +893,7 @@ module.exports = {
 
     const where = buildIntakeWhereClause(whereFilters);
 
-    // ✅ Education: ม.6 ขึ้นไป (ตัด mode ออก)
+    // ✅ Education: ม.6 ขึ้นไป (ไม่มี mode)
     const EDUCATION_MIN_M6 = [
       "ม.6",
       "ม 6",
@@ -935,31 +935,34 @@ module.exports = {
         today.getDate()
       );
 
-      // ✅ แก้: ใช้ 0/1 ให้ตรงกับข้อมูลจริง
-      const tattooTrue = { tattoo: 1 };
-      const tattooFalse = { tattoo: 0 };
-      const swimTrue = { canSwim: 1 };
-      const swimFalse = { canSwim: 0 };
+      // Prisma schema เป็น Boolean (อาจ nullable) -> ใช้ true/false เท่านั้น
+      // - eligible ต้อง: tattoo=false, canSwim=true
+      // - ineligible คือ: tattoo=true OR canSwim=false OR tattoo/canSwim เป็น null ก็ถือว่าไม่ผ่าน (เลือกได้)
+      const tattooFalse = { tattoo: false };
+      const tattooTrue = { tattoo: true };
+      const swimTrue = { canSwim: true };
+      const swimFalse = { canSwim: false };
 
-      const hasChronic = { NOT: { chronicDiseases: { equals: [] } } };
+      // chronicDiseases เป็น array/JSON
       const noChronic = { chronicDiseases: { equals: [] } };
+      const hasChronic = { NOT: { chronicDiseases: { equals: [] } } };
 
       if (eligibleNcoMode === "eligible") {
-        // อายุไม่เกิน 24
         where.birthDate = { ...(where.birthDate || {}), gte: cutoffBirthDate };
 
-        // AND ร่วมกับฟิลเตอร์เดิม
         where.AND = Array.isArray(where.AND) ? [...where.AND] : [];
 
         // ไม่มีโรคประจำตัว
         where.AND.push(noChronic);
 
-        // ไม่มีรอยสัก + ว่ายน้ำได้ (0/1)
+        // ไม่มีรอยสัก + ว่ายน้ำได้
         where.AND.push(tattooFalse, swimTrue);
 
-        // การศึกษา ม.6 ขึ้นไป
+        // ✅ การศึกษา ม.6 ขึ้นไป
         where.AND.push(educationEligibleCond);
 
+        // ถ้าค่าบาง record เป็น NULL และคุณ "ไม่อยาก" ให้ติด eligible อยู่แล้ว ก็ไม่ต้องทำอะไรเพิ่ม
+        // (tattooFalse & swimTrue จะไม่ match ถ้าเป็น null)
         delete where.OR;
       } else {
         // ไม่มีสิทธิ์สอบ = ตกข้อใดข้อหนึ่ง
@@ -968,6 +971,11 @@ module.exports = {
           hasChronic,
           tattooTrue,
           swimFalse,
+
+          // ถ้า tattoo/canSwim เป็น NULL ให้ถือว่าไม่ผ่านด้วย (แนะนำ)
+          { tattoo: null },
+          { canSwim: null },
+
           educationIneligibleCond,
         ];
 
