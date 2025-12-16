@@ -21,6 +21,7 @@ const examAccessRoleSet = new Set([
   "SCHEDULE_ADMIN",
   "FORM_CREATOR",
   "EXAM_UPLOADER",
+  "COMMANDER",
 ]);
 const leaveRequesterRoleSet = new Set([
   ...adminRoleSet,
@@ -40,6 +41,7 @@ const nonStudentRoleSet = new Set([
 ]);
 const companyRoleSet = new Set([
   ...adminRoleSet,
+  "COMMANDER",
   "BAT1_COM1",
   "BAT1_COM2",
   "BAT1_COM3",
@@ -322,7 +324,6 @@ module.exports = {
 
       const role = normalizeRole(user.role);
       req.userRole = role;
-
       if (!companyRoleSet.has(role)) {
         return res.status(403).json({
           message: "Allowed only for staff / company roles",

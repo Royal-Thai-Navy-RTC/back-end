@@ -426,6 +426,7 @@ model SoldierIntake {
 
 enum Role {
   OWNER          @map("Owner")
+  COMMANDER      @map("ผู้บังคับบัญชา")
   ADMIN          @map("แอดมิน")
   SUB_ADMIN      @map("ผู้ช่วยแอดมิน")
   SCHEDULE_ADMIN @map("ผู้ดูแลตารางสอน")
