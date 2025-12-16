@@ -139,6 +139,15 @@ const getExamOverview = async (req, res) => {
   }
 };
 
+const mapSubject = (code) => {
+  const mapping = {
+    theory: "ทฤษฎี (การเรือ, การอาวุธ, ปคส.)",
+    rules: "กฎระเบียบและข้อบังคับ (วินัย)",
+    morality: "คุณธรรมจริยธรรม และทัศนคติ",
+  };
+  return mapping[code] || code;
+}
+
 const exportExamResults = async (req, res) => {
   try {
     const { subject } = req.query || {};
@@ -151,7 +160,7 @@ const exportExamResults = async (req, res) => {
     groups.forEach((group) => {
       const rows = group.items.map((item) => ({
         "ประทับเวลา": formatDateTime(item.timestamp),
-        "วิชา": item.subject || "",
+        "วิชา": mapSubject(item.subject),
         "คะแนน": item.scoreText || "",
         "คะแนนที่ได้": item.scoreValue ?? "",
         "คะแนนรวม": item.scoreTotal ?? "",
