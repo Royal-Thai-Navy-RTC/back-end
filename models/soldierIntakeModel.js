@@ -1,4 +1,5 @@
 const prisma = require("../utils/prisma");
+const { Prisma } = require("../generated/prisma");
 
 const normalizeString = (value) => {
   if (value === undefined || value === null) return undefined;
@@ -943,9 +944,24 @@ module.exports = {
       const swimTrue = { canSwim: true };
       const swimFalse = { canSwim: false };
 
-      // chronicDiseases เป็น array/JSON
-      const noChronic = { chronicDiseases: { equals: [] } };
-      const hasChronic = { NOT: { chronicDiseases: { equals: [] } } };
+      // chronicDiseases เป็น Json? (nullable) ต้องใช้ DbNull/JsonNull ผ่าน equals เท่านั้น
+      const noChronic = {
+        OR: [
+          { chronicDiseases: { equals: [] } }, // JSON array ว่าง
+          { chronicDiseases: { equals: Prisma.DbNull } }, // ค่า NULL ใน DB
+          { chronicDiseases: { equals: Prisma.JsonNull } }, // ค่า JSON null (เผื่อมี)
+        ],
+      };
+
+      const hasChronic = {
+        NOT: {
+          OR: [
+            { chronicDiseases: { equals: [] } },
+            { chronicDiseases: { equals: Prisma.DbNull } },
+            { chronicDiseases: { equals: Prisma.JsonNull } },
+          ],
+        },
+      };
 
       if (eligibleNcoMode === "eligible") {
         where.birthDate = { ...(where.birthDate || {}), gte: cutoffBirthDate };
