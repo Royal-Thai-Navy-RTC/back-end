@@ -838,7 +838,9 @@ module.exports = {
       select: { id: true },
     });
     if (duplicate) {
-      const err = new Error("มีข้อมูลเลขบัตรประชาชนนี้แล้ว, คุณเพิ่มข้อมูลไปก่อนหน้าแล้ว");
+      const err = new Error(
+        "มีข้อมูลเลขบัตรประชาชนนี้แล้ว, คุณเพิ่มข้อมูลไปก่อนหน้าแล้ว"
+      );
       err.code = "VALIDATION_ERROR";
       throw err;
     }
@@ -875,19 +877,113 @@ module.exports = {
 
   listIntakes: async (filters = {}) => {
     ensureModelAvailable();
-    const combatReadinessSort = parseCombatReadinessSort(filters.combatReadinessSort);
+
+    const combatReadinessSort = parseCombatReadinessSort(
+      filters.combatReadinessSort
+    );
     const pageSize = Math.max(1, Math.min(Number(filters.pageSize) || 20, 100));
     const page = Math.max(1, Number(filters.page) || 1);
     const skip = (page - 1) * pageSize;
+
     const whereFilters = { ...filters };
     delete whereFilters.combatReadinessSort;
+
+    const eligibleNcoMode = whereFilters.eligibleNcoMode; // "eligible" | "ineligible"
+    delete whereFilters.eligibleNcoMode;
+
     const where = buildIntakeWhereClause(whereFilters);
 
+    // ✅ Education: ม.6 ขึ้นไป
+    const EDUCATION_MIN_M6 = [
+      "ม.6",
+      "ม 6",
+      "มัธยมศึกษาปีที่ 6",
+      "มัธยมปลาย",
+      "ปวช",
+      "ปวส",
+      "อนุปริญญา",
+      "ปริญญาตรี",
+      "ปริญญาโท",
+      "ปริญญาเอก",
+    ];
+
+    // ✅ แก้: ตัด mode: "insensitive" ออก
+    const educationEligibleCond = {
+      OR: EDUCATION_MIN_M6.map((kw) => ({
+        education: { contains: kw },
+      })),
+    };
+
+    // ✅ แก้: ตัด mode: "insensitive" ออก
+    const educationIneligibleCond = {
+      OR: [
+        { education: null },
+        {
+          AND: EDUCATION_MIN_M6.map((kw) => ({
+            education: { not: { contains: kw } },
+          })),
+        },
+      ],
+    };
+
+    // ✅ NCO eligibility filter (field จริงตามตัวอย่างข้อมูล)
+    if (eligibleNcoMode === "eligible" || eligibleNcoMode === "ineligible") {
+      const today = new Date();
+      const cutoffBirthDate = new Date(
+        today.getFullYear() - 24,
+        today.getMonth(),
+        today.getDate()
+      );
+
+      const tattooTrue = { tattoo: true };
+      const tattooFalse = { tattoo: false };
+      const swimTrue = { canSwim: true };
+      const swimFalse = { canSwim: false };
+
+      const hasChronic = { NOT: { chronicDiseases: { equals: [] } } };
+      const noChronic = { chronicDiseases: { equals: [] } };
+
+      if (eligibleNcoMode === "eligible") {
+        // อายุไม่เกิน 24
+        where.birthDate = { ...(where.birthDate || {}), gte: cutoffBirthDate };
+
+        // ใช้ AND ร่วมกับฟิลเตอร์เดิม
+        where.AND = Array.isArray(where.AND) ? [...where.AND] : [];
+
+        // ไม่มีโรคประจำตัว
+        where.AND.push(noChronic);
+
+        // ไม่มีรอยสัก + ว่ายน้ำได้
+        where.AND.push(tattooFalse, swimTrue);
+
+        // ✅ การศึกษา ม.6 ขึ้นไป
+        where.AND.push(educationEligibleCond);
+
+        delete where.OR;
+      } else {
+        // ไม่มีสิทธิ์สอบ = ตกข้อใดข้อหนึ่ง
+        const ineligibleOr = [
+          { birthDate: { lt: cutoffBirthDate } },
+          hasChronic,
+          tattooTrue,
+          swimFalse,
+          // ✅ การศึกษาไม่ถึง ม.6 (หรือ null)
+          educationIneligibleCond,
+        ];
+
+        where.OR = Array.isArray(where.OR)
+          ? [...where.OR, ...ineligibleOr]
+          : ineligibleOr;
+
+        // กันชนกับ birthDate แบบ AND เดิม
+        if (where.birthDate) delete where.birthDate;
+      }
+    }
+
     if (combatReadinessSort) {
-      const items = await prisma.soldierIntake.findMany({
-        where,
-      });
+      const items = await prisma.soldierIntake.findMany({ where });
       const normalizedItems = normalizeIntakeRecords(items);
+
       const getScore = (row) => {
         const rawScore = row?.combatReadiness?.score;
         if (Number.isFinite(rawScore)) return rawScore;
@@ -895,12 +991,15 @@ module.exports = {
         if (Number.isFinite(rawPercent)) return rawPercent;
         return 0;
       };
+
       const sortedItems = normalizedItems.sort((a, b) => {
         const diff = getScore(a) - getScore(b);
         return combatReadinessSort === "asc" ? diff : -diff;
       });
+
       const pagedItems = sortedItems.slice(skip, skip + pageSize);
       const total = normalizedItems.length;
+
       return {
         items: pagedItems,
         total,
@@ -1320,7 +1419,9 @@ module.exports = {
           }))
           .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 
-        const bloodGroupCounts = Array.from(item.bloodGroupCountsMap?.entries() || [])
+        const bloodGroupCounts = Array.from(
+          item.bloodGroupCountsMap?.entries() || []
+        )
           .map(([value, count]) => ({
             value,
             label: value,
@@ -1328,9 +1429,13 @@ module.exports = {
           }))
           .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 
-        const educationCounts = buildEducationCountsFromMap(item.educationCountsMap);
+        const educationCounts = buildEducationCountsFromMap(
+          item.educationCountsMap
+        );
 
-        const serviceYearsCounts = Array.from(item.serviceYearsCountsMap?.entries() || [])
+        const serviceYearsCounts = Array.from(
+          item.serviceYearsCountsMap?.entries() || []
+        )
           .map(([value, count]) => ({
             value,
             label: value,

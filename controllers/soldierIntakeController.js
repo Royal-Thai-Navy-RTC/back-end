@@ -176,9 +176,8 @@ const listIntakes = async (req, res) => {
     } else {
       delete filters.serviceYears;
     }
-    const hasSpecialSkills = normalizePresenceFilter(
-      req.query.specialSkillFilter
-    );
+
+    const hasSpecialSkills = normalizePresenceFilter(req.query.specialSkillFilter);
     if (hasSpecialSkills !== undefined) {
       filters.hasSpecialSkills = hasSpecialSkills;
       delete filters.specialSkillFilter;
@@ -194,12 +193,13 @@ const listIntakes = async (req, res) => {
       delete filters.hasChronicDiseases;
     }
 
-    // province filter: expect numeric province id (string or number)
+    // province filter
     const provinceRaw = req.query.provinceFilter;
     const provinceCode =
       provinceRaw === undefined || provinceRaw === null || provinceRaw === ""
         ? undefined
         : Number(provinceRaw);
+
     if (provinceCode !== undefined && Number.isInteger(provinceCode)) {
       filters.province = String(provinceCode);
     } else {
@@ -240,6 +240,17 @@ const listIntakes = async (req, res) => {
 
     const combatReadinessSort = filters.combatReadinessSort;
     delete filters.combatReadinessSort;
+
+    // ✅ eligibleNcoFilter true/false
+    const eligibleNcoRaw = normalizePresenceFilter(req.query.eligibleNcoFilter);
+    if (eligibleNcoRaw === true) {
+      filters.eligibleNcoMode = "eligible";
+    } else if (eligibleNcoRaw === false) {
+      filters.eligibleNcoMode = "ineligible";
+    } else {
+      delete filters.eligibleNcoMode;
+    }
+    delete filters.eligibleNcoFilter;
 
     const result = await SoldierIntake.listIntakes({
       ...filters,
