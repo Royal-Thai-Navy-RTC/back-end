@@ -763,8 +763,15 @@ const isMeaningfulHealthValue = (v) => {
 
   // ค่าที่ถือว่า "ไม่มี/ไม่ระบุ"
   const NO = new Set([
-    "-", "ไม่", "ไม่มี", "ไม่มีโรค", "ไม่มีโรคประจำตัว",
-    "none", "n/a", "na", "null",
+    "-",
+    "ไม่",
+    "ไม่มี",
+    "ไม่มีโรค",
+    "ไม่มีโรคประจำตัว",
+    "none",
+    "n/a",
+    "na",
+    "null",
   ]);
 
   return !NO.has(s);
@@ -819,7 +826,6 @@ const isEducationEligible = (item) => {
   if (!edu) return false;
   return EDUCATION_MIN_M6.some((kw) => edu.includes(kw));
 };
-
 
 const isEligibleNcoStudent = (item) => {
   const age = computeAge(item.birthDate);
@@ -922,9 +928,51 @@ module.exports = {
     const eligibleNcoMode = whereFilters.eligibleNcoMode; // "eligible" | "ineligible"
     delete whereFilters.eligibleNcoMode;
 
+    // Prisma where ปกติ (ตาม filter ทั่วไป)
     const where = buildIntakeWhereClause(whereFilters);
 
-    // ✅ Education: ม.6 ขึ้นไป (ไม่มี mode)
+    // -----------------------------
+    // Summary/Graph-equivalent logic
+    // -----------------------------
+    const isMeaningfulHealthValue = (v) => {
+      if (v === undefined || v === null) return false;
+      const s = String(v).trim().toLowerCase();
+      if (!s) return false;
+
+      const NO = new Set([
+        "-",
+        "ไม่",
+        "ไม่มี",
+        "ไม่มีโรค",
+        "ไม่มีโรคประจำตัว",
+        "none",
+        "n/a",
+        "na",
+        "null",
+      ]);
+
+      return !NO.has(s);
+    };
+
+    const hasChronicDisease = (item) => {
+      const list = Array.isArray(item?.chronicDiseases)
+        ? item.chronicDiseases.filter(isMeaningfulHealthValue)
+        : [];
+      return list.length > 0;
+    };
+
+    const computeAge = (birthDate) => {
+      if (!birthDate) return null;
+      const bd = new Date(birthDate);
+      if (Number.isNaN(bd.getTime())) return null;
+
+      const today = new Date();
+      let age = today.getFullYear() - bd.getFullYear();
+      const m = today.getMonth() - bd.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < bd.getDate())) age--;
+      return age;
+    };
+
     const EDUCATION_MIN_M6 = [
       "ม.6",
       "ม 6",
@@ -940,102 +988,46 @@ module.exports = {
       "ปริญญาเอก",
     ];
 
-    const educationEligibleCond = {
-      OR: EDUCATION_MIN_M6.map((kw) => ({
-        education: { contains: kw },
-      })),
+    const isEducationEligible = (item) => {
+      const edu = (item?.education ?? "").toString().trim();
+      if (!edu) return false;
+      return EDUCATION_MIN_M6.some((kw) => edu.includes(kw));
     };
 
-    const educationIneligibleCond = {
-      OR: [
-        { education: null },
-        {
-          AND: EDUCATION_MIN_M6.map((kw) => ({
-            education: { not: { contains: kw } },
-          })),
-        },
-      ],
+    // ✅ เงื่อนไขจริง: ว่ายน้ำได้, อายุ ≤ 24, ไม่มีโรคประจำตัว(meaningful), ไม่มีรอยสัก, การศึกษา ม.6 ขึ้นไป
+    const isEligibleNcoStudent = (item) => {
+      const age = computeAge(item.birthDate);
+      if (age == null) return false;
+
+      const canSwim = !!item.canSwim; // null/false => false
+      const chronic = hasChronicDisease(item); // meaningful array => true
+      const tattoo = !!item.tattoo; // null/false => false
+      const eduOk = isEducationEligible(item);
+
+      return canSwim && age <= 24 && !chronic && !tattoo && eduOk;
     };
 
-    // ✅ NCO eligibility filter
-    if (eligibleNcoMode === "eligible" || eligibleNcoMode === "ineligible") {
-      const today = new Date();
-      const cutoffBirthDate = new Date(
-        today.getFullYear() - 24,
-        today.getMonth(),
-        today.getDate()
-      );
+    // -----------------------------
+    // 1) Combat readiness sort (ต้องเอาทั้งชุดมาจัดเรียง)
+    // -----------------------------
+    if (combatReadinessSort) {
+      // ดึงทั้งหมดตาม where ก่อน แล้วค่อย sort+filter+paginate ใน JS
+      const items = await prisma.soldierIntake.findMany({ where });
+      let normalizedItems = normalizeIntakeRecords(items);
 
-      // Prisma schema เป็น Boolean (อาจ nullable) -> ใช้ true/false เท่านั้น
-      // - eligible ต้อง: tattoo=false, canSwim=true
-      // - ineligible คือ: tattoo=true OR canSwim=false OR tattoo/canSwim เป็น null ก็ถือว่าไม่ผ่าน (เลือกได้)
-      const tattooFalse = { tattoo: false };
-      const tattooTrue = { tattoo: true };
-      const swimTrue = { canSwim: true };
-      const swimFalse = { canSwim: false };
-
-      // chronicDiseases เป็น Json? (nullable) ต้องใช้ DbNull/JsonNull ผ่าน equals เท่านั้น
-      const noChronic = {
-        OR: [
-          { chronicDiseases: { equals: [] } }, // JSON array ว่าง
-          { chronicDiseases: { equals: Prisma.DbNull } }, // ค่า NULL ใน DB
-          { chronicDiseases: { equals: Prisma.JsonNull } }, // ค่า JSON null (เผื่อมี)
-        ],
-      };
-
-      const hasChronic = {
-        NOT: {
-          OR: [
-            { chronicDiseases: { equals: [] } },
-            { chronicDiseases: { equals: Prisma.DbNull } },
-            { chronicDiseases: { equals: Prisma.JsonNull } },
-          ],
-        },
-      };
+      // คำนวณ eligibility ให้ตรงกับกราฟ
+      normalizedItems = normalizedItems.map((it) => ({
+        ...it,
+        isEligibleNcoStudent: isEligibleNcoStudent(it),
+      }));
 
       if (eligibleNcoMode === "eligible") {
-        where.birthDate = { ...(where.birthDate || {}), gte: cutoffBirthDate };
-
-        where.AND = Array.isArray(where.AND) ? [...where.AND] : [];
-
-        // ไม่มีโรคประจำตัว
-        where.AND.push(noChronic);
-
-        // ไม่มีรอยสัก + ว่ายน้ำได้
-        where.AND.push(tattooFalse, swimTrue);
-
-        // ✅ การศึกษา ม.6 ขึ้นไป
-        where.AND.push(educationEligibleCond);
-
-        // ถ้าค่าบาง record เป็น NULL และคุณ "ไม่อยาก" ให้ติด eligible อยู่แล้ว ก็ไม่ต้องทำอะไรเพิ่ม
-        // (tattooFalse & swimTrue จะไม่ match ถ้าเป็น null)
-        delete where.OR;
-      } else {
-        // ไม่มีสิทธิ์สอบ = ตกข้อใดข้อหนึ่ง
-        const ineligibleOr = [
-          { birthDate: { lt: cutoffBirthDate } },
-          hasChronic,
-          tattooTrue,
-          swimFalse,
-
-          // ถ้า tattoo/canSwim เป็น NULL ให้ถือว่าไม่ผ่านด้วย (แนะนำ)
-          { tattoo: null },
-          { canSwim: null },
-
-          educationIneligibleCond,
-        ];
-
-        where.OR = Array.isArray(where.OR)
-          ? [...where.OR, ...ineligibleOr]
-          : ineligibleOr;
-
-        if (where.birthDate) delete where.birthDate;
+        normalizedItems = normalizedItems.filter((x) => x.isEligibleNcoStudent);
+      } else if (eligibleNcoMode === "ineligible") {
+        normalizedItems = normalizedItems.filter(
+          (x) => !x.isEligibleNcoStudent
+        );
       }
-    }
-
-    if (combatReadinessSort) {
-      const items = await prisma.soldierIntake.findMany({ where });
-      const normalizedItems = normalizeIntakeRecords(items);
 
       const getScore = (row) => {
         const rawScore = row?.combatReadiness?.score;
@@ -1051,7 +1043,7 @@ module.exports = {
       });
 
       const pagedItems = sortedItems.slice(skip, skip + pageSize);
-      const total = normalizedItems.length;
+      const total = sortedItems.length;
 
       return {
         items: pagedItems,
@@ -1062,20 +1054,33 @@ module.exports = {
       };
     }
 
-    const [items, total] = await Promise.all([
-      prisma.soldierIntake.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: pageSize,
-      }),
-      prisma.soldierIntake.count({ where }),
-    ]);
+    // -----------------------------
+    // 2) Normal list (ให้ตารางตรงกับกราฟ)
+    // -----------------------------
+    // ดึงทั้งหมดตาม where ก่อน แล้ว filter eligible/ineligible ใน JS เพื่อให้ตรงกับ meaningful logic
+    const items = await prisma.soldierIntake.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
 
-    const normalizedItems = normalizeIntakeRecords(items);
+    let normalizedItems = normalizeIntakeRecords(items);
+
+    normalizedItems = normalizedItems.map((it) => ({
+      ...it,
+      isEligibleNcoStudent: isEligibleNcoStudent(it),
+    }));
+
+    if (eligibleNcoMode === "eligible") {
+      normalizedItems = normalizedItems.filter((x) => x.isEligibleNcoStudent);
+    } else if (eligibleNcoMode === "ineligible") {
+      normalizedItems = normalizedItems.filter((x) => !x.isEligibleNcoStudent);
+    }
+
+    const total = normalizedItems.length;
+    const pagedItems = normalizedItems.slice(skip, skip + pageSize);
 
     return {
-      items: normalizedItems,
+      items: pagedItems,
       total,
       page,
       pageSize,
