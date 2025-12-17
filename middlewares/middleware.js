@@ -132,7 +132,7 @@ module.exports = {
       const role = normalizeRole(user.role);
       req.userRole = role;
       if (!adminRoleSet.has(role)) {
-        return res.status(403).json({ message: "Admin only" });
+        return res.status(403).json({ message: "Unauthorized" });
       }
       next();
     } catch (e) {
@@ -151,7 +151,7 @@ module.exports = {
       const role = normalizeRole(user.role);
       req.userRole = role;
       if (role !== "OWNER") {
-        return res.status(403).json({ message: "Owner only" });
+        return res.status(403).json({ message: "Unauthorized" });
       }
       next();
     } catch (e) {
@@ -170,7 +170,7 @@ module.exports = {
       const role = normalizeRole(user.role);
       req.userRole = role;
       if (!leaveRequesterRoleSet.has(role)) {
-        return res.status(403).json({ message: "Admin/Teacher only" });
+        return res.status(403).json({ message: "Unauthorized" });
       }
       // Attach latest role for downstream handlers/validators
       next();
@@ -190,7 +190,7 @@ module.exports = {
       const role = normalizeRole(user.role);
       req.userRole = role;
       if (!examAccessRoleSet.has(role)) {
-        return res.status(403).json({ message: "Exam uploader only" });
+        return res.status(403).json({ message: "Unauthorized" });
       }
       next();
     } catch (e) {
@@ -209,7 +209,7 @@ module.exports = {
       const role = normalizeRole(user.role);
       req.userRole = role;
       if (!templateManagerRoleSet.has(role)) {
-        return res.status(403).json({ message: "Template creator only" });
+        return res.status(403).json({ message: "Unauthorized" });
       }
       next();
     } catch (e) {
@@ -228,7 +228,7 @@ module.exports = {
       const role = normalizeRole(user.role);
       req.userRole = role;
       if (!templateViewerRoleSet.has(role)) {
-        return res.status(403).json({ message: "Template access restricted" });
+        return res.status(403).json({ message: "Unauthorized" });
       }
       next();
     } catch (e) {
@@ -247,7 +247,7 @@ module.exports = {
       const role = normalizeRole(user.role);
       req.userRole = role;
       if (!scheduleManagerRoleSet.has(role)) {
-        return res.status(403).json({ message: "Schedule manager only" });
+        return res.status(403).json({ message: "Unauthorized" });
       }
       next();
     } catch (e) {
@@ -266,7 +266,7 @@ module.exports = {
       const role = normalizeRole(user.role);
       req.userRole = role;
       if (!teacherRoleSet.has(role)) {
-        return res.status(403).json({ message: "Teacher only" });
+        return res.status(403).json({ message: "Unauthorized" });
       }
       next();
     } catch (e) {
@@ -285,7 +285,7 @@ module.exports = {
       const role = normalizeRole(user.role);
       req.userRole = role;
       if (!nonStudentRoleSet.has(role)) {
-        return res.status(403).json({ message: "Non-student only" });
+        return res.status(403).json({ message: "Unauthorized" });
       }
       next();
     } catch (e) {
@@ -305,7 +305,7 @@ module.exports = {
       const role = normalizeRole(user.role);
       req.userRole = role;
       if (!generalLeaveApproverRoleSet.has(role)) {
-        return res.status(403).json({ message: "Leave approver only" });
+        return res.status(403).json({ message: "Unauthorized" });
       }
       next();
     } catch (e) {
@@ -326,7 +326,7 @@ module.exports = {
       req.userRole = role;
       if (!companyRoleSet.has(role)) {
         return res.status(403).json({
-          message: "Allowed only for staff / company roles",
+          message: "Unauthorized",
         });
       }
 
