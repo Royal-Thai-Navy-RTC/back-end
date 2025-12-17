@@ -78,8 +78,8 @@ app.use(
 // ---------- API ----------
 app.use("/api", apiRateLimiter, routes);
 
-const distPath = path.join(__dirname, "..", "front-end", "dist");
-app.use(express.static(distPath));
+// const distPath = path.join(__dirname, "..", "front-end", "dist");
+// app.use(express.static(distPath));
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
