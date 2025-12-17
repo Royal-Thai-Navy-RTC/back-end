@@ -15,8 +15,7 @@ const THAI_FONT_PATH = path.join(
   "fonts",
   "Kanit-Regular.ttf"
 );
-
-console.log(THAI_FONT_PATH)
+const LOGO_PATH = path.join(__dirname, "..", "assets", "logo.jpg");
 
 const toPublicPath = (file) => {
   if (!file) return undefined;
@@ -43,6 +42,31 @@ const formatDateOnly = (value) => {
   return `${date.getFullYear()}-${padTwo(date.getMonth() + 1)}-${padTwo(
     date.getDate()
   )}`;
+};
+
+const TH_MONTH_SHORT = [
+  "ม.ค.",
+  "ก.พ.",
+  "มี.ค.",
+  "เม.ย.",
+  "พ.ค.",
+  "มิ.ย.",
+  "ก.ค.",
+  "ส.ค.",
+  "ก.ย.",
+  "ต.ค.",
+  "พ.ย.",
+  "ธ.ค.",
+];
+
+const formatDateThaiShort = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = date.getDate();
+  const month = TH_MONTH_SHORT[date.getMonth()] || "";
+  const year = date.getFullYear() + 543;
+  return `${day} ${month} ${year}`;
 };
 
 const formatDateTime = (value) => {
@@ -194,6 +218,79 @@ const applyThaiFontIfAvailable = (doc) => {
   return false;
 };
 
+const parseOrientation = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  const portrait = new Set(["portrait", "p", "vertical", "v"]);
+  return portrait.has(normalized) ? "portrait" : "landscape";
+};
+
+const drawLogoIfAvailable = (doc) => {
+  try {
+    if (!fs.existsSync(LOGO_PATH)) return;
+    const maxSize = 80;
+    const availableWidth =
+      doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const x = doc.page.margins.left + (availableWidth - maxSize) / 2;
+    const startY = doc.y;
+    doc.image(LOGO_PATH, x, startY, { fit: [maxSize, maxSize] });
+    // ย้าย cursor ลงต่ำกว่ารูปเพื่อไม่ให้ทับข้อความ
+    doc.y = startY + maxSize + 10;
+  } catch (err) {
+    console.warn("ไม่สามารถแสดงโลโก้ได้", err.message);
+  }
+};
+
+const renderCoverPage = (doc, exportedAt) => {
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
+  const margins = doc.page.margins;
+  const contentWidth = pageWidth - margins.left - margins.right;
+
+  const hasLogo = fs.existsSync(LOGO_PATH);
+  const logoSize = hasLogo ? 80 : 0;
+  const logoGap = hasLogo ? 12 : 0;
+
+  const title = "รายการทหารใหม่";
+  const subtitle = "RTcas (Recruit Training Center Academic System)";
+  const meta = `สร้างเมื่อ: ${exportedAt}`;
+
+  const titleHeight = doc.heightOfString(title, { width: contentWidth, align: "center" });
+  const subtitleHeight = doc.heightOfString(subtitle, {
+    width: contentWidth,
+    align: "center",
+  });
+  const metaHeight = doc.heightOfString(meta, { width: contentWidth, align: "center" });
+
+  const blockHeight =
+    logoSize + logoGap + titleHeight + 8 + subtitleHeight + 6 + metaHeight;
+
+  const availableHeight = pageHeight - margins.top - margins.bottom;
+  const startY = margins.top + Math.max(0, (availableHeight - blockHeight) / 2);
+
+  let cursorY = startY;
+  if (hasLogo) {
+    const x = margins.left + (contentWidth - logoSize) / 2;
+    doc.image(LOGO_PATH, x, cursorY, { fit: [logoSize, logoSize] });
+    cursorY += logoSize + logoGap;
+  }
+
+  doc.y = cursorY;
+  doc.fontSize(16).fillColor("#000").text(title, {
+    align: "center",
+    width: contentWidth,
+  });
+  doc.moveDown(0.2);
+  doc.fontSize(12).fillColor("#000").text(subtitle, {
+    align: "center",
+    width: contentWidth,
+  });
+  doc.moveDown(0.2);
+  doc.fontSize(10).fillColor("#444").text(meta, {
+    align: "center",
+    width: contentWidth,
+  });
+};
+
 const resolveIdCardFilePath = (url) => {
   if (!url) return null;
   // strip domain if present, keep path
@@ -206,9 +303,10 @@ const resolveIdCardFilePath = (url) => {
   return path.join(ID_CARD_STORAGE_DIR, normalized);
 };
 
-const buildIntakesPdfBuffer = (records = []) =>
+const buildIntakesPdfBuffer = (records = [], options = {}) =>
   new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", margin: 36 });
+    const layout = parseOrientation(options.orientation);
+    const doc = new PDFDocument({ size: "A4", margin: 36, layout });
     const chunks = [];
     doc.on("data", (chunk) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
@@ -220,14 +318,15 @@ const buildIntakesPdfBuffer = (records = []) =>
     doc.info.Author = "RTCAS ระบบรับทหารใหม่";
 
     const exportedAt = formatDateTime(new Date());
-    doc.fontSize(16).fillColor("#000").text("รายการทหารใหม่", {
-      align: "center",
-    });
-    doc.moveDown(0.2);
-    doc.fontSize(10).fillColor("#444").text(`สร้างเมื่อ: ${exportedAt}`, {
-      align: "center",
-    });
-    doc.moveDown(0.8);
+    renderCoverPage(doc, exportedAt);
+    doc.addPage({ size: "A4", margin: 36, layout });
+
+    const addField = (label, value) => {
+      const display =
+        value === undefined || value === null || value === "" ? "-" : String(value);
+      doc.fontSize(10).fillColor("#111");
+      doc.text(`${label}: ${display}`);
+    };
 
     records.forEach((item, index) => {
       const fullName = `${item.firstName || ""} ${item.lastName || ""}`.trim();
@@ -240,54 +339,50 @@ const buildIntakesPdfBuffer = (records = []) =>
 
       doc.fillColor("#000").fontSize(12).text(`${index + 1}. ${fullName || "-"}`);
 
-      doc.fontSize(10).fillColor("#111");
-      doc.text(`เลขบัตร: ${item.citizenId || "-"}`);
-      doc.text(
-        `วันเกิด: ${formatDateOnly(item.birthDate) || "-"} | อายุราชการ: ${
-          item.serviceYears ?? "-"
-        } ปี`
-      );
+      doc.moveDown(0.2);
+      addField("เลขบัตร", item.citizenId);
+      addField("วันเกิด", formatDateThaiShort(item.birthDate));
+      addField("อายุราชการ (ปี)", item.serviceYears ?? "-");
 
-      doc.moveDown(0.1);
-      doc.text(
-        `สังกัด: กองพัน ${item.battalionCode || "-"} / กองร้อย ${
-          item.companyCode || "-"
-        } / หมวด ${item.platoonCode ?? "-"} / ลำดับ ${item.sequenceNumber ?? "-"}`
+      doc.moveDown(0.2);
+      addField(
+        "สังกัด",
+        `กองพัน ${item.battalionCode || "-"} / กองร้อย ${item.companyCode || "-"} / หมวด ${
+          item.platoonCode ?? "-"
+        } / ลำดับ ${item.sequenceNumber ?? "-"}`
       );
-      doc.text(
-        `การศึกษา: ${item.education || "-"} | กรุ๊ปเลือด: ${
-          item.bloodGroup || "-"
-        }`
-      );
-      doc.text(
-        `ว่ายน้ำได้: ${formatBooleanLabel(item.canSwim) || "-"} | รอยสัก: ${
+      addField("การศึกษา", item.education || "-");
+      addField("กรุ๊ปเลือด", item.bloodGroup || "-");
+      addField(
+        "สุขภาพ",
+        `ว่ายน้ำ: ${formatBooleanLabel(item.canSwim) || "-"} | รอยสัก: ${
           formatBooleanLabel(item.tattoo) || "-"
-        } | คะแนนพร้อมรบ: ${
-          item.combatReadiness?.score ?? item.combatReadiness?.percent ?? "-"
-        }`
+        } | พร้อมรบ: ${item.combatReadiness?.score ?? item.combatReadiness?.percent ?? "-"}`
       );
-      doc.text(`โรคประจำตัว: ${chronicText || "-"} | อาการแพ้: ${allergyText || "-"}`);
-      doc.text(
-        `ทักษะ/อาชีพ: ${item.specialSkills || "-"} | ก่อนเป็นทหาร: ${
-          item.previousJob || "-"
-        }`
+      addField("โรคประจำตัว", chronicText || "-");
+      addField("อาการแพ้", allergyText || "-");
+      addField(
+        "ทักษะ/อาชีพ",
+        `ทักษะ: ${item.specialSkills || "-"} | ก่อนเป็นทหาร: ${item.previousJob || "-"}`
       );
 
-      doc.moveDown(0.1);
-      doc.text(
-        `ที่อยู่: ${item.addressLine || "-"} ${item.subdistrict || ""} ${
-          item.district || ""
-        } ${item.province || ""} ${item.postalCode || ""}`.trim()
+      doc.moveDown(0.2);
+      addField(
+        "ที่อยู่",
+        `${item.addressLine || "-"} ${item.subdistrict || ""} ${item.district || ""} ${
+          item.province || ""
+        } ${item.postalCode || ""}`.trim()
       );
-      doc.text(
-        `ติดต่อ: ${item.phone || "-"}${item.email ? ` | อีเมล: ${item.email}` : ""}`
+      addField(
+        "ติดต่อ",
+        `${item.phone || "-"}${item.email ? ` | อีเมล: ${item.email}` : ""}`
       );
-      doc.text(
-        `ผู้ติดต่อฉุกเฉิน: ${item.emergencyName || "-"} ${
-          item.emergencyPhone ? `(${item.emergencyPhone})` : ""
-        }`
+      addField(
+        "ฉุกเฉิน",
+        `${item.emergencyName || "-"}${item.emergencyPhone ? ` (${item.emergencyPhone})` : ""}`
       );
-      doc.text(`สร้างเมื่อ: ${formatDateTime(item.createdAt) || "-"}`);
+      addField("สร้างเมื่อ", formatDateTime(item.createdAt) || "-");
+
       doc.moveDown(0.4);
       doc
         .moveTo(doc.x, doc.y)
@@ -519,7 +614,9 @@ const exportIntakesPdf = async (req, res) => {
     const records = await getExportIntakeRecords(req, res);
     if (!records) return;
 
-    const buffer = await buildIntakesPdfBuffer(records);
+    const buffer = await buildIntakesPdfBuffer(records, {
+      orientation: req.query?.orientation,
+    });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
