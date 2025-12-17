@@ -48,6 +48,13 @@ router.get(
   soldierIntakeController.exportIntakesPdf
 );
 
+router.get(
+  "/admin/soldier-intakes/export/pdf/person",
+  middleware.verifyToken,
+  middleware.authorizeSoldierData,
+  soldierIntakeController.exportIntakePdfByCitizenId
+);
+
 router.delete(
   "/admin/soldier-intakes",
   middleware.verifyToken,

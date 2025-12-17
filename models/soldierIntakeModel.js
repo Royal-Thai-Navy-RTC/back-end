@@ -1127,6 +1127,37 @@ module.exports = {
     };
   },
 
+  getIntakeByCitizenId: async (citizenId, filters = {}) => {
+    ensureModelAvailable();
+    const normalizedCitizenId = normalizeString(citizenId);
+    if (!normalizedCitizenId) {
+      const err = new Error("citizenId ไม่ถูกต้อง");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+
+    const where = { citizenId: normalizedCitizenId };
+    const battalion = normalizeString(filters.battalionCode);
+    const company = normalizeString(filters.companyCode);
+    if (battalion) where.battalionCode = battalion;
+    if (company) where.companyCode = company;
+
+    const record = await prisma.soldierIntake.findFirst({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+    if (!record) {
+      const err = new Error("ไม่พบข้อมูล");
+      err.code = "NOT_FOUND";
+      throw err;
+    }
+    return {
+      ...record,
+      radarProfile: sanitizeRadarProfile(record.radarProfile),
+      combatReadiness: sanitizeCombatReadiness(record.combatReadiness),
+    };
+  },
+
   updateIntake: async (id, input = {}) => {
     ensureModelAvailable();
     const intakeId = Number(id);

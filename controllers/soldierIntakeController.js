@@ -136,7 +136,9 @@ const normalizeFilterString = (value) => {
   if (value === undefined || value === null) return undefined;
   if (Array.isArray(value)) {
     const normalized = value
-      .map((item) => (item === undefined || item === null ? "" : String(item).trim()))
+      .map((item) =>
+        item === undefined || item === null ? "" : String(item).trim()
+      )
       .filter((item) => item);
     if (!normalized.length) return undefined;
     return normalized.join(", ");
@@ -204,7 +206,8 @@ const buildExportFilters = (req) => {
   const filters = { ...(req.query || {}) };
 
   // normalize common string filters
-  const normalize = (val) => (val === undefined || val === null ? undefined : String(val).trim());
+  const normalize = (val) =>
+    val === undefined || val === null ? undefined : String(val).trim();
   if (filters.battalionCode !== undefined) {
     const value = normalize(filters.battalionCode);
     filters.battalionCode = value || undefined;
@@ -259,7 +262,9 @@ const applyThaiFontIfAvailable = (doc) => {
 };
 
 const parseOrientation = (value) => {
-  const normalized = String(value || "").trim().toLowerCase();
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
   const portrait = new Set(["portrait", "p", "vertical", "v"]);
   return portrait.has(normalized) ? "portrait" : "landscape";
 };
@@ -300,12 +305,18 @@ const renderCoverPage = (doc, exportedAt, filters = {}) => {
         }`
       : null;
 
-  const titleHeight = doc.heightOfString(title, { width: contentWidth, align: "center" });
+  const titleHeight = doc.heightOfString(title, {
+    width: contentWidth,
+    align: "center",
+  });
   const subtitleHeight = doc.heightOfString(subtitle, {
     width: contentWidth,
     align: "center",
   });
-  const metaHeight = doc.heightOfString(meta, { width: contentWidth, align: "center" });
+  const metaHeight = doc.heightOfString(meta, {
+    width: contentWidth,
+    align: "center",
+  });
   const unitHeight = unitLine
     ? doc.heightOfString(unitLine, { width: contentWidth, align: "center" })
     : 0;
@@ -387,7 +398,9 @@ const buildIntakesPdfBuffer = (records = [], options = {}) =>
 
     const addField = (label, value) => {
       const display =
-        value === undefined || value === null || value === "" ? "-" : String(value);
+        value === undefined || value === null || value === ""
+          ? "-"
+          : String(value);
       doc.fontSize(10).fillColor("#111");
       doc.text(`${label}: ${display}`);
     };
@@ -401,7 +414,10 @@ const buildIntakesPdfBuffer = (records = [], options = {}) =>
         .filter((v) => v)
         .join(", ");
 
-      doc.fillColor("#000").fontSize(12).text(`${index + 1}. ${fullName || "-"}`);
+      doc
+        .fillColor("#000")
+        .fontSize(12)
+        .text(`${index + 1}. ${fullName || "-"}`);
 
       doc.moveDown(0.2);
       addField("เลขบัตร", item.citizenId);
@@ -411,9 +427,11 @@ const buildIntakesPdfBuffer = (records = [], options = {}) =>
       doc.moveDown(0.2);
       addField(
         "สังกัด",
-        `กองพัน ${item.battalionCode || "-"} / กองร้อย ${item.companyCode || "-"} / หมวด ${
-          item.platoonCode ?? "-"
-        } / ลำดับ ${item.sequenceNumber ?? "-"}`
+        `กองพัน ${item.battalionCode || "-"} / กองร้อย ${
+          item.companyCode || "-"
+        } / หมวด ${item.platoonCode ?? "-"} / ลำดับ ${
+          item.sequenceNumber ?? "-"
+        }`
       );
       addField("การศึกษา", item.education || "-");
       addField("กรุ๊ปเลือด", item.bloodGroup || "-");
@@ -421,7 +439,9 @@ const buildIntakesPdfBuffer = (records = [], options = {}) =>
         "สุขภาพ",
         `ว่ายน้ำ: ${formatBooleanLabel(item.canSwim) || "-"} | รอยสัก: ${
           formatBooleanLabel(item.tattoo) || "-"
-        } | พร้อมรบ: ${item.combatReadiness?.score ?? item.combatReadiness?.percent ?? "-"}${
+        } | พร้อมรบ: ${
+          item.combatReadiness?.score ?? item.combatReadiness?.percent ?? "-"
+        }${
           Number.isFinite(item.combatReadiness?.score)
             ? ` (${Math.round((item.combatReadiness.score / 500) * 100)}%)`
             : ""
@@ -431,15 +451,17 @@ const buildIntakesPdfBuffer = (records = [], options = {}) =>
       addField("อาการแพ้", allergyText || "-");
       addField(
         "ทักษะ/อาชีพ",
-        `ทักษะ: ${item.specialSkills || "-"} | ก่อนเป็นทหาร: ${item.previousJob || "-"}`
+        `ทักษะ: ${item.specialSkills || "-"} | ก่อนเป็นทหาร: ${
+          item.previousJob || "-"
+        }`
       );
 
       doc.moveDown(0.2);
       addField(
         "ที่อยู่",
-        `${item.addressLine || "-"} ${item.subdistrict || ""} ${item.district || ""} ${
-          item.province || ""
-        } ${item.postalCode || ""}`.trim()
+        `${item.addressLine || "-"} ${item.subdistrict || ""} ${
+          item.district || ""
+        } ${item.province || ""} ${item.postalCode || ""}`.trim()
       );
       addField(
         "ติดต่อ",
@@ -447,7 +469,9 @@ const buildIntakesPdfBuffer = (records = [], options = {}) =>
       );
       addField(
         "ฉุกเฉิน",
-        `${item.emergencyName || "-"}${item.emergencyPhone ? ` (${item.emergencyPhone})` : ""}`
+        `${item.emergencyName || "-"}${
+          item.emergencyPhone ? ` (${item.emergencyPhone})` : ""
+        }`
       );
       addField("สร้างเมื่อ", formatDateTimeThai(item.createdAt) || "-");
 
@@ -461,6 +485,577 @@ const buildIntakesPdfBuffer = (records = [], options = {}) =>
       doc.moveDown(0.6);
     });
 
+    doc.end();
+  });
+const buildIntakeProfilePdfBuffer = (item) =>
+  new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: "A4",
+      margin: 36,
+      bufferPages: true,
+    });
+
+    const chunks = [];
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", (err) => reject(err));
+
+    applyThaiFontIfAvailable(doc);
+
+    // =========================
+    // THEME (professional)
+    // =========================
+    const ACCENT = "#0f4c81";
+    const TEXT = "#0b1221";
+    const MUTED = "#6b7280";
+    const BORDER = "#e5e7eb";
+    const BG = "#ffffff";
+    const BG_SOFT = "#f4f7fb";
+    const BG_CARD = "#fbfdff";
+
+    const PAGE_W = doc.page.width;
+    const PAGE_H = doc.page.height;
+    const L = doc.page.margins.left;
+    const R = PAGE_W - doc.page.margins.right;
+    const CONTENT_W = R - L;
+
+    const LINE_GAP = 2;
+
+    const clampText = (v) =>
+      v === undefined || v === null || v === "" ? "-" : String(v);
+
+    const textHeight = (text, width, fontSize) => {
+      doc.fontSize(fontSize);
+      return doc.heightOfString(String(text ?? ""), {
+        width,
+        lineGap: LINE_GAP,
+      });
+    };
+
+    // -------------------------
+    // Helpers: rounded card
+    // -------------------------
+    const roundRectPath = (x, y, w, h, r = 10) => {
+      const rr = Math.min(r, w / 2, h / 2);
+      doc
+        .moveTo(x + rr, y)
+        .lineTo(x + w - rr, y)
+        .quadraticCurveTo(x + w, y, x + w, y + rr)
+        .lineTo(x + w, y + h - rr)
+        .quadraticCurveTo(x + w, y + h, x + w - rr, y + h)
+        .lineTo(x + rr, y + h)
+        .quadraticCurveTo(x, y + h, x, y + h - rr)
+        .lineTo(x, y + rr)
+        .quadraticCurveTo(x, y, x + rr, y)
+        .closePath();
+    };
+
+    const drawCard = ({
+      x,
+      y,
+      w,
+      h,
+      fill = BG_CARD,
+      stroke = BORDER,
+      radius = 14,
+    }) => {
+      doc.save();
+      roundRectPath(x, y, w, h, radius);
+      doc.fillColor(fill).fill();
+      roundRectPath(x, y, w, h, radius);
+      doc.strokeColor(stroke).lineWidth(1).stroke();
+      doc.restore();
+    };
+
+    const drawAccentStripe = (x, y, h) => {
+      doc.save();
+      roundRectPath(x, y, 6, h, 3);
+      doc.fillColor(ACCENT).fill();
+      doc.restore();
+    };
+
+    // =========================
+    // Pagination
+    // =========================
+    const fullName =
+      `${item.firstName || ""} ${item.lastName || ""}`.trim() || "-";
+    const exportedAt = formatDateTimeThai(new Date());
+
+    doc.info.Title = `ข้อมูลทหารใหม่ ${fullName}`;
+    doc.info.Author = "RTCAS ระบบรับทหารใหม่";
+
+    const drawMiniHeader = () => {
+      const y0 = 18;
+      doc.save();
+      doc.rect(0, 0, PAGE_W, 44).fill(BG_SOFT);
+      doc.rect(0, 0, PAGE_W, 4).fill(ACCENT);
+      doc.restore();
+
+      doc.fillColor(TEXT).fontSize(11.5).text("ข้อมูลทหารใหม่", L, y0);
+      doc
+        .fillColor(TEXT)
+        .fontSize(11.5)
+        .text(fullName, L, y0 + 16, { width: CONTENT_W });
+
+      doc
+        .fillColor(MUTED)
+        .fontSize(9)
+        .text(`เลขบัตร: ${item.citizenId || "-"}`, L, y0, {
+          width: CONTENT_W,
+          align: "right",
+        });
+
+      doc.x = L;
+      doc.y = 60;
+    };
+
+    const drawFirstHeader = () => {
+      doc.save();
+      doc.rect(0, 0, PAGE_W, 78).fill(BG_SOFT);
+      doc.rect(0, 0, PAGE_W, 5).fill(ACCENT);
+      doc.restore();
+
+      doc.fillColor(TEXT).fontSize(16).text("ข้อมูลทหารใหม่", L, 18);
+      doc
+        .fillColor(TEXT)
+        .fontSize(14)
+        .text(fullName, L, 42, { width: CONTENT_W });
+
+      doc
+        .fillColor(MUTED)
+        .fontSize(9.5)
+        .text(`เลขบัตร: ${item.citizenId || "-"}`, L, 20, {
+          width: CONTENT_W,
+          align: "right",
+        });
+      doc
+        .fillColor(MUTED)
+        .fontSize(9.5)
+        .text(`ส่งออกเมื่อ: ${exportedAt}`, L, 38, {
+          width: CONTENT_W,
+          align: "right",
+        });
+
+      doc.x = L;
+      doc.y = 92;
+    };
+
+    const ensureSpace = (minHeight = 60) => {
+      if (doc.y + minHeight > PAGE_H - doc.page.margins.bottom) {
+        doc.addPage();
+        drawMiniHeader();
+      }
+    };
+
+    // =========================
+    // ✅ Pills (fixed row, no stair-step) + Thai labels
+    // =========================
+    const drawPill = (text, x, y) => {
+      const t = String(text || "").trim();
+      if (!t) return { w: 0, h: 0 };
+
+      const paddingX = 10;
+      const paddingY = 4;
+
+      doc.fontSize(9.5);
+      const textW = doc.widthOfString(t);
+      const h = doc.currentLineHeight() + paddingY * 2;
+      const w = textW + paddingX * 2;
+
+      doc.save();
+      roundRectPath(x, y, w, h, 999);
+      doc.fillColor(BG_SOFT).fill();
+      roundRectPath(x, y, w, h, 999);
+      doc.strokeColor(BORDER).lineWidth(1).stroke();
+      doc.restore();
+
+      doc
+        .fillColor(ACCENT)
+        .fontSize(9.5)
+        .text(t, x + paddingX, y + paddingY, {
+          lineBreak: false,
+        });
+
+      return { w, h };
+    };
+
+    const drawPillRow = (labels, options = {}) => {
+      const startX = options.x ?? L;
+      const startY = options.y ?? doc.y;
+      const gap = options.gap ?? 8;
+
+      let x = startX;
+      let y = startY;
+      let maxH = 0;
+
+      for (const label of labels) {
+        // วัดคร่าวๆ ก่อน ถ้าล้นค่อยขึ้นบรรทัดใหม่
+        doc.fontSize(9.5);
+        const w = doc.widthOfString(String(label)) + 10 * 2;
+        const h = doc.currentLineHeight() + 4 * 2;
+
+        if (x !== startX && x + w > R) {
+          x = startX;
+          y += maxH + 6;
+          maxH = 0;
+        }
+
+        const res = drawPill(label, x, y);
+        maxH = Math.max(maxH, res.h);
+        x += res.w + gap;
+      }
+
+      doc.x = L;
+      doc.y = y + maxH + 10;
+    };
+
+    // =========================
+    // Section Title
+    // =========================
+    const drawSectionTitle = (title) => {
+      ensureSpace(64);
+
+      const x = L;
+      const y = doc.y;
+      const h = 34;
+
+      drawCard({ x, y, w: CONTENT_W, h, fill: BG_SOFT, radius: 14 });
+      drawAccentStripe(x + 10, y + 8, h - 16);
+
+      doc
+        .fillColor(ACCENT)
+        .fontSize(11.5)
+        .text(title, x + 26, y + 11);
+
+      doc.y = y + h + 10;
+      doc.x = L;
+    };
+
+    // =========================
+    // Field Rows (AUTO HEIGHT)
+    // =========================
+    const drawFieldRow1 = ({ label, value }) => {
+      const padX = 14;
+      const padY = 10;
+      const labelSize = 9.5;
+      const valueSize = 10.5;
+      const gap = 4;
+
+      const usableW = CONTENT_W - padX * 2;
+
+      const hLabel = textHeight(label || "", usableW, labelSize);
+      const hValue = textHeight(clampText(value), usableW, valueSize);
+      const rowH = Math.max(38, padY + hLabel + gap + hValue + padY);
+
+      ensureSpace(rowH + 10);
+
+      const x = L;
+      const y = doc.y;
+
+      drawCard({ x, y, w: CONTENT_W, h: rowH, fill: BG, radius: 12 });
+
+      doc
+        .fillColor(MUTED)
+        .fontSize(labelSize)
+        .text(label || "", x + padX, y + padY, {
+          width: usableW,
+          lineGap: LINE_GAP,
+        });
+
+      doc
+        .fillColor(TEXT)
+        .fontSize(valueSize)
+        .text(clampText(value), x + padX, y + padY + hLabel + gap, {
+          width: usableW,
+          lineGap: LINE_GAP,
+        });
+
+      doc.y = y + rowH + 10;
+      doc.x = L;
+    };
+
+    const drawFieldRow2 = ({
+      leftLabel,
+      leftValue,
+      rightLabel,
+      rightValue,
+    }) => {
+      const padX = 14;
+      const padY = 10;
+      const labelSize = 9.5;
+      const valueSize = 10.5;
+      const gap = 4;
+
+      const colW = CONTENT_W / 2 - padX * 2;
+
+      const hLL = textHeight(leftLabel || "", colW, labelSize);
+      const hLV = textHeight(clampText(leftValue), colW, valueSize);
+      const leftH = padY + hLL + gap + hLV + padY;
+
+      const hRL = textHeight(rightLabel || "", colW, labelSize);
+      const hRV = textHeight(clampText(rightValue), colW, valueSize);
+      const rightH = padY + hRL + gap + hRV + padY;
+
+      const rowH = Math.max(38, leftH, rightH);
+
+      ensureSpace(rowH + 10);
+
+      const x = L;
+      const y = doc.y;
+      const mid = x + CONTENT_W / 2;
+
+      drawCard({ x, y, w: CONTENT_W, h: rowH, fill: BG, radius: 12 });
+
+      doc.save();
+      doc
+        .moveTo(mid, y + 10)
+        .lineTo(mid, y + rowH - 10)
+        .strokeColor(BORDER)
+        .lineWidth(1)
+        .stroke();
+      doc.restore();
+
+      doc
+        .fillColor(MUTED)
+        .fontSize(labelSize)
+        .text(leftLabel || "", x + padX, y + padY, {
+          width: colW,
+          lineGap: LINE_GAP,
+        });
+      doc
+        .fillColor(TEXT)
+        .fontSize(valueSize)
+        .text(clampText(leftValue), x + padX, y + padY + hLL + gap, {
+          width: colW,
+          lineGap: LINE_GAP,
+        });
+
+      doc
+        .fillColor(MUTED)
+        .fontSize(labelSize)
+        .text(rightLabel || "", mid + padX, y + padY, {
+          width: colW,
+          lineGap: LINE_GAP,
+        });
+      doc
+        .fillColor(TEXT)
+        .fontSize(valueSize)
+        .text(clampText(rightValue), mid + padX, y + padY + hRL + gap, {
+          width: colW,
+          lineGap: LINE_GAP,
+        });
+
+      doc.y = y + rowH + 10;
+      doc.x = L;
+    };
+
+    // =========================
+    // Image Block (professional)
+    // =========================
+    const drawImageBlock = () => {
+      const cardH = 210;
+      ensureSpace(cardH + 16);
+
+      const cardX = L;
+      const cardY = doc.y;
+      const cardW = CONTENT_W;
+
+      drawCard({
+        x: cardX,
+        y: cardY,
+        w: cardW,
+        h: cardH,
+        fill: BG,
+        radius: 14,
+      });
+      drawAccentStripe(cardX + 10, cardY + 14, cardH - 28);
+
+      doc
+        .fillColor(ACCENT)
+        .fontSize(11)
+        .text("รูปบัตรประชาชน", cardX + 26, cardY + 16);
+
+      const imgBoxX = cardX + 26;
+      const imgBoxY = cardY + 40;
+      const imgBoxW = cardW - 52;
+      const imgBoxH = 150;
+
+      doc.save();
+      roundRectPath(imgBoxX, imgBoxY, imgBoxW, imgBoxH, 12);
+      doc.fillColor(BG_SOFT).fill();
+      roundRectPath(imgBoxX, imgBoxY, imgBoxW, imgBoxH, 12);
+      doc.strokeColor(BORDER).lineWidth(1).stroke();
+      doc.restore();
+
+      const imagePath = resolveIdCardFilePath(item.idCardImageUrl);
+      if (imagePath && fs.existsSync(imagePath)) {
+        try {
+          doc.image(imagePath, imgBoxX + 10, imgBoxY + 10, {
+            fit: [imgBoxW - 20, imgBoxH - 20],
+            align: "center",
+            valign: "center",
+          });
+        } catch (err) {
+          doc
+            .fillColor(MUTED)
+            .fontSize(9.5)
+            .text(
+              "ไม่สามารถแสดงรูปบัตรประชาชนได้",
+              imgBoxX + 12,
+              imgBoxY + 60,
+              {
+                width: imgBoxW - 24,
+                align: "center",
+                lineGap: LINE_GAP,
+              }
+            );
+          console.warn("Failed to render id card image", err.message);
+        }
+      } else {
+        doc
+          .fillColor(MUTED)
+          .fontSize(9.5)
+          .text("ไม่มีรูปบัตรประชาชน", imgBoxX + 12, imgBoxY + 60, {
+            width: imgBoxW - 24,
+            align: "center",
+            lineGap: LINE_GAP,
+          });
+      }
+
+      doc.y = cardY + cardH + 14;
+      doc.x = L;
+    };
+
+    // =========================
+    // Content
+    // =========================
+    const formatBoolSwim = (v) =>
+      v === true ? "ได้" : v === false ? "ไม่ได้" : "-";
+    const formatBoolTattoo = (v) =>
+      v === true ? "มี" : v === false ? "ไม่มี" : "-";
+    const formatBoolSurgery = (v) =>
+      v === true ? "เคย" : v === false ? "ไม่เคย" : "-";
+    const formatBool = (v) =>
+      v === true ? "มี" : v === false ? "ไม่มี" : "-";
+
+    const allergyText = formatListField(item.foodAllergies);
+    const drugAllergy = formatListField(item.drugAllergies);
+    const chronicText = formatListField(item.chronicDiseases);
+    const certificateText = formatListField(item.certificates);
+
+    // First page header + ✅ pills row (Thai)
+    drawFirstHeader();
+    drawPillRow([
+      `กองพัน ${item.battalionCode || "-"}`,
+      `กองร้อย ${item.companyCode || "-"}`,
+      `หมวด ${item.platoonCode ?? "-"}`,
+      `ลำดับ ${item.sequenceNumber ?? "-"}`,
+    ]);
+
+    drawImageBlock();
+
+    drawSectionTitle("ข้อมูลพื้นฐาน");
+    drawFieldRow2({
+      leftLabel: "เลขบัตรประชาชน",
+      leftValue: item.citizenId,
+      rightLabel: "วันเกิด",
+      rightValue: formatDateThaiShort(item.birthDate),
+    });
+    drawFieldRow2({
+      leftLabel: "อายุราชการ",
+      leftValue: formatServiceYearsDisplay(item.serviceYears),
+      rightLabel: "การศึกษา",
+      rightValue: item.education || "-",
+    });
+    drawFieldRow1({
+      label: "สังกัด",
+      value: `กองพัน ${item.battalionCode || "-"} / กองร้อย ${
+        item.companyCode || "-"
+      } / หมวด ${item.platoonCode ?? "-"} / ลำดับ ${
+        item.sequenceNumber ?? "-"
+      }`,
+    });
+    drawFieldRow2({
+      leftLabel: "อาชีพก่อนเป็นทหาร",
+      leftValue: item.previousJob || "-",
+      rightLabel: "ศาสนา",
+      rightValue: item.religion || "-",
+    });
+
+    drawSectionTitle("ที่อยู่และการติดต่อ");
+    drawFieldRow1({
+      label: "ที่อยู่",
+      value: `${item.addressLine || "-"} ${item.subdistrict || ""} ${
+        item.district || ""
+      } ${item.province || ""} ${item.postalCode || ""}`.trim(),
+    });
+    drawFieldRow2({
+      leftLabel: "เบอร์โทรศัพท์",
+      leftValue: item.phone || "-",
+      rightLabel: "อีเมล",
+      rightValue: item.email || "-",
+    });
+    drawFieldRow1({
+      label: "ติดต่อฉุกเฉิน",
+      value: `${item.emergencyName || "-"}${
+        item.emergencyPhone ? ` (${item.emergencyPhone})` : ""
+      }`,
+    });
+
+    drawSectionTitle("สุขภาพ");
+    drawFieldRow2({
+      leftLabel: "ส่วนสูง (ซม.)",
+      leftValue: item.heightCm ?? "-",
+      rightLabel: "น้ำหนัก (กก.)",
+      rightValue: item.weightKg ?? "-",
+    });
+    drawFieldRow2({
+      leftLabel: "กรุ๊ปเลือด",
+      leftValue: item.bloodGroup || "-",
+      rightLabel: "ว่ายน้ำ",
+      rightValue: formatBoolSwim(item.canSwim),
+    });
+    drawFieldRow2({
+      leftLabel: "รอยสัก",
+      leftValue: formatBoolTattoo(item.tattoo),
+      rightLabel: "เคยผ่าตัด",
+      rightValue: formatBoolSurgery(item.surgeryHistory),
+    });
+    drawFieldRow2({
+      leftLabel: "อุบัติเหตุ",
+      leftValue: formatBoolSurgery(item.accidentHistory),
+      rightLabel: "หมายเหตุแพทย์",
+      rightValue: item.medicalNotes || "-",
+    });
+    drawFieldRow1({ label: "โรคประจำตัว", value: chronicText || "-" });
+    drawFieldRow1({ label: "แพ้อาหาร", value: allergyText || "-" });
+    drawFieldRow1({ label: "แพ้ยา", value: drugAllergy || "-" });
+
+    drawSectionTitle("ทักษะและใบประกาศ");
+    drawFieldRow1({ label: "ทักษะพิเศษ", value: item.specialSkills || "-" });
+    drawFieldRow1({ label: "ใบประกาศนียบัตร", value: certificateText || "-" });
+    drawFieldRow2({
+      leftLabel: "ประสบการณ์ก่อนเป็นทหาร (ปี)",
+      leftValue: item.experienced ?? "-",
+      rightLabel: "สถานะครอบครัว",
+      rightValue: item.familyStatus || "-",
+    });
+
+    drawSectionTitle("บันทึกระบบ");
+    drawFieldRow2({
+      leftLabel: "คะแนนความพร้อมรบ",
+      leftValue: item.combatReadiness?.score ?? "-",
+      rightLabel: "เปอร์เซ็นต์ความพร้อมรบ",
+      rightValue: item.combatReadiness?.percent ?? "-",
+    });
+    drawFieldRow2({
+      leftLabel: "สร้างเมื่อ",
+      leftValue: formatDateTimeThai(item.createdAt) || "-",
+      rightLabel: "อัปเดตล่าสุด",
+      rightValue: formatDateTime(item.updatedAt) || "-",
+    });
+
+    // footer ถูกถอดออกแล้วตามที่คุณสั่ง
     doc.end();
   });
 
@@ -487,13 +1082,15 @@ const listIntakes = async (req, res) => {
     applyStringFilter("bloodFilter", "bloodGroup");
 
     const parsePositiveIntFilter = (value) => {
-      if (value === undefined || value === null || value === "") return undefined;
+      if (value === undefined || value === null || value === "")
+        return undefined;
       const num = Number(value);
       return Number.isInteger(num) && num > 0 ? num : undefined;
     };
 
     const parseFloatFilter = (value) => {
-      if (value === undefined || value === null || value === "") return undefined;
+      if (value === undefined || value === null || value === "")
+        return undefined;
       const num = Number(value);
       return Number.isFinite(num) ? num : undefined;
     };
@@ -505,7 +1102,9 @@ const listIntakes = async (req, res) => {
       delete filters.serviceYears;
     }
 
-    const hasSpecialSkills = normalizePresenceFilter(req.query.specialSkillFilter);
+    const hasSpecialSkills = normalizePresenceFilter(
+      req.query.specialSkillFilter
+    );
     if (hasSpecialSkills !== undefined) {
       filters.hasSpecialSkills = hasSpecialSkills;
       delete filters.specialSkillFilter;
@@ -542,7 +1141,9 @@ const listIntakes = async (req, res) => {
       delete filters.platoonCode;
     }
 
-    const sequenceNumberValue = parsePositiveIntFilter(req.query.sequenceNumber);
+    const sequenceNumberValue = parsePositiveIntFilter(
+      req.query.sequenceNumber
+    );
     if (sequenceNumberValue !== undefined) {
       filters.sequenceNumber = sequenceNumberValue;
     } else {
@@ -699,6 +1300,43 @@ const exportIntakesPdf = async (req, res) => {
     return res
       .status(500)
       .json({ message: "ไม่สามารถส่งออก PDF ได้", detail: err.message });
+  }
+};
+
+const exportIntakePdfByCitizenId = async (req, res) => {
+  try {
+    const citizenId = String(req.query?.citizenId || "").trim();
+    if (!citizenId) {
+      return res.status(400).json({ message: "กรุณาระบุ citizenId" });
+    }
+
+    const unitFilter = mapRoleToUnitFilter(req.userRole) || {};
+    const record = await SoldierIntake.getIntakeByCitizenId(
+      citizenId,
+      unitFilter || {}
+    );
+
+    const buffer = await buildIntakeProfilePdfBuffer(record);
+    const safeName = citizenId.replace(/[^0-9A-Za-z_-]/g, "") || "soldier";
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${safeName}-intake.pdf"`
+    );
+    res.send(buffer);
+  } catch (err) {
+    if (err.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ message: err.message });
+    }
+    if (err.code === "NOT_FOUND") {
+      return res.status(404).json({ message: err.message });
+    }
+    console.error("Failed to export soldier intake pdf by citizenId", err);
+    return res.status(500).json({
+      message: "ไม่สามารถส่งออก PDF รายบุคคลได้",
+      detail: err.message,
+    });
   }
 };
 
@@ -907,4 +1545,5 @@ module.exports = {
   importUnitAssignments,
   deleteAllIntakes,
   exportIntakesPdf,
+  exportIntakePdfByCitizenId,
 };
