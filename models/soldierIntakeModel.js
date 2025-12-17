@@ -1228,102 +1228,48 @@ module.exports = {
       : BATTALION_CODES;
     const requestedCompanyCodes = companyCode ? [companyCode] : COMPANY_CODES;
 
-    const [
-      total,
-      sixMonths,
-      oneYear,
-      twoYears,
-      educationGroups,
-      religionGroups,
-    ] = await Promise.all([
-      prisma.soldierIntake.count({
-        where: { battalionCode, companyCode },
-      }),
-      prisma.soldierIntake.count({
-        where: { serviceYears: { lte: 0.6 }, battalionCode, companyCode },
-      }),
-      prisma.soldierIntake.count({
-        where: { serviceYears: { equals: 1 }, battalionCode, companyCode },
-      }),
-      prisma.soldierIntake.count({
-        where: { serviceYears: { equals: 2 }, battalionCode, companyCode },
-      }),
-      prisma.soldierIntake.groupBy({
-        by: ["education"],
-        _count: { education: true },
-        where: { education: { not: null }, battalionCode, companyCode },
-      }),
-      prisma.soldierIntake.groupBy({
-        by: ["religion"],
-        _count: { religion: true },
-        where: { religion: { not: null }, battalionCode, companyCode },
-      }),
-    ]);
-
-    const educationCounts = EDUCATION_OPTIONS.map((option) => {
-      const matched = educationGroups.find(
-        (item) => item.education === option.value
-      );
-      return { ...option, count: matched?._count.education || 0 };
-    });
-
-    const religionCounts = religionGroups
-      .filter((item) => item.religion)
-      .map((item) => ({
-        value: item.religion,
-        label: item.religion,
-        count: item._count.religion || 0,
-      }))
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-
-    const canSwimCount = await prisma.soldierIntake.count({
-      where: { canSwim: true, battalionCode, companyCode },
-    });
-
-    const companyWhere = {
-      companyCode: companyCode ? companyCode : { not: null },
-    };
-    if (battalionCode) {
-      companyWhere.battalionCode = battalionCode;
-    }
-
-    const companyCountsRaw = await prisma.soldierIntake.groupBy({
-      by: ["battalionCode", "companyCode"],
-      _count: { companyCode: true },
-      where: companyWhere,
-    });
-
-    const battalionCountsRaw = await prisma.soldierIntake.groupBy({
-      by: ["battalionCode"],
-      _count: { battalionCode: true },
+    // ดึงข้อมูลครั้งเดียวแล้วรวมสถิติในหน่วยความจำ ลดรอบ query ให้เร็วขึ้น
+    const readinessRows = await prisma.soldierIntake.findMany({
       where: { battalionCode, companyCode },
+      select: {
+        id: true,
+        battalionCode: true,
+        companyCode: true,
+        birthDate: true,
+        chronicDiseases: true,
+        foodAllergies: true,
+        drugAllergies: true,
+        canSwim: true,
+        tattoo: true,
+        religion: true,
+        bloodGroup: true,
+        serviceYears: true,
+        education: true,
+      },
     });
 
-    const companyCounts = formatComboCounts(
-      companyCountsRaw,
-      requestedBattalionCodes,
-      requestedCompanyCodes,
-      {
-        allowExtraBattalions: !battalionCode,
-        allowExtraCompanies: !companyCode,
-      }
-    );
-
-    const battalionCounts = formatGroupCounts(
-      battalionCountsRaw,
-      BATTALION_CODES,
-      "battalionCode"
-    );
-
-    const bloodGroupCounts = await prisma.soldierIntake
-      .groupBy({
-        by: ["bloodGroup"],
-        _count: { bloodGroup: true },
-        where: { bloodGroup: { not: null }, battalionCode, companyCode },
-      })
-      .then((groups) =>
-        formatGroupCounts(
-          groups,
+    const total = readinessRows.length;
+    if (total === 0) {
+      return {
+        total: 0,
+        sixMonths: 0,
+        oneYear: 0,
+        twoYears: 0,
+        educationCounts: buildEducationCountsFromMap(new Map()),
+        religionCounts: [],
+        canSwimCount: 0,
+        companyCounts: formatComboCounts(
+          [],
+          requestedBattalionCodes,
+          requestedCompanyCodes,
+          {
+            allowExtraBattalions: !battalionCode,
+            allowExtraCompanies: !companyCode,
+          }
+        ),
+        battalionCounts: formatGroupCounts([], BATTALION_CODES, "battalionCode"),
+        bloodGroupCounts: formatGroupCounts(
+          [],
           [
             "A",
             "B",
@@ -1339,57 +1285,49 @@ module.exports = {
             "O-",
           ],
           "bloodGroup"
-        )
-      );
+        ),
+        companySummaries: [],
+      };
+    }
 
-    // ---------- สรุปอายุ/สิทธิ์ นร.จ./โรคประจำตัว/แพ้/พร้อมรบ + religion per company ----------
+    let sixMonths = 0;
+    let oneYear = 0;
+    let twoYears = 0;
+    let canSwimCount = 0;
 
-    const readinessRows = await prisma.soldierIntake.findMany({
-      where: { battalionCode, companyCode },
-      select: {
-        id: true,
-        battalionCode: true,
-        companyCode: true,
-        birthDate: true,
-        chronicDiseases: true,
-        foodAllergies: true,
-        drugAllergies: true,
-        canSwim: true,
-        tattoo: true, // ถ้า field ชื่ออื่น แก้ตรงนี้
-        religion: true,
-        bloodGroup: true,
-        serviceYears: true,
-        education: true,
-      },
-    });
+    const educationCountsMap = new Map();
+    const religionCountsMap = new Map();
+    const bloodGroupCountsMap = new Map();
+    const battalionCountsMap = new Map();
+    const companyCountsMap = new Map();
 
     const summaryMap = new Map();
 
     const getKey = (bat, com) => `${bat || ""}-${com || ""}`;
 
-    // base จาก companyCounts ให้มีทุกกองร้อย
-    companyCounts.forEach((item) => {
-      const key = getKey(item.battalionCode, item.companyCode);
-      summaryMap.set(key, {
-        battalionCode: item.battalionCode || null,
-        companyCode: item.companyCode || null,
-        count: item.count || 0,
-        // ageTotal: 0,
-        // ageMin: null,
-        // ageMax: null,
-        // ageCount: 0,
-        ages: [],
-        eligibleNcoCount: 0,
-        chronicDiseaseCount: 0,
-        allergyCount: 0,
-        combatScoreTotal: 0,
-        combatScoreCount: 0,
-        combatHighCount: 0,
-        religionCountsMap: new Map(),
-        bloodGroupCountsMap: new Map(),
-        serviceYearsCountsMap: new Map(),
-        canSwimCountsMap: new Map(),
-        educationCountsMap: new Map(),
+    // เตรียมช่องว่างสำหรับกองพัน/กองร้อยที่ร้องขอทั้งหมด
+    requestedBattalionCodes.forEach((bat) => {
+      requestedCompanyCodes.forEach((com) => {
+        const key = getKey(bat, com);
+        if (!summaryMap.has(key)) {
+          summaryMap.set(key, {
+            battalionCode: bat || null,
+            companyCode: com || null,
+            count: 0,
+            ages: [],
+            eligibleNcoCount: 0,
+            chronicDiseaseCount: 0,
+            allergyCount: 0,
+            combatScoreTotal: 0,
+            combatScoreCount: 0,
+            combatHighCount: 0,
+            religionCountsMap: new Map(),
+            bloodGroupCountsMap: new Map(),
+            serviceYearsCountsMap: new Map(),
+            canSwimCountsMap: new Map(),
+            educationCountsMap: new Map(),
+          });
+        }
       });
     });
 
@@ -1422,6 +1360,69 @@ module.exports = {
       const summary = summaryMap.get(key);
 
       summary.count += 1;
+
+      // รวม count กลางไปด้วย (ลดรอบ query)
+      if (row.serviceYears != null) {
+        const sy = Number(row.serviceYears);
+        if (Number.isFinite(sy)) {
+          if (sy <= 0.6) sixMonths += 1;
+          if (sy === 1) oneYear += 1;
+          if (sy === 2) twoYears += 1;
+        }
+      }
+
+      if (row.education) {
+        const normalized = String(row.education).trim();
+        if (normalized) {
+          educationCountsMap.set(
+            normalized,
+            (educationCountsMap.get(normalized) || 0) + 1
+          );
+        }
+      }
+
+      if (row.religion) {
+        const normalized = String(row.religion).trim();
+        if (normalized) {
+          religionCountsMap.set(normalized, (religionCountsMap.get(normalized) || 0) + 1);
+        }
+      }
+
+      if (row.bloodGroup) {
+        const normalized = String(row.bloodGroup).trim();
+        if (normalized) {
+          bloodGroupCountsMap.set(
+            normalized,
+            (bloodGroupCountsMap.get(normalized) || 0) + 1
+          );
+        }
+      }
+
+      if (row.battalionCode) {
+        const normalized = String(row.battalionCode).trim();
+        if (normalized) {
+          battalionCountsMap.set(
+            normalized,
+            (battalionCountsMap.get(normalized) || 0) + 1
+          );
+        }
+      }
+
+      if (row.battalionCode && row.companyCode) {
+        const bat = String(row.battalionCode).trim();
+        const com = String(row.companyCode).trim();
+        if (bat && com) {
+          const keyCompany = `${bat}|||${com}`;
+          companyCountsMap.set(
+            keyCompany,
+            (companyCountsMap.get(keyCompany) || 0) + 1
+          );
+        }
+      }
+
+      if (row.canSwim === true) {
+        canSwimCount += 1;
+      }
 
       const age = computeAge(row.birthDate);
       if (age != null) {
@@ -1553,6 +1554,68 @@ module.exports = {
         const comB = Number(b.companyCode || 0);
         return comA - comB;
       });
+
+    const educationCounts = buildEducationCountsFromMap(educationCountsMap);
+
+    const religionCounts = Array.from(religionCountsMap.entries())
+      .map(([value, count]) => ({
+        value,
+        label: value,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+    const companyCountsRaw = Array.from(companyCountsMap.entries()).map(
+      ([key, countValue]) => {
+        const [bat, com] = key.split("|||");
+        return { battalionCode: bat, companyCode: com, _count: { companyCode: countValue } };
+      }
+    );
+
+    const battalionCountsRaw = Array.from(battalionCountsMap.entries()).map(
+      ([bat, countValue]) => ({
+        battalionCode: bat,
+        _count: { battalionCode: countValue },
+      })
+    );
+
+    const bloodGroupCounts = formatGroupCounts(
+      Array.from(bloodGroupCountsMap.entries()).map(([bg, countValue]) => ({
+        bloodGroup: bg,
+        _count: { bloodGroup: countValue },
+      })),
+      [
+        "A",
+        "B",
+        "AB",
+        "O",
+        "A+",
+        "A-",
+        "B+",
+        "B-",
+        "AB+",
+        "AB-",
+        "O+",
+        "O-",
+      ],
+      "bloodGroup"
+    );
+
+    const companyCounts = formatComboCounts(
+      companyCountsRaw,
+      requestedBattalionCodes,
+      requestedCompanyCodes,
+      {
+        allowExtraBattalions: !battalionCode,
+        allowExtraCompanies: !companyCode,
+      }
+    );
+
+    const battalionCounts = formatGroupCounts(
+      battalionCountsRaw,
+      BATTALION_CODES,
+      "battalionCode"
+    );
 
     return {
       total,
