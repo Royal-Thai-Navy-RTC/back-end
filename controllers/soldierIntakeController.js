@@ -532,6 +532,18 @@ const buildIntakeProfilePdfBuffer = (item) =>
       });
     };
 
+    const computeAgeYears = (dateValue) => {
+      const d = dateValue instanceof Date ? dateValue : new Date(dateValue);
+      if (Number.isNaN(d.getTime())) return null;
+      const now = new Date();
+      let age = now.getFullYear() - d.getFullYear();
+      const m = now.getMonth() - d.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < d.getDate())) {
+        age -= 1;
+      }
+      return age >= 0 ? age : null;
+    };
+
     // -------------------------
     // Helpers: rounded card
     // -------------------------
@@ -1116,11 +1128,14 @@ const buildIntakeProfilePdfBuffer = (item) =>
     drawImageBlock();
 
     drawSectionTitle("ข้อมูลพื้นฐาน");
+    const ageYears = computeAgeYears(item.birthDate);
     drawFieldRow2({
       leftLabel: "เลขบัตรประชาชน",
       leftValue: item.citizenId,
       rightLabel: "วันเกิด",
-      rightValue: formatDateThaiShort(item.birthDate),
+      rightValue: ageYears !== null
+        ? `${formatDateThaiShort(item.birthDate)} (${ageYears} ปี)`
+        : formatDateThaiShort(item.birthDate),
     });
     drawFieldRow2({
       leftLabel: "อายุราชการ",
