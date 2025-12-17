@@ -411,7 +411,10 @@ const parseOrientation = (value) => {
     .trim()
     .toLowerCase();
   const portrait = new Set(["portrait", "p", "vertical", "v"]);
-  return portrait.has(normalized) ? "portrait" : "landscape";
+  const landscape = new Set(["landscape", "l", "horizontal", "h"]);
+  if (portrait.has(normalized) || normalized === "") return "portrait";
+  if (landscape.has(normalized)) return "landscape";
+  return "portrait";
 };
 
 const drawLogoIfAvailable = (doc) => {
