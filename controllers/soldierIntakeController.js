@@ -16,7 +16,114 @@ const THAI_FONT_PATH = path.join(
   "Kanit-Regular.ttf"
 );
 const LOGO_PATH = path.join(__dirname, "..", "assets", "logo.jpg");
+const ADDRESS_DATA_PATH = path.join(__dirname, "..", "assets", "address-data.json");
 let optionalSharp = null;
+let cachedAddressMaps = null;
+
+const loadAddressMaps = () => {
+  if (cachedAddressMaps) return cachedAddressMaps;
+  try {
+    const raw = fs.readFileSync(ADDRESS_DATA_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    const bySubdistrictId = new Map();
+    const byDistrictId = new Map();
+    const byProvinceId = new Map();
+
+    for (const entry of parsed || []) {
+      if (!entry) continue;
+      if (entry.id !== undefined && entry.id !== null) {
+        bySubdistrictId.set(String(entry.id), entry);
+      }
+      const district = entry.district || {};
+      if (district.id !== undefined && district.id !== null) {
+        const districtId = String(district.id);
+        if (!byDistrictId.has(districtId)) {
+          byDistrictId.set(districtId, district);
+        }
+      }
+      const province = district.province || {};
+      if (province.id !== undefined && province.id !== null) {
+        const provinceId = String(province.id);
+        if (!byProvinceId.has(provinceId)) {
+          byProvinceId.set(provinceId, province);
+        }
+      }
+    }
+
+    cachedAddressMaps = { bySubdistrictId, byDistrictId, byProvinceId };
+  } catch (err) {
+    console.warn("ไม่สามารถโหลด address-data.json ได้", err.message);
+    cachedAddressMaps = {
+      bySubdistrictId: new Map(),
+      byDistrictId: new Map(),
+      byProvinceId: new Map(),
+    };
+  }
+  return cachedAddressMaps;
+};
+
+const mapAddressNamesFromIds = (record) => {
+  if (!record) return record;
+  const { bySubdistrictId, byDistrictId, byProvinceId } = loadAddressMaps();
+  const normalized = (value) => {
+    if (value === undefined || value === null) return null;
+    const text = String(value).trim();
+    return text || null;
+  };
+  const isNumericId = (value) => /^\d+$/.test(value || "");
+
+  const subdistrictId = normalized(record.subdistrict);
+  const districtId = normalized(record.district);
+  const provinceId = normalized(record.province);
+
+  const result = { ...record };
+  let resolvedDistrict = false;
+  let resolvedProvince = false;
+
+  const applyFromSubdistrict = (entry) => {
+    if (!entry) return;
+    result.subdistrict = entry.name_th || entry.name_en || result.subdistrict;
+    const district = entry.district || {};
+    result.district =
+      district.name_th || district.name_en || result.district;
+    resolvedDistrict = resolvedDistrict || Boolean(district.name_th);
+    const province = district.province || {};
+    result.province =
+      province.name_th || province.name_en || result.province;
+    resolvedProvince = resolvedProvince || Boolean(province.name_th);
+    if (entry.zip_code && !result.postalCode) {
+      result.postalCode = String(entry.zip_code);
+    }
+  };
+
+  if (subdistrictId && isNumericId(subdistrictId)) {
+    applyFromSubdistrict(bySubdistrictId.get(subdistrictId));
+  }
+
+  if (!resolvedDistrict && districtId && isNumericId(districtId)) {
+    const district = byDistrictId.get(districtId);
+    if (district) {
+      result.district =
+        district.name_th || district.name_en || result.district;
+      resolvedDistrict = true;
+      const province = district.province || {};
+      if (!resolvedProvince && province) {
+        result.province =
+          province.name_th || province.name_en || result.province;
+        resolvedProvince = Boolean(result.province);
+      }
+    }
+  }
+
+  if (!resolvedProvince && provinceId && isNumericId(provinceId)) {
+    const province = byProvinceId.get(provinceId);
+    if (province) {
+      result.province = province.name_th || province.name_en || result.province;
+    }
+  }
+
+  return result;
+};
 
 const toPublicPath = (file) => {
   if (!file) return undefined;
@@ -1528,11 +1635,14 @@ const exportIntakePdfByCitizenId = async (req, res) => {
       ? await SoldierIntake.getIntakeByCitizenId(citizenId, unitFilter || {})
       : await SoldierIntake.getIntakeByUnitCode(unitCode, unitFilter || {});
 
-    const buffer = await buildIntakeProfilePdfBuffer(record);
+    const recordWithAddress = mapAddressNamesFromIds(record);
+    const buffer = await buildIntakeProfilePdfBuffer(recordWithAddress);
     const displayName =
-      `${record.firstName || ""} ${record.lastName || ""}`.trim() ||
-      record.firstName ||
-      record.lastName ||
+      `${recordWithAddress.firstName || ""} ${
+        recordWithAddress.lastName || ""
+      }`.trim() ||
+      recordWithAddress.firstName ||
+      recordWithAddress.lastName ||
       "soldier";
     const asciiSafe = displayName
       .normalize("NFKD")
