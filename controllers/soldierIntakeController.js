@@ -1520,8 +1520,9 @@ const exportIntakes = async (req, res) => {
   try {
     const records = await getExportIntakeRecords(req, res);
     if (!records) return;
+    const mappedRecords = records.map(mapAddressNamesFromIds);
 
-    const rows = records.map((item) => ({
+    const rows = mappedRecords.map((item) => ({
       เลขบัตรประชาชน: item.citizenId || "",
       ชื่อ: item.firstName || "",
       นามสกุล: item.lastName || "",
@@ -1600,8 +1601,9 @@ const exportIntakesPdf = async (req, res) => {
     const displayFilters = buildExportFilters(req);
     const records = await getExportIntakeRecords(req, res);
     if (!records) return;
+    const mappedRecords = records.map(mapAddressNamesFromIds);
 
-    const buffer = await buildIntakesPdfBuffer(records, {
+    const buffer = await buildIntakesPdfBuffer(mappedRecords, {
       orientation: req.query?.orientation,
       filters: displayFilters,
     });
