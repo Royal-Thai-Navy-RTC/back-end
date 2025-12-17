@@ -1152,10 +1152,10 @@ const buildIntakeProfilePdfBuffer = (item) =>
       }`,
     });
     drawFieldRow2({
-      leftLabel: "อาชีพก่อนเป็นทหาร",
-      leftValue: item.previousJob || "-",
-      rightLabel: "ศาสนา",
-      rightValue: item.religion || "-",
+      leftLabel: "ศาสนา",
+      leftValue: item.religion || "-",
+      rightLabel: "สถานะครอบครัว",
+      rightValue: item.familyStatus || "-",
     });
 
     drawSectionTitle("ที่อยู่และการติดต่อ");
@@ -1211,16 +1211,16 @@ const buildIntakeProfilePdfBuffer = (item) =>
     drawFieldRow1({ label: "ทักษะพิเศษ", value: item.specialSkills || "-" });
     drawFieldRow1({ label: "ใบประกาศนียบัตร", value: certificateText || "-" });
     drawFieldRow2({
-      leftLabel: "ประสบการณ์ก่อนเป็นทหาร (ปี)",
-      leftValue: item.experienced ?? "-",
-      rightLabel: "สถานะครอบครัว",
-      rightValue: item.familyStatus || "-",
+      leftLabel: "อาชีพก่อนเป็นทหาร",
+      leftValue: item.previousJob || "-",
+      rightLabel: "ประสบการณ์ก่อนเป็นทหาร (ปี)",
+      rightValue: item.experienced ?? "-",
     });
     drawFieldRow2({
       leftLabel: "คะแนนความพร้อมรบ",
-      leftValue: item.combatReadiness?.score ?? "-",
+      leftValue:  `${item.combatReadiness?.score}/500` ?? "-",
       rightLabel: "เปอร์เซ็นต์ความพร้อมรบ",
-      rightValue: item.combatReadiness?.percent ?? "-",
+      rightValue: `${item.combatReadiness?.percent}%` ?? "-",
     });
 
     // drawSectionTitle("บันทึกระบบ");
@@ -1484,15 +1484,17 @@ const exportIntakesPdf = async (req, res) => {
 const exportIntakePdfByCitizenId = async (req, res) => {
   try {
     const citizenId = String(req.query?.citizenId || "").trim();
-    if (!citizenId) {
-      return res.status(400).json({ message: "กรุณาระบุ citizenId" });
+    const unitCode = String(req.query?.unitCode || req.query?.code || "").trim();
+    if (!citizenId && !unitCode) {
+      return res
+        .status(400)
+        .json({ message: "กรุณาระบุ citizenId หรือ unitCode 5 หลัก" });
     }
 
     const unitFilter = mapRoleToUnitFilter(req.userRole) || {};
-    const record = await SoldierIntake.getIntakeByCitizenId(
-      citizenId,
-      unitFilter || {}
-    );
+    const record = citizenId
+      ? await SoldierIntake.getIntakeByCitizenId(citizenId, unitFilter || {})
+      : await SoldierIntake.getIntakeByUnitCode(unitCode, unitFilter || {});
 
     const buffer = await buildIntakeProfilePdfBuffer(record);
     const displayName =

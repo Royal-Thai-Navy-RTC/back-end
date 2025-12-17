@@ -1158,6 +1158,59 @@ module.exports = {
     };
   },
 
+  getIntakeByUnitCode: async (unitCode, filters = {}) => {
+    ensureModelAvailable();
+    const code = normalizeString(unitCode);
+    if (!code || !/^\d{5}$/.test(code)) {
+      const err = new Error("unitCode ต้องเป็นตัวเลข 5 หลัก");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+
+    const battalionCode = code[0];
+    const companyCode = code[1];
+    const platoonCode = Number(code[2]);
+    const sequenceNumber = Number(code.slice(3));
+
+    if (!Number.isInteger(platoonCode) || platoonCode <= 0) {
+      const err = new Error("platoonCode ไม่ถูกต้อง");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+    if (!Number.isInteger(sequenceNumber) || sequenceNumber <= 0) {
+      const err = new Error("sequenceNumber ไม่ถูกต้อง");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+
+    const where = {
+      battalionCode,
+      companyCode,
+      platoonCode,
+      sequenceNumber,
+    };
+
+    const unitBattalion = normalizeString(filters.battalionCode);
+    const unitCompany = normalizeString(filters.companyCode);
+    if (unitBattalion) where.battalionCode = unitBattalion;
+    if (unitCompany) where.companyCode = unitCompany;
+
+    const record = await prisma.soldierIntake.findFirst({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+    if (!record) {
+      const err = new Error("ไม่พบข้อมูล");
+      err.code = "NOT_FOUND";
+      throw err;
+    }
+    return {
+      ...record,
+      radarProfile: sanitizeRadarProfile(record.radarProfile),
+      combatReadiness: sanitizeCombatReadiness(record.combatReadiness),
+    };
+  },
+
   updateIntake: async (id, input = {}) => {
     ensureModelAvailable();
     const intakeId = Number(id);
