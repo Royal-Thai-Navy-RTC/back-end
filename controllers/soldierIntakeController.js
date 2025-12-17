@@ -1,11 +1,22 @@
 const fs = require("fs");
 const path = require("path");
 const XLSX = require("xlsx");
+const PDFDocument = require("pdfkit");
 const SoldierIntake = require("../models/soldierIntakeModel");
 const FeatureToggle = require("../models/featureToggleModel");
 const { ChildProcess } = require("child_process");
 
 const ID_CARD_PUBLIC_PREFIX = "/uploads/idcards";
+const ID_CARD_STORAGE_DIR = path.join(__dirname, "..", "uploads", "idcards");
+const THAI_FONT_PATH = path.join(
+  __dirname,
+  "..",
+  "assets",
+  "fonts",
+  "Kanit-Regular.ttf"
+);
+
+console.log(THAI_FONT_PATH)
 
 const toPublicPath = (file) => {
   if (!file) return undefined;
@@ -135,6 +146,160 @@ const mapRoleToUnitFilter = (role) => {
     companyCode: String(Number(match[2])),
   };
 };
+
+const buildExportFilters = (req) => {
+  const filters = { ...(req.query || {}) };
+  const unitFilter = mapRoleToUnitFilter(req.userRole);
+
+  if (unitFilter) {
+    filters.battalionCode = unitFilter.battalionCode;
+    filters.companyCode = unitFilter.companyCode;
+  }
+
+  // province filter: expect numeric province id
+  const provinceRaw = req.query.provinceFilter;
+  const provinceCode =
+    provinceRaw === undefined || provinceRaw === null || provinceRaw === ""
+      ? undefined
+      : Number(provinceRaw);
+  if (provinceCode !== undefined && Number.isInteger(provinceCode)) {
+    filters.province = String(provinceCode);
+  } else {
+    delete filters.province;
+  }
+  delete filters.provinceFilter;
+
+  return filters;
+};
+
+const getExportIntakeRecords = async (req, res) => {
+  const filters = buildExportFilters(req);
+  const records = await SoldierIntake.getIntakesForExport(filters);
+  if (!records.length) {
+    res.status(404).json({ message: "ไม่พบข้อมูลทหารใหม่สำหรับส่งออก" });
+    return null;
+  }
+  return records;
+};
+
+const applyThaiFontIfAvailable = (doc) => {
+  try {
+    if (fs.existsSync(THAI_FONT_PATH)) {
+      doc.font(THAI_FONT_PATH);
+      return true;
+    }
+  } catch (err) {
+    console.warn("ไม่สามารถโหลดฟอนต์ภาษาไทยได้", err.message);
+  }
+  return false;
+};
+
+const resolveIdCardFilePath = (url) => {
+  if (!url) return null;
+  // strip domain if present, keep path
+  const withoutDomain = url.replace(/^https?:\/\/[^/]+/i, "");
+  const relative = withoutDomain.startsWith(ID_CARD_PUBLIC_PREFIX)
+    ? withoutDomain.slice(ID_CARD_PUBLIC_PREFIX.length)
+    : withoutDomain;
+  const normalized = relative.replace(/^[/\\]+/, "");
+  if (!normalized) return null;
+  return path.join(ID_CARD_STORAGE_DIR, normalized);
+};
+
+const buildIntakesPdfBuffer = (records = []) =>
+  new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: "A4", margin: 36 });
+    const chunks = [];
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", (err) => reject(err));
+
+    applyThaiFontIfAvailable(doc);
+
+    doc.info.Title = "รายการทหารใหม่";
+    doc.info.Author = "RTCAS ระบบรับทหารใหม่";
+
+    const exportedAt = formatDateTime(new Date());
+    doc.fontSize(16).fillColor("#000").text("รายการทหารใหม่", {
+      align: "center",
+    });
+    doc.moveDown(0.2);
+    doc.fontSize(10).fillColor("#444").text(`สร้างเมื่อ: ${exportedAt}`, {
+      align: "center",
+    });
+    doc.moveDown(0.8);
+
+    records.forEach((item, index) => {
+      const fullName = `${item.firstName || ""} ${item.lastName || ""}`.trim();
+      const chronicText = formatListField(item.chronicDiseases);
+      const foodAllergy = formatListField(item.foodAllergies);
+      const drugAllergy = formatListField(item.drugAllergies);
+      const allergyText = [foodAllergy, drugAllergy]
+        .filter((v) => v)
+        .join(", ");
+
+      doc.fillColor("#000").fontSize(12).text(`${index + 1}. ${fullName || "-"}`);
+
+      doc.fontSize(10).fillColor("#111");
+      doc.text(`เลขบัตร: ${item.citizenId || "-"}`);
+      doc.text(
+        `วันเกิด: ${formatDateOnly(item.birthDate) || "-"} | อายุราชการ: ${
+          item.serviceYears ?? "-"
+        } ปี`
+      );
+
+      doc.moveDown(0.1);
+      doc.text(
+        `สังกัด: กองพัน ${item.battalionCode || "-"} / กองร้อย ${
+          item.companyCode || "-"
+        } / หมวด ${item.platoonCode ?? "-"} / ลำดับ ${item.sequenceNumber ?? "-"}`
+      );
+      doc.text(
+        `การศึกษา: ${item.education || "-"} | กรุ๊ปเลือด: ${
+          item.bloodGroup || "-"
+        }`
+      );
+      doc.text(
+        `ว่ายน้ำได้: ${formatBooleanLabel(item.canSwim) || "-"} | รอยสัก: ${
+          formatBooleanLabel(item.tattoo) || "-"
+        } | คะแนนพร้อมรบ: ${
+          item.combatReadiness?.score ?? item.combatReadiness?.percent ?? "-"
+        }`
+      );
+      doc.text(`โรคประจำตัว: ${chronicText || "-"} | อาการแพ้: ${allergyText || "-"}`);
+      doc.text(
+        `ทักษะ/อาชีพ: ${item.specialSkills || "-"} | ก่อนเป็นทหาร: ${
+          item.previousJob || "-"
+        }`
+      );
+
+      doc.moveDown(0.1);
+      doc.text(
+        `ที่อยู่: ${item.addressLine || "-"} ${item.subdistrict || ""} ${
+          item.district || ""
+        } ${item.province || ""} ${item.postalCode || ""}`.trim()
+      );
+      doc.text(
+        `ติดต่อ: ${item.phone || "-"}${item.email ? ` | อีเมล: ${item.email}` : ""}`
+      );
+      doc.text(
+        `ผู้ติดต่อฉุกเฉิน: ${item.emergencyName || "-"} ${
+          item.emergencyPhone ? `(${item.emergencyPhone})` : ""
+        }`
+      );
+      doc.text(`สร้างเมื่อ: ${formatDateTime(item.createdAt) || "-"}`);
+      doc.moveDown(0.4);
+      doc
+        .moveTo(doc.x, doc.y)
+        .lineTo(doc.page.width - doc.page.margins.right, doc.y)
+        .strokeColor("#dddddd")
+        .lineWidth(0.5)
+        .stroke();
+      doc.moveDown(0.6);
+    });
+
+    doc.end();
+  });
 
 const listIntakes = async (req, res) => {
   try {
@@ -272,33 +437,8 @@ const listIntakes = async (req, res) => {
 
 const exportIntakes = async (req, res) => {
   try {
-    const filters = { ...(req.query || {}) };
-    const unitFilter = mapRoleToUnitFilter(req.userRole);
-
-    if (unitFilter) {
-      filters.battalionCode = unitFilter.battalionCode;
-      filters.companyCode = unitFilter.companyCode;
-    }
-
-    // province filter: expect numeric province id
-    const provinceRaw = req.query.provinceFilter;
-    const provinceCode =
-      provinceRaw === undefined || provinceRaw === null || provinceRaw === ""
-        ? undefined
-        : Number(provinceRaw);
-    if (provinceCode !== undefined && Number.isInteger(provinceCode)) {
-      filters.province = String(provinceCode);
-    } else {
-      delete filters.province;
-    }
-    delete filters.provinceFilter;
-
-    const records = await SoldierIntake.getIntakesForExport(filters);
-    if (!records.length) {
-      return res
-        .status(404)
-        .json({ message: "ไม่พบข้อมูลทหารใหม่สำหรับส่งออก" });
-    }
+    const records = await getExportIntakeRecords(req, res);
+    if (!records) return;
 
     const rows = records.map((item) => ({
       เลขบัตรประชาชน: item.citizenId || "",
@@ -371,6 +511,27 @@ const exportIntakes = async (req, res) => {
     return res
       .status(500)
       .json({ message: "ไม่สามารถส่งออกข้อมูลได้", detail: err.message });
+  }
+};
+
+const exportIntakesPdf = async (req, res) => {
+  try {
+    const records = await getExportIntakeRecords(req, res);
+    if (!records) return;
+
+    const buffer = await buildIntakesPdfBuffer(records);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="soldier-intakes.pdf"'
+    );
+    res.send(buffer);
+  } catch (err) {
+    console.error("Failed to export soldier intakes pdf", err);
+    return res
+      .status(500)
+      .json({ message: "ไม่สามารถส่งออก PDF ได้", detail: err.message });
   }
 };
 
@@ -578,4 +739,5 @@ module.exports = {
   setIntakePublicStatus,
   importUnitAssignments,
   deleteAllIntakes,
+  exportIntakesPdf,
 };

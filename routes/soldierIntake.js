@@ -41,6 +41,13 @@ router.get(
   soldierIntakeController.exportIntakes
 );
 
+router.get(
+  "/admin/soldier-intakes/export/pdf",
+  middleware.verifyToken,
+  middleware.authorizeSoldierData,
+  soldierIntakeController.exportIntakesPdf
+);
+
 router.delete(
   "/admin/soldier-intakes",
   middleware.verifyToken,
