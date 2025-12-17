@@ -78,6 +78,35 @@ const formatDateTime = (value) => {
   )}:${padTwo(date.getSeconds())}`;
 };
 
+const formatDateTimeThai = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  // แปลงเป็นเวลาไทย (UTC+7)
+  const TH_OFFSET_HOURS = 7;
+  const thMs = date.getTime() + TH_OFFSET_HOURS * 60 * 60 * 1000;
+  const thDate = new Date(thMs);
+
+  const day = thDate.getUTCDate();
+  const month = TH_MONTH_SHORT[thDate.getUTCMonth()] || "";
+  const year = thDate.getUTCFullYear() + 543;
+  const hh = padTwo(thDate.getUTCHours());
+  const mm = padTwo(thDate.getUTCMinutes());
+
+  return `${day} ${month} ${year} เวลา ${hh}:${mm}`;
+};
+
+const formatServiceYearsDisplay = (value) => {
+  if (value === null || value === undefined) return "-";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "-";
+  if (num === 0.6) return "6 เดือน";
+  if (num === 1) return "1 ปี";
+  if (num === 2) return "2 ปี";
+  return num;
+};
+
 const formatListField = (value) => {
   if (Array.isArray(value)) {
     return value.filter((item) => item != null && item !== "").join(", ");
@@ -173,6 +202,17 @@ const mapRoleToUnitFilter = (role) => {
 
 const buildExportFilters = (req) => {
   const filters = { ...(req.query || {}) };
+
+  // normalize common string filters
+  const normalize = (val) => (val === undefined || val === null ? undefined : String(val).trim());
+  if (filters.battalionCode !== undefined) {
+    const value = normalize(filters.battalionCode);
+    filters.battalionCode = value || undefined;
+  }
+  if (filters.companyCode !== undefined) {
+    const value = normalize(filters.companyCode);
+    filters.companyCode = value || undefined;
+  }
   const unitFilter = mapRoleToUnitFilter(req.userRole);
 
   if (unitFilter) {
@@ -240,7 +280,7 @@ const drawLogoIfAvailable = (doc) => {
   }
 };
 
-const renderCoverPage = (doc, exportedAt) => {
+const renderCoverPage = (doc, exportedAt, filters = {}) => {
   const pageWidth = doc.page.width;
   const pageHeight = doc.page.height;
   const margins = doc.page.margins;
@@ -253,6 +293,12 @@ const renderCoverPage = (doc, exportedAt) => {
   const title = "รายการทหารใหม่";
   const subtitle = "RTcas (Recruit Training Center Academic System)";
   const meta = `สร้างเมื่อ: ${exportedAt}`;
+  const unitLine =
+    filters.battalionCode || filters.companyCode
+      ? `กองพันฝึกที่ ${filters.battalionCode || "-"} กองร้อยฝึกที่ ${
+          filters.companyCode || "-"
+        }`
+      : null;
 
   const titleHeight = doc.heightOfString(title, { width: contentWidth, align: "center" });
   const subtitleHeight = doc.heightOfString(subtitle, {
@@ -260,9 +306,19 @@ const renderCoverPage = (doc, exportedAt) => {
     align: "center",
   });
   const metaHeight = doc.heightOfString(meta, { width: contentWidth, align: "center" });
+  const unitHeight = unitLine
+    ? doc.heightOfString(unitLine, { width: contentWidth, align: "center" })
+    : 0;
 
   const blockHeight =
-    logoSize + logoGap + titleHeight + 8 + subtitleHeight + 6 + metaHeight;
+    logoSize +
+    logoGap +
+    titleHeight +
+    8 +
+    subtitleHeight +
+    (unitLine ? 6 + unitHeight : 0) +
+    6 +
+    metaHeight;
 
   const availableHeight = pageHeight - margins.top - margins.bottom;
   const startY = margins.top + Math.max(0, (availableHeight - blockHeight) / 2);
@@ -284,6 +340,13 @@ const renderCoverPage = (doc, exportedAt) => {
     align: "center",
     width: contentWidth,
   });
+  if (unitLine) {
+    doc.moveDown(0.2);
+    doc.fontSize(11).fillColor("#000").text(unitLine, {
+      align: "center",
+      width: contentWidth,
+    });
+  }
   doc.moveDown(0.2);
   doc.fontSize(10).fillColor("#444").text(meta, {
     align: "center",
@@ -317,8 +380,9 @@ const buildIntakesPdfBuffer = (records = [], options = {}) =>
     doc.info.Title = "รายการทหารใหม่";
     doc.info.Author = "RTCAS ระบบรับทหารใหม่";
 
-    const exportedAt = formatDateTime(new Date());
-    renderCoverPage(doc, exportedAt);
+    const exportedAt = formatDateTimeThai(new Date());
+    const coverFilters = options.filters || {};
+    renderCoverPage(doc, exportedAt, coverFilters);
     doc.addPage({ size: "A4", margin: 36, layout });
 
     const addField = (label, value) => {
@@ -342,7 +406,7 @@ const buildIntakesPdfBuffer = (records = [], options = {}) =>
       doc.moveDown(0.2);
       addField("เลขบัตร", item.citizenId);
       addField("วันเกิด", formatDateThaiShort(item.birthDate));
-      addField("อายุราชการ (ปี)", item.serviceYears ?? "-");
+      addField("อายุราชการ", formatServiceYearsDisplay(item.serviceYears));
 
       doc.moveDown(0.2);
       addField(
@@ -357,7 +421,11 @@ const buildIntakesPdfBuffer = (records = [], options = {}) =>
         "สุขภาพ",
         `ว่ายน้ำ: ${formatBooleanLabel(item.canSwim) || "-"} | รอยสัก: ${
           formatBooleanLabel(item.tattoo) || "-"
-        } | พร้อมรบ: ${item.combatReadiness?.score ?? item.combatReadiness?.percent ?? "-"}`
+        } | พร้อมรบ: ${item.combatReadiness?.score ?? item.combatReadiness?.percent ?? "-"}${
+          Number.isFinite(item.combatReadiness?.score)
+            ? ` (${Math.round((item.combatReadiness.score / 500) * 100)}%)`
+            : ""
+        }`
       );
       addField("โรคประจำตัว", chronicText || "-");
       addField("อาการแพ้", allergyText || "-");
@@ -381,7 +449,7 @@ const buildIntakesPdfBuffer = (records = [], options = {}) =>
         "ฉุกเฉิน",
         `${item.emergencyName || "-"}${item.emergencyPhone ? ` (${item.emergencyPhone})` : ""}`
       );
-      addField("สร้างเมื่อ", formatDateTime(item.createdAt) || "-");
+      addField("สร้างเมื่อ", formatDateTimeThai(item.createdAt) || "-");
 
       doc.moveDown(0.4);
       doc
@@ -575,7 +643,7 @@ const exportIntakes = async (req, res) => {
       "รูปบัตรประชาชน (URL)": item.idCardImageUrl || "",
       คะแนนความพร้อมรบ: item.combatReadiness?.score ?? "",
       เปอร์เซ็นต์ความพร้อมรบ: item.combatReadiness?.percent ?? "",
-      สร้างเมื่อ: formatDateTime(item.createdAt),
+      สร้างเมื่อ: formatDateTimeThai(item.createdAt),
       อัปเดตล่าสุด: formatDateTime(item.updatedAt),
     }));
 
@@ -611,11 +679,13 @@ const exportIntakes = async (req, res) => {
 
 const exportIntakesPdf = async (req, res) => {
   try {
+    const displayFilters = buildExportFilters(req);
     const records = await getExportIntakeRecords(req, res);
     if (!records) return;
 
     const buffer = await buildIntakesPdfBuffer(records, {
       orientation: req.query?.orientation,
+      filters: displayFilters,
     });
 
     res.setHeader("Content-Type", "application/pdf");
