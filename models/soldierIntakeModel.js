@@ -918,7 +918,9 @@ module.exports = {
     const combatReadinessSort = parseCombatReadinessSort(
       filters.combatReadinessSort
     );
-    const pageSize = Math.max(1, Math.min(Number(filters.pageSize) || 20, 100));
+    // const pageSize = Math.max(1, Math.min(Number(filters.pageSize) || 20, 100));
+    // ไม่จำกัด pageSize ตอนนี้
+    const pageSize = Math.max(1, Number(filters.pageSize) || 10, 3000);
     const page = Math.max(1, Number(filters.page) || 1);
     const skip = (page - 1) * pageSize;
 
