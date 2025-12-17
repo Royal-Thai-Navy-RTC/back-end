@@ -16,6 +16,7 @@ const THAI_FONT_PATH = path.join(
   "Kanit-Regular.ttf"
 );
 const LOGO_PATH = path.join(__dirname, "..", "assets", "logo.jpg");
+let optionalSharp = null;
 
 const toPublicPath = (file) => {
   if (!file) return undefined;
@@ -261,6 +262,43 @@ const applyThaiFontIfAvailable = (doc) => {
   return false;
 };
 
+const getSharp = () => {
+  if (optionalSharp !== null) return optionalSharp;
+  try {
+    optionalSharp = require("sharp");
+  } catch (err) {
+    optionalSharp = false;
+  }
+  return optionalSharp || null;
+};
+
+const safeDrawImage = async (doc, imagePath, options) => {
+  if (!imagePath || !fs.existsSync(imagePath)) return false;
+  try {
+    doc.image(imagePath, options);
+    return true;
+  } catch (err) {
+    const ext = path.extname(imagePath || "").toLowerCase();
+    const sharp = getSharp();
+    if (!sharp) {
+      console.warn(
+        `PDF image render failed (no sharp). ${ext} may need sharp installed`,
+        err.message
+      );
+      return false;
+    }
+    try {
+      const buffer = fs.readFileSync(imagePath);
+      const converted = await sharp(buffer).png().toBuffer();
+      doc.image(converted, options);
+      return true;
+    } catch (convErr) {
+      console.warn("PDF image convert failed", convErr.message);
+      return false;
+    }
+  }
+};
+
 const parseOrientation = (value) => {
   const normalized = String(value || "")
     .trim()
@@ -374,6 +412,16 @@ const resolveIdCardFilePath = (url) => {
     : withoutDomain;
   const normalized = relative.replace(/^[/\\]+/, "");
   if (!normalized) return null;
+
+  const hasExt = /\.[a-zA-Z0-9]+$/.test(normalized);
+  if (hasExt) return path.join(ID_CARD_STORAGE_DIR, normalized);
+
+  const base = normalized.replace(/\.[^.]+$/, "");
+  const candidates = ["jpg", "jpeg", "png", "webp", "heic", "bmp", "gif"];
+  for (const ext of candidates) {
+    const candidatePath = path.join(ID_CARD_STORAGE_DIR, `${base}.${ext}`);
+    if (fs.existsSync(candidatePath)) return candidatePath;
+  }
   return path.join(ID_CARD_STORAGE_DIR, normalized);
 };
 
@@ -488,7 +536,7 @@ const buildIntakesPdfBuffer = (records = [], options = {}) =>
     doc.end();
   });
 const buildIntakeProfilePdfBuffer = (item) =>
-  new Promise((resolve, reject) => {
+  new Promise(async (resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
       margin: 36,
@@ -1026,7 +1074,7 @@ const buildIntakeProfilePdfBuffer = (item) =>
     // =========================
     // Image Block (professional)
     // =========================
-    const drawImageBlock = () => {
+    const drawImageBlock = async () => {
       const cardH = 210;
       ensureSpace(cardH + 16);
 
@@ -1062,34 +1110,18 @@ const buildIntakeProfilePdfBuffer = (item) =>
       doc.restore();
 
       const imagePath = resolveIdCardFilePath(item.idCardImageUrl);
-      if (imagePath && fs.existsSync(imagePath)) {
-        try {
-          doc.image(imagePath, imgBoxX + 10, imgBoxY + 10, {
-            fit: [imgBoxW - 20, imgBoxH - 20],
-            align: "center",
-            valign: "center",
-          });
-        } catch (err) {
-          doc
-            .fillColor(MUTED)
-            .fontSize(9.5)
-            .text(
-              "ไม่สามารถแสดงรูปบัตรประชาชนได้",
-              imgBoxX + 12,
-              imgBoxY + 60,
-              {
-                width: imgBoxW - 24,
-                align: "center",
-                lineGap: LINE_GAP,
-              }
-            );
-          console.warn("Failed to render id card image", err.message);
-        }
-      } else {
+      const ok = await safeDrawImage(doc, imagePath, {
+        fit: [imgBoxW - 24, imgBoxH - 24],
+        align: "center",
+        valign: "center",
+        x: imgBoxX + 12,
+        y: imgBoxY + 12,
+      });
+      if (!ok) {
         doc
           .fillColor(MUTED)
           .fontSize(9.5)
-          .text("ไม่มีรูปบัตรประชาชน", imgBoxX + 12, imgBoxY + 60, {
+          .text("ไม่สามารถแสดงรูปบัตรประชาชนได้", imgBoxX + 12, imgBoxY + 60, {
             width: imgBoxW - 24,
             align: "center",
             lineGap: LINE_GAP,
@@ -1125,7 +1157,7 @@ const buildIntakeProfilePdfBuffer = (item) =>
       `ลำดับ ${item.sequenceNumber ?? "-"}`,
     ]);
 
-    drawImageBlock();
+    await drawImageBlock();
 
     drawSectionTitle("ข้อมูลพื้นฐาน");
     const ageYears = computeAgeYears(item.birthDate);
