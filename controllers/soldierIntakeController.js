@@ -578,7 +578,7 @@ const buildIntakeProfilePdfBuffer = (item) =>
     // Pagination
     // =========================
     const fullName =
-      `${item.firstName || ""} ${item.lastName || ""}`.trim() || "-";
+      `พลฯ  ${item.firstName || ""} ${item.lastName || ""}`.trim() || "-";
     const exportedAt = formatDateTimeThai(new Date());
 
     doc.info.Title = `ข้อมูลทหารใหม่ ${fullName}`;
@@ -850,6 +850,188 @@ const buildIntakeProfilePdfBuffer = (item) =>
     };
 
     // =========================
+    // Radar Chart (match document style - no blue background)
+    // =========================
+    const drawRadarChart = (profile) => {
+      doc.addPage();
+      drawMiniHeader();
+      drawSectionTitle("สมรรถนะ ความพร้อมรบ");
+
+      if (
+        !profile ||
+        !Array.isArray(profile.values) ||
+        !profile.values.length
+      ) {
+        drawFieldRow1({ label: "ข้อมูล", value: "ไม่มีข้อมูลกราฟ" });
+        return;
+      }
+
+      const count = profile.values.length;
+
+      const maxValues = Array.isArray(profile.indicators)
+        ? profile.indicators.map((i) => Number(i?.max) || 100)
+        : Array(count).fill(100);
+
+      const labels = Array.isArray(profile.indicators)
+        ? profile.indicators.map((i, idx) => i?.name || `หัวข้อ ${idx + 1}`)
+        : Array.isArray(profile.breakdown)
+        ? profile.breakdown.map((b, idx) => b?.label || `หัวข้อ ${idx + 1}`)
+        : profile.values.map((_, idx) => `หัวข้อ ${idx + 1}`);
+
+      // ---- layout (card like other sections) ----
+      const cardH = 320;
+      ensureSpace(cardH + 16);
+
+      const cardX = L;
+      const cardY = doc.y;
+      const cardW = CONTENT_W;
+
+      // ---- colors (document theme) ----
+      const GRID = "#d9e2ec"; // faint grid
+      const GRID_SOFT = "#edf2f7"; // inner grid
+      const AXIS = "#94a3b8"; // stronger axis
+      const POLY_FILL = "#0f4c81"; // theme blue
+      const POLY_STROKE = "#0b3c63"; // darker stroke
+      const DOT_FILL = "#0f4c81"; // theme blue dots
+      const DOT_STROKE = "#ffffff"; // clean dot border
+      const LABEL_COLOR = TEXT;
+
+      // ---- card container ----
+      drawCard({
+        x: cardX,
+        y: cardY,
+        w: cardW,
+        h: cardH,
+        fill: BG,
+        radius: 14,
+      });
+      drawAccentStripe(cardX + 10, cardY + 14, cardH - 28);
+
+      // title inside card
+      doc
+        .fillColor(ACCENT)
+        .fontSize(11)
+        .text("สมรรถนะ", cardX + 26, cardY + 16);
+
+      // ---- radar geometry ----
+      const paddingTop = 44; // เว้นหัวข้อใน card
+      const paddingBottom = 18;
+
+      const centerX = cardX + cardW / 2;
+      const centerY =
+        cardY + paddingTop + (cardH - paddingTop - paddingBottom) / 2;
+
+      const radius = Math.min(cardW, cardH) * 0.26;
+      const levels = 5;
+
+      const polarToCartesian = (r, angle) => ({
+        x: centerX + r * Math.cos(angle),
+        y: centerY + r * Math.sin(angle),
+      });
+
+      // ---- grid polygons (soft) ----
+      doc.save();
+      doc.strokeColor(GRID_SOFT).lineWidth(1);
+      for (let level = 1; level <= levels; level += 1) {
+        const r = (radius * level) / levels;
+        for (let i = 0; i < count; i += 1) {
+          const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
+          const p = polarToCartesian(r, angle);
+          if (i === 0) doc.moveTo(p.x, p.y);
+          else doc.lineTo(p.x, p.y);
+        }
+        doc.closePath().stroke();
+      }
+      doc.restore();
+
+      // ---- axes (slightly stronger) ----
+      doc.save();
+      doc.strokeColor(AXIS).lineWidth(1);
+      for (let i = 0; i < count; i += 1) {
+        const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
+        const end = polarToCartesian(radius, angle);
+        doc.moveTo(centerX, centerY).lineTo(end.x, end.y).stroke();
+      }
+      doc.restore();
+
+      // ---- data polygon points ----
+      const points = [];
+      for (let i = 0; i < count; i += 1) {
+        const value = Number(profile.values[i]) || 0;
+        const max = Number(maxValues[i]) || 100;
+        const ratio = Math.max(0, Math.min(1, value / (max || 100)));
+        const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
+        points.push(polarToCartesian(radius * ratio, angle));
+      }
+
+      // ---- polygon fill + stroke ----
+      doc.save();
+      // fill transparent (PDFKit: fillOpacity มีผล global ใน save/restore นี้)
+      doc.fillColor(POLY_FILL).fillOpacity(0.2);
+      doc.strokeColor(POLY_STROKE).lineWidth(2);
+
+      points.forEach((p, idx) => {
+        if (idx === 0) doc.moveTo(p.x, p.y);
+        else doc.lineTo(p.x, p.y);
+      });
+      doc.closePath().fillAndStroke();
+      doc.restore();
+
+      // ---- points (dots) ----
+      doc.save();
+      for (const p of points) {
+        doc.circle(p.x, p.y, 4).fillColor(DOT_FILL).fillOpacity(1).fill();
+        doc.circle(p.x, p.y, 4).strokeColor(DOT_STROKE).lineWidth(1).stroke();
+      }
+      doc.restore();
+
+      // ---- labels around (match doc typography) ----
+      doc.save();
+      doc.fillColor(LABEL_COLOR).fontSize(10.5);
+
+      for (let i = 0; i < count; i += 1) {
+        const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
+
+        // ระยะ label ออกจากกราฟ
+        const pos = polarToCartesian(radius + 40, angle);
+
+        const w = 120;
+        let x = pos.x - w / 2;
+        let y = pos.y - 10;
+
+        // nudges เล็กน้อยกันชนขอบ
+        if (Math.abs(Math.cos(angle)) > 0.7) x += Math.cos(angle) * 10;
+        if (Math.abs(Math.sin(angle)) > 0.7) y += Math.sin(angle) * 8;
+
+        // clamp ให้อยู่ในกรอบการ์ด
+        const minX = cardX + 18;
+        const maxX = cardX + cardW - 18 - w;
+        x = Math.max(minX, Math.min(maxX, x));
+
+        const minY = cardY + 34;
+        const maxY = cardY + cardH - 18;
+        y = Math.max(minY, Math.min(maxY, y));
+
+        // label
+        doc.text(labels[i], x, y, { width: w, align: "center" });
+
+        // value beneath label for contrast
+        const val = Number(profile.values[i]) || 0;
+        doc
+          .fillColor(ACCENT)
+          .fontSize(9.5)
+          .text(`${val}`, x, y + 12, { width: w, align: "center" })
+          .fillColor(LABEL_COLOR)
+          .fontSize(10.5);
+      }
+      doc.restore();
+
+      // move cursor after card
+      doc.y = cardY + cardH + 14;
+      doc.x = L;
+    };
+
+    // =========================
     // Image Block (professional)
     // =========================
     const drawImageBlock = () => {
@@ -935,8 +1117,7 @@ const buildIntakeProfilePdfBuffer = (item) =>
       v === true ? "มี" : v === false ? "ไม่มี" : "-";
     const formatBoolSurgery = (v) =>
       v === true ? "เคย" : v === false ? "ไม่เคย" : "-";
-    const formatBool = (v) =>
-      v === true ? "มี" : v === false ? "ไม่มี" : "-";
+    const formatBool = (v) => (v === true ? "มี" : v === false ? "ไม่มี" : "-");
 
     const allergyText = formatListField(item.foodAllergies);
     const drugAllergy = formatListField(item.drugAllergies);
@@ -1040,20 +1221,22 @@ const buildIntakeProfilePdfBuffer = (item) =>
       rightLabel: "สถานะครอบครัว",
       rightValue: item.familyStatus || "-",
     });
-
-    drawSectionTitle("บันทึกระบบ");
     drawFieldRow2({
       leftLabel: "คะแนนความพร้อมรบ",
       leftValue: item.combatReadiness?.score ?? "-",
       rightLabel: "เปอร์เซ็นต์ความพร้อมรบ",
       rightValue: item.combatReadiness?.percent ?? "-",
     });
-    drawFieldRow2({
-      leftLabel: "สร้างเมื่อ",
-      leftValue: formatDateTimeThai(item.createdAt) || "-",
-      rightLabel: "อัปเดตล่าสุด",
-      rightValue: formatDateTime(item.updatedAt) || "-",
-    });
+
+    // drawSectionTitle("บันทึกระบบ");
+    // drawFieldRow2({
+    //   leftLabel: "สร้างเมื่อ",
+    //   leftValue: formatDateTimeThai(item.createdAt) || "-",
+    //   rightLabel: "อัปเดตล่าสุด",
+    //   rightValue: formatDateTime(item.updatedAt) || "-",
+    // });
+
+    drawRadarChart(item.radarProfile);
 
     // footer ถูกถอดออกแล้วตามที่คุณสั่ง
     doc.end();
@@ -1317,12 +1500,22 @@ const exportIntakePdfByCitizenId = async (req, res) => {
     );
 
     const buffer = await buildIntakeProfilePdfBuffer(record);
-    const safeName = citizenId.replace(/[^0-9A-Za-z_-]/g, "") || "soldier";
+    const displayName =
+      `${record.firstName || ""} ${record.lastName || ""}`.trim() ||
+      record.firstName ||
+      record.lastName ||
+      "soldier";
+    const asciiSafe = displayName
+      .normalize("NFKD")
+      .replace(/[^\w\s.-]/g, "")
+      .trim();
+    const safeName = (asciiSafe || "soldier").replace(/\s+/g, "_");
+    const fileName = `${safeName}-intake.pdf`;
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${safeName}-intake.pdf"`
+      `attachment; filename="${fileName}"`
     );
     res.send(buffer);
   } catch (err) {
