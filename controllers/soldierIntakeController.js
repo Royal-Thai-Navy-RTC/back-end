@@ -585,28 +585,8 @@ const buildIntakeProfilePdfBuffer = (item) =>
     doc.info.Author = "RTCAS ระบบรับทหารใหม่";
 
     const drawMiniHeader = () => {
-      const y0 = 18;
-      doc.save();
-      doc.rect(0, 0, PAGE_W, 44).fill(BG_SOFT);
-      doc.rect(0, 0, PAGE_W, 4).fill(ACCENT);
-      doc.restore();
-
-      doc.fillColor(TEXT).fontSize(11.5).text("ข้อมูลทหารใหม่", L, y0);
-      doc
-        .fillColor(TEXT)
-        .fontSize(11.5)
-        .text(fullName, L, y0 + 16, { width: CONTENT_W });
-
-      doc
-        .fillColor(MUTED)
-        .fontSize(9)
-        .text(`เลขบัตร: ${item.citizenId || "-"}`, L, y0, {
-          width: CONTENT_W,
-          align: "right",
-        });
-
-      doc.x = L;
-      doc.y = 60;
+      // ใช้ header รูปแบบเดียวกับหน้าแรก เพื่อความสม่ำเสมอ
+      drawFirstHeader();
     };
 
     const drawFirstHeader = () => {
