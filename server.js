@@ -7,12 +7,27 @@ const routes = require("./routes");
 const morgan = require("morgan");
 const config = require("./config");
 const { verifyToken, authorizeSoldierData } = require("./middlewares/middleware");
+const helmet = require("helmet");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const TRUST_PROXY = process.env.TRUST_PROXY || "loopback";
 app.set("trust proxy", TRUST_PROXY);
+
+// ซ่อน X-Powered-By: Express
+app.disable("x-powered-by");
+
+// ถ้าคุณคุม Security Headers ที่ Nginx แล้ว ให้ปิดใน helmet เพื่อไม่ให้ซ้ำ
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // กัน CSP ซ้ำกับ Nginx
+    xContentTypeOptions: false,   // กัน nosniff ซ้ำกับ Nginx
+    frameguard: false,            // กัน X-Frame-Options ซ้ำกับ Nginx
+    referrerPolicy: false,        // กัน Referrer-Policy ซ้ำกับ Nginx
+    permissionsPolicy: false,     // กัน Permissions-Policy ซ้ำกับ Nginx
+  })
+);
 
 app.use(cors());
 app.use(morgan("dev"));
