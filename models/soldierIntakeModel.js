@@ -1271,7 +1271,7 @@ module.exports = {
     }
     const exists = await prisma.soldierIntake.findUnique({
       where: { id: intakeId },
-      select: { id: true },
+      select: { id: true, idCardImageUrl: true },
     });
     if (!exists) {
       const err = new Error("ไม่พบข้อมูล");
@@ -1279,12 +1279,19 @@ module.exports = {
       throw err;
     }
     await prisma.soldierIntake.delete({ where: { id: intakeId } });
+    return { idCardImageUrl: exists.idCardImageUrl || null };
   },
 
   deleteAllIntakes: async () => {
     ensureModelAvailable();
+    const rows = await prisma.soldierIntake.findMany({
+      select: { idCardImageUrl: true },
+    });
     const deleted = await prisma.soldierIntake.deleteMany({});
-    return { deleted: deleted.count };
+    const idCardImageUrls = rows
+      .map((row) => row?.idCardImageUrl)
+      .filter((url) => url != null && String(url).trim() !== "");
+    return { deleted: deleted.count, idCardImageUrls };
   },
 
   getIntakesForExport: async (filters = {}) => {

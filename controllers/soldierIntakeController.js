@@ -515,24 +515,40 @@ const renderCoverPage = (doc, exportedAt, filters = {}) => {
 
 const resolveIdCardFilePath = (url) => {
   if (!url) return null;
+  const raw = String(url).trim();
   // strip domain if present, keep path
-  const withoutDomain = url.replace(/^https?:\/\/[^/]+/i, "");
-  const relative = withoutDomain.startsWith(ID_CARD_PUBLIC_PREFIX)
-    ? withoutDomain.slice(ID_CARD_PUBLIC_PREFIX.length)
-    : withoutDomain;
-  const normalized = relative.replace(/^[/\\]+/, "");
-  if (!normalized) return null;
+  const withoutDomain = raw.replace(/^https?:\/\/[^/]+/i, "");
+  // strip query/hash
+  const withoutQuery = withoutDomain.split(/[?#]/)[0];
+  const normalizedSlashes = withoutQuery.replace(/\\/g, "/");
+  const trimmedLeading = normalizedSlashes.replace(/^\/+/, "");
 
-  const hasExt = /\.[a-zA-Z0-9]+$/.test(normalized);
-  if (hasExt) return path.join(ID_CARD_STORAGE_DIR, normalized);
+  // Support both `/uploads/idcards/<file>` and `uploads/idcards/<file>`
+  let relative = trimmedLeading;
+  if (relative.toLowerCase().startsWith(ID_CARD_PUBLIC_PREFIX.replace(/^\//, "").toLowerCase() + "/")) {
+    relative = relative.slice(ID_CARD_PUBLIC_PREFIX.replace(/^\//, "").length + 1);
+  } else if (relative.toLowerCase().startsWith(ID_CARD_PUBLIC_PREFIX.toLowerCase() + "/")) {
+    relative = relative.slice(ID_CARD_PUBLIC_PREFIX.length + 1);
+  } else if (relative.toLowerCase().startsWith("uploads/idcards/")) {
+    relative = relative.slice("uploads/idcards/".length);
+  } else if (relative.toLowerCase().startsWith("idcards/")) {
+    relative = relative.slice("idcards/".length);
+  }
 
-  const base = normalized.replace(/\.[^.]+$/, "");
+  // keep only filename (avoid accidental nested paths)
+  const filename = path.posix.basename(relative);
+  if (!filename) return null;
+
+  const hasExt = /\.[a-zA-Z0-9]+$/.test(filename);
+  if (hasExt) return path.join(ID_CARD_STORAGE_DIR, filename);
+
+  const base = filename.replace(/\.[^.]+$/, "");
   const candidates = ["jpg", "jpeg", "png", "webp", "heic", "bmp", "gif"];
   for (const ext of candidates) {
     const candidatePath = path.join(ID_CARD_STORAGE_DIR, `${base}.${ext}`);
     if (fs.existsSync(candidatePath)) return candidatePath;
   }
-  return path.join(ID_CARD_STORAGE_DIR, normalized);
+  return path.join(ID_CARD_STORAGE_DIR, filename);
 };
 
 const buildIntakesPdfBuffer = (records = [], options = {}) =>
@@ -1697,10 +1713,20 @@ const updateIntake = async (req, res) => {
   const uploaded = req.file;
   try {
     const payload = { ...req.body };
+    const before = uploaded
+      ? await SoldierIntake.getIntakeById(req.params.id)
+      : null;
     if (uploaded) {
       payload.idCardImageUrl = toPublicPath(uploaded);
     }
     const updated = await SoldierIntake.updateIntake(req.params.id, payload);
+    if (uploaded) {
+      const oldUrl = before?.idCardImageUrl;
+      const newUrl = payload.idCardImageUrl;
+      if (oldUrl && newUrl && String(oldUrl).trim() !== String(newUrl).trim()) {
+        deleteIfExists(resolveIdCardFilePath(oldUrl));
+      }
+    }
     res.json({ data: updated });
   } catch (err) {
     deleteIfExists(uploaded?.path);
@@ -1717,7 +1743,9 @@ const updateIntake = async (req, res) => {
 
 const deleteIntake = async (req, res) => {
   try {
-    await SoldierIntake.deleteIntake(req.params.id);
+    const result = await SoldierIntake.deleteIntake(req.params.id);
+    const filePath = resolveIdCardFilePath(result?.idCardImageUrl);
+    deleteIfExists(filePath);
     res.status(204).send();
   } catch (err) {
     if (err.code === "VALIDATION_ERROR") {
@@ -1734,6 +1762,31 @@ const deleteIntake = async (req, res) => {
 const deleteAllIntakes = async (_req, res) => {
   try {
     const result = await SoldierIntake.deleteAllIntakes();
+    const urls = Array.isArray(result.idCardImageUrls) ? result.idCardImageUrls : [];
+    const uniquePaths = new Set(
+      urls
+        .map((url) => resolveIdCardFilePath(url))
+        .filter((filePath) => filePath)
+    );
+    for (const filePath of uniquePaths) {
+      deleteIfExists(filePath);
+    }
+    // Cleanup orphaned files in uploads/idcards (e.g., old images after updates)
+    try {
+      if (fs.existsSync(ID_CARD_STORAGE_DIR)) {
+        const entries = fs.readdirSync(ID_CARD_STORAGE_DIR, {
+          withFileTypes: true,
+        });
+        for (const entry of entries) {
+          if (!entry.isFile()) continue;
+          const name = entry.name;
+          if (!/^idcard-/i.test(name)) continue;
+          deleteIfExists(path.join(ID_CARD_STORAGE_DIR, name));
+        }
+      }
+    } catch (cleanupErr) {
+      console.warn("Failed to cleanup idcard directory:", cleanupErr.message);
+    }
     res.json({ deleted: result.deleted });
   } catch (err) {
     console.error("Failed to delete soldier intakes", err);
