@@ -20,6 +20,8 @@ const PORT = process.env.PORT || 3000;
 const TRUST_PROXY = process.env.TRUST_PROXY || "loopback";
 app.set("trust proxy", TRUST_PROXY);
 
+const isProd = process.env.NODE_ENV === "production";
+
 // ซ่อน X-Powered-By: Express
 app.disable("x-powered-by");
 
@@ -67,21 +69,26 @@ const swaggerSpec = swaggerJsdoc({
     },
     security: [{ bearerAuth: [] }],
   },
-  apis: [path.join(__dirname, "routes/*.js")], // scan routes ทั้งหมด
+  // ✅ แนะนำให้เป็น **/*.js เพื่อครอบคลุม routes ซ้อนโฟลเดอร์
+  apis: [path.join(__dirname, "routes/**/*.js")],
 });
 
 /**
- * 🔒 เปิด Swagger เฉพาะ DEV
- * production ให้ดูผ่าน openapi.json หรือ VPN/SSH เท่านั้น
+ * 🔒 Swagger เปิดเฉพาะ Non-Production
+ * Production: ปิดทั้ง /api-docs และ /openapi.json (ตอบ 404)
  */
-if (process.env.NODE_ENV !== "production") {
+if (!isProd) {
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-}
 
-// Definition file (ใช้กับ ZAP / Postman / CI)
-app.get("/openapi.json", (req, res) => {
-  res.json(swaggerSpec);
-});
+  // Definition file (ใช้กับ ZAP / Postman / CI) เฉพาะ dev/staging
+  app.get("/openapi.json", (req, res) => {
+    res.json(swaggerSpec);
+  });
+} else {
+  // กันเผื่อมีคนยิงมาที่ path นี้บน production
+  app.get("/api-docs", (req, res) => res.sendStatus(404));
+  app.get("/openapi.json", (req, res) => res.sendStatus(404));
+}
 /* ========================================================= */
 
 const apiRateLimiter = rateLimit({
@@ -147,9 +154,8 @@ app.use("/api", apiRateLimiter, routes);
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 
-  if (process.env.NODE_ENV !== "production") {
+  if (!isProd) {
     console.log(`Swagger UI → http://localhost:${PORT}/api-docs`);
+    console.log(`OpenAPI JSON → http://localhost:${PORT}/openapi.json`);
   }
-
-  console.log(`OpenAPI JSON → http://localhost:${PORT}/openapi.json`);
 });
