@@ -296,6 +296,8 @@ module.exports = {
       where,
     });
 
+    const EXPECTED_PER_COMPANY = 100;
+
     const key = (b, c) => `${b || ""}__${c || ""}`;
     const agg = new Map();
 
@@ -311,9 +313,19 @@ module.exports = {
     });
 
     const battalions = battalionCodesList.map((bCode) => {
+      let battalionCompanySum = 0;
+      let battalionHasAnyCompany = false;
+
       const companies = companyCodesList.map((cCode) => {
         const a = agg.get(key(bCode, cCode));
-        const avg = a && a.count > 0 ? a.sum / a.count : null;
+        // เฉลี่ยแบบหาร 100 เสมอ (ถือว่าขาดสอบ = 0 คะแนน)
+        const avg =
+          a && a.count > 0 ? a.sum / EXPECTED_PER_COMPANY : null;
+
+        if (avg != null) {
+          battalionHasAnyCompany = true;
+          battalionCompanySum += avg;
+        }
         return {
           battalionCode: bCode,
           companyCode: cCode,
@@ -321,22 +333,18 @@ module.exports = {
           total: a ? a.count : 0,
         };
       });
-      const totals = companies.reduce(
-        (acc, c) => {
-          acc.count += c.total;
-          acc.sum += c.averageScore != null ? c.averageScore * c.total : 0;
-          return acc;
-        },
-        { sum: 0, count: 0 }
-      );
-      const averageScore =
-        totals.count > 0
-          ? Number((totals.sum / totals.count).toFixed(2))
-          : null;
+
+      // รวมระดับกองพัน: ให้ถัวเฉลี่ยตามจำนวนกองร้อย (หารด้วยจำนวนกองร้อยที่คาดไว้)
+      // เพื่อให้กองร้อยที่มาสอบไม่ครบ 100 คน ส่งผลต่อค่าเฉลี่ยภาพรวมด้วย
+      const averageScore = battalionHasAnyCompany
+        ? Number((battalionCompanySum / companyCodesList.length).toFixed(2))
+        : null;
+
+      const total = companies.reduce((acc, c) => acc + (c.total || 0), 0);
       return {
         battalionCode: bCode,
         averageScore,
-        total: totals.count,
+        total,
         companies,
       };
     });
