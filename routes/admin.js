@@ -160,7 +160,7 @@ router.post(
  *         description: Not found
  */
 router.get(
-  "/admin/users/person/:id",
+  "/admin/users/export/pdf/:id",
   middleware.verifyToken,
   middleware.authorizeAdmin,
   adminUser.adminExportUserPersonPdf
