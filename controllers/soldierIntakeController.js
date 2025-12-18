@@ -16,9 +16,16 @@ const THAI_FONT_PATH = path.join(
   "Kanit-Regular.ttf"
 );
 const LOGO_PATH = path.join(__dirname, "..", "assets", "logo.jpg");
+const LOGO_PATH_PNG = path.join(__dirname, "..", "assets", "logo_png.png");
 const ADDRESS_DATA_PATH = path.join(__dirname, "..", "assets", "address-data.json");
 let optionalSharp = null;
 let cachedAddressMaps = null;
+
+const getLogoPath = () => {
+  if (LOGO_PATH_PNG && fs.existsSync(LOGO_PATH_PNG)) return LOGO_PATH_PNG;
+  if (LOGO_PATH && fs.existsSync(LOGO_PATH)) return LOGO_PATH;
+  return null;
+};
 
 const loadAddressMaps = () => {
   if (cachedAddressMaps) return cachedAddressMaps;
@@ -419,13 +426,14 @@ const parseOrientation = (value) => {
 
 const drawLogoIfAvailable = (doc) => {
   try {
-    if (!fs.existsSync(LOGO_PATH)) return;
+    const logoPath = getLogoPath();
+    if (!logoPath) return;
     const maxSize = 80;
     const availableWidth =
       doc.page.width - doc.page.margins.left - doc.page.margins.right;
     const x = doc.page.margins.left + (availableWidth - maxSize) / 2;
     const startY = doc.y;
-    doc.image(LOGO_PATH, x, startY, { fit: [maxSize, maxSize] });
+    doc.image(logoPath, x, startY, { fit: [maxSize, maxSize] });
     // ย้าย cursor ลงต่ำกว่ารูปเพื่อไม่ให้ทับข้อความ
     doc.y = startY + maxSize + 10;
   } catch (err) {
@@ -439,7 +447,8 @@ const renderCoverPage = (doc, exportedAt, filters = {}) => {
   const margins = doc.page.margins;
   const contentWidth = pageWidth - margins.left - margins.right;
 
-  const hasLogo = fs.existsSync(LOGO_PATH);
+  const logoPath = getLogoPath();
+  const hasLogo = Boolean(logoPath);
   const logoSize = hasLogo ? 80 : 0;
   const logoGap = hasLogo ? 12 : 0;
 
@@ -485,7 +494,7 @@ const renderCoverPage = (doc, exportedAt, filters = {}) => {
   let cursorY = startY;
   if (hasLogo) {
     const x = margins.left + (contentWidth - logoSize) / 2;
-    doc.image(LOGO_PATH, x, cursorY, { fit: [logoSize, logoSize] });
+    doc.image(logoPath, x, cursorY, { fit: [logoSize, logoSize] });
     cursorY += logoSize + logoGap;
   }
 
@@ -781,11 +790,32 @@ const buildIntakeProfilePdfBuffer = (item) =>
       doc.rect(0, 0, PAGE_W, 5).fill(ACCENT);
       doc.restore();
 
-      doc.fillColor(TEXT).fontSize(16).text("ข้อมูลทหารใหม่", L, 18);
+      const headerLogoPath = getLogoPath();
+      const headerHasLogo = Boolean(headerLogoPath);
+      const headerLogoSize = 74;
+      const headerLogoGap = 12;
+      const headerLogoX = L;
+      const headerLogoY = 5;
+      const titleX = headerHasLogo
+        ? headerLogoX + headerLogoSize + headerLogoGap
+        : L;
+
+      // Logo: left of the title ("ข้อมูลทหารใหม่")
+      if (headerHasLogo) {
+        try {
+          doc.image(headerLogoPath, headerLogoX, headerLogoY, {
+            fit: [headerLogoSize, headerLogoSize],
+          });
+        } catch (err) {
+          console.warn("ไม่สามารถแสดงโลโก้ใน header ได้", err.message);
+        }
+      }
+
+      doc.fillColor(TEXT).fontSize(16).text("ข้อมูลทหารใหม่", titleX, 18);
       doc
         .fillColor(TEXT)
         .fontSize(14)
-        .text(fullName, L, 42, { width: CONTENT_W });
+        .text(fullName, titleX, 42, { width: CONTENT_W - (titleX - L) });
 
       doc
         .fillColor(MUTED)
