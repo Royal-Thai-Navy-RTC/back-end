@@ -2,6 +2,7 @@ const User = require("../../models/userModel");
 const bcrypt = require("bcryptjs");
 const fs = require("fs");
 const path = require("path");
+const { buildUserProfilePdfBuffer } = require("../../utils/pdf/userProfilePdf");
 const {
   buildUserAvatarFilename,
   tryPickupLocalFileFromBody,
@@ -402,6 +403,44 @@ const adminUploadAvatar = async (req, res) => {
   }
 };
 
+const adminExportUserPersonPdf = async (req, res) => {
+  const targetId = req.params && req.params.id;
+  if (!targetId) {
+    return res
+      .status(400)
+      .json({ message: "ต้องระบุ id ผู้ใช้ใน URL (/admin/users/person/:id)" });
+  }
+  const idNum = Number(targetId);
+  if (!Number.isInteger(idNum)) {
+    return res.status(400).json({ message: "id ต้องเป็นจำนวนเต็ม" });
+  }
+
+  try {
+    const user = await User.getUserAdminDetail(idNum);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const buffer = await buildUserProfilePdfBuffer(user);
+
+    const displayName = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+    const asciiSafe = displayName
+      .normalize("NFKD")
+      .replace(/[^\w\s.-]/g, "")
+      .trim();
+    const safeName = (asciiSafe || `user_${idNum}`).replace(/\s+/g, "_");
+    const fileName = `${safeName}-profile.pdf`;
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    return res.send(buffer);
+  } catch (err) {
+    console.error("Failed to export user profile pdf", err);
+    return res.status(500).json({
+      message: "ไม่สามารถส่งออก PDF รายบุคคลได้",
+      detail: err.message,
+    });
+  }
+};
+
 module.exports = {
   adminUpdateUser,
   adminGetAllUsers,
@@ -415,4 +454,5 @@ module.exports = {
   adminDeactivateUser,
   adminActivateUser,
   adminUploadAvatar,
+  adminExportUserPersonPdf,
 };

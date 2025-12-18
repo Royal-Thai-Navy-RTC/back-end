@@ -135,6 +135,39 @@ router.post(
 
 /**
  * @openapi
+ * /api/admin/users/person/{id}:
+ *   get:
+ *     summary: Export a user profile as PDF (admin)
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: PDF file
+ *       400:
+ *         description: Invalid id
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ */
+router.get(
+  "/admin/users/person/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminUser.adminExportUserPersonPdf
+);
+
+/**
+ * @openapi
   * /api/admin/users/{id}:
   *   get:
   *     summary: Get user by id
