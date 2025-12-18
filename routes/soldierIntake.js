@@ -6,12 +6,53 @@ const soldierIntakeController = require("../controllers/soldierIntakeController"
 const router = express.Router();
 
 // ตรวจสอบสถานะเปิด/ปิดฟอร์ม (public)
+/**
+ * =========================
+ * Soldier Intake
+ * =========================
+ */
+
+/**
+ * @openapi
+ * /api/public/soldier-intake/status:
+ *   get:
+ *     summary: Get public soldier intake form status
+ *     tags: [Soldier Intake]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Status returned
+ */
 router.get(
   "/public/soldier-intake/status",
   soldierIntakeController.getIntakePublicStatus
 );
 
 // อัปเดตสถานะฟอร์ม (ADMIN)
+/**
+ * @openapi
+ * /api/admin/soldier-intake/status:
+ *   patch:
+ *     summary: Update public soldier intake form status (admin)
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Status updated
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.patch(
   "/admin/soldier-intake/status",
   middleware.verifyToken,
@@ -20,6 +61,30 @@ router.patch(
 );
 
 // รับข้อมูลทหารใหม่ (public form)
+/**
+ * @openapi
+ * /api/soldier-intakes:
+ *   post:
+ *     summary: Submit soldier intake (public)
+ *     tags: [Soldier Intake]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 description: ID card image (optional)
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Created
+ *       400:
+ *         description: Invalid input
+ */
 router.post(
   "/soldier-intakes",
   idCardUploadOne,
@@ -27,6 +92,33 @@ router.post(
 );
 
 // สำหรับแอดมินดูรายการ
+/**
+ * @openapi
+ * /api/admin/soldier-intakes:
+ *   get:
+ *     summary: List soldier intakes (company/admin)
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: pageSize
+ *         required: false
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List returned
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.get(
   "/admin/soldier-intakes",
   middleware.verifyToken,
@@ -34,6 +126,22 @@ router.get(
   soldierIntakeController.listIntakes
 );
 
+/**
+ * @openapi
+ * /api/admin/soldier-intakes/export:
+ *   get:
+ *     summary: Export soldier intakes as Excel
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Excel file
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.get(
   "/admin/soldier-intakes/export",
   middleware.verifyToken,
@@ -41,6 +149,22 @@ router.get(
   soldierIntakeController.exportIntakes
 );
 
+/**
+ * @openapi
+ * /api/admin/soldier-intakes/export/pdf:
+ *   get:
+ *     summary: Export soldier intakes as PDF
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: PDF file
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.get(
   "/admin/soldier-intakes/export/pdf",
   middleware.verifyToken,
@@ -48,6 +172,37 @@ router.get(
   soldierIntakeController.exportIntakesPdf
 );
 
+/**
+ * @openapi
+ * /api/admin/soldier-intakes/export/pdf/person:
+ *   get:
+ *     summary: Export a soldier intake profile as PDF (by citizenId or unitCode)
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: citizenId
+ *         required: false
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: unitCode
+ *         required: false
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: PDF file
+ *       400:
+ *         description: Missing/invalid query
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ */
 router.get(
   "/admin/soldier-intakes/export/pdf/person",
   middleware.verifyToken,
@@ -55,6 +210,22 @@ router.get(
   soldierIntakeController.exportIntakePdfByCitizenId
 );
 
+/**
+ * @openapi
+ * /api/admin/soldier-intakes:
+ *   delete:
+ *     summary: Delete all soldier intakes (owner)
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Deleted
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.delete(
   "/admin/soldier-intakes",
   middleware.verifyToken,
@@ -62,6 +233,32 @@ router.delete(
   soldierIntakeController.deleteAllIntakes
 );
 
+/**
+ * @openapi
+ * /api/admin/soldier-intakes/{id}:
+ *   get:
+ *     summary: Get soldier intake by id
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Record returned
+ *       400:
+ *         description: Invalid id
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ */
 router.get(
   "/admin/soldier-intakes/:id",
   middleware.verifyToken,
@@ -69,6 +266,43 @@ router.get(
   soldierIntakeController.getIntakeById
 );
 
+/**
+ * @openapi
+ * /api/admin/soldier-intakes/{id}:
+ *   put:
+ *     summary: Update soldier intake by id
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 description: ID card image (optional)
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Updated
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ */
 router.put(
   "/admin/soldier-intakes/:id",
   middleware.verifyToken,
@@ -77,6 +311,32 @@ router.put(
   soldierIntakeController.updateIntake
 );
 
+/**
+ * @openapi
+ * /api/admin/soldier-intakes/{id}:
+ *   delete:
+ *     summary: Delete soldier intake by id (owner)
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Deleted
+ *       400:
+ *         description: Invalid id
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ */
 router.delete(
   "/admin/soldier-intakes/:id",
   middleware.verifyToken,
@@ -84,6 +344,22 @@ router.delete(
   soldierIntakeController.deleteIntake
 );
 
+/**
+ * @openapi
+ * /api/admin/soldier-intakes-summary:
+ *   get:
+ *     summary: Soldier intake summary
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Summary returned
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.get(
   "/admin/soldier-intakes-summary",
   middleware.verifyToken,
@@ -92,6 +368,36 @@ router.get(
 );
 
 // Import/update unit assignment from Excel (ADMIN)
+/**
+ * @openapi
+ * /api/admin/soldier-intakes/import:
+ *   post:
+ *     summary: Import/update unit assignments from Excel (admin)
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - file
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Imported
+ *       400:
+ *         description: Invalid file or data
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.post(
   "/admin/soldier-intakes/import",
   middleware.verifyToken,

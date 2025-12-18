@@ -6,6 +6,36 @@ const teacherNotificationController = require("../controllers/teacherNotificatio
 
 const router = express.Router();
 
+/**
+ * =========================
+ * Teacher
+ * =========================
+ */
+
+/**
+ * @openapi
+ * /api/teacher/training-reports:
+ *   post:
+ *     summary: Submit training report (teacher)
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Submitted
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.post(
   "/teacher/training-reports",
   middleware.verifyToken,
@@ -13,6 +43,22 @@ router.post(
   teacherReportController.submitTrainingReport
 );
 
+/**
+ * @openapi
+ * /api/teacher/training-reports/latest:
+ *   get:
+ *     summary: Get latest training reports (teacher)
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Latest reports
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.get(
   "/teacher/training-reports/latest",
   middleware.verifyToken,
@@ -21,6 +67,22 @@ router.get(
 );
 
 // export excel file
+/**
+ * @openapi
+ * /api/teacher/training-reports/export:
+ *   get:
+ *     summary: Export training reports as Excel (admin)
+ *     tags: [Teacher]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Excel file
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.get(
   "/teacher/training-reports/export",
   middleware.verifyToken,
@@ -28,6 +90,30 @@ router.get(
   teacherReportController.exportTrainingReportsExcel
 );
 
+/**
+ * @openapi
+ * /api/teacher/leaves:
+ *   post:
+ *     summary: Request leave (admin or teacher)
+ *     tags: [Teacher Leaves]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Requested
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.post(
   "/teacher/leaves",
   middleware.verifyToken,
@@ -35,6 +121,22 @@ router.post(
   teacherLeaveController.requestLeave
 );
 
+/**
+ * @openapi
+ * /api/teacher/leaves:
+ *   get:
+ *     summary: List my leaves (admin or teacher)
+ *     tags: [Teacher Leaves]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List returned
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.get(
   "/teacher/leaves",
   middleware.verifyToken,
@@ -42,6 +144,30 @@ router.get(
   teacherLeaveController.listMyLeaves
 );
 
+/**
+ * @openapi
+ * /api/teacher/official-duty-leaves:
+ *   post:
+ *     summary: Request official duty leave (admin or teacher)
+ *     tags: [Teacher Leaves]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Requested
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.post(
   "/teacher/official-duty-leaves",
   middleware.verifyToken,
@@ -49,6 +175,22 @@ router.post(
   teacherLeaveController.requestOfficialDutyLeave
 );
 
+/**
+ * @openapi
+ * /api/teacher/official-duty-leaves:
+ *   get:
+ *     summary: List my official duty leaves (admin or teacher)
+ *     tags: [Teacher Leaves]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List returned
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.get(
   "/teacher/official-duty-leaves",
   middleware.verifyToken,
@@ -56,6 +198,32 @@ router.get(
   teacherLeaveController.listMyOfficialDutyLeaves
 );
 
+/**
+ * @openapi
+ * /api/teacher/leaves/{id}/cancel:
+ *   patch:
+ *     summary: Cancel my leave request (admin or teacher)
+ *     tags: [Teacher Leaves]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Cancelled
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ */
 router.patch(
   "/teacher/leaves/:id/cancel",
   middleware.verifyToken,
@@ -63,6 +231,33 @@ router.patch(
   teacherLeaveController.cancelMyLeave
 );
 
+/**
+ * @openapi
+ * /api/teacher/notifications:
+ *   get:
+ *     summary: Get teacher notifications (non-student)
+ *     tags: [Teacher Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: pageSize
+ *         required: false
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Notifications returned
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.get(
   "/teacher/notifications",
   middleware.verifyToken,
@@ -70,6 +265,37 @@ router.get(
   teacherNotificationController.getTeacherNotifications
 );
 
+/**
+ * @openapi
+ * /api/teacher/notifications/read:
+ *   patch:
+ *     summary: Mark teacher notifications as read
+ *     tags: [Teacher Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - ids
+ *             properties:
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Marked as read
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.patch(
   "/teacher/notifications/read",
   middleware.verifyToken,

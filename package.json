@@ -38,6 +38,8 @@
     "nodemon": "^3.1.11",
     "pdfkit": "^0.17.2",
     "sharp": "^0.33.3",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

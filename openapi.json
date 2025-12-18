@@ -1,0 +1,2059 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "RTCAS API",
+    "version": "1.0.0",
+    "description": "RTCAS Backend API Definition"
+  },
+  "servers": [
+    { "url": "http://localhost:3000" },
+    { "url": "https://api.rtcas.in.th" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/admin/users": {
+      "get": {
+        "summary": "Get all users (admin)",
+        "tags": ["Admin Users"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "List of users" } }
+      },
+      "post": {
+        "summary": "Create user (admin)",
+        "tags": ["Admin Users"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "multipart/form-data": { "schema": { "type": "object" } }
+          }
+        },
+        "responses": { "201": { "description": "User created" } }
+      }
+    },
+    "/api/admin/users/personal-search": {
+      "get": {
+        "summary": "Search user personal information",
+        "tags": ["Admin Users"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Search result" } }
+      }
+    },
+    "/api/admin/users/students": {
+      "get": {
+        "summary": "Get all students",
+        "tags": ["Admin Users"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/users/teachers": {
+      "get": {
+        "summary": "Get all teachers",
+        "tags": ["Admin Users"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/users/{id}": {
+      "get": {
+        "summary": "Get user by id",
+        "tags": ["Admin Users"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ]
+      },
+      "put": {
+        "summary": "Update user",
+        "tags": ["Admin Users"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/users/{id}/avatar": {
+      "post": {
+        "summary": "Upload user avatar",
+        "tags": ["Admin Users"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "avatar": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/deactivate/{id}": {
+      "delete": {
+        "summary": "Deactivate user",
+        "tags": ["Admin Users"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/users/activate/{id}": {
+      "patch": {
+        "summary": "Activate user",
+        "tags": ["Admin Users"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/training-reports": {
+      "get": {
+        "summary": "Training report dashboard",
+        "tags": ["Admin Training"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/teacher-leaves/summary": {
+      "get": {
+        "summary": "Teacher leave summary",
+        "tags": ["Admin Leaves"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/teacher-leaves": {
+      "get": {
+        "summary": "List teacher leaves",
+        "tags": ["Admin Leaves"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/teacher-leaves/{id}/status": {
+      "patch": {
+        "summary": "Update teacher leave status",
+        "tags": ["Admin Leaves"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ]
+      }
+    },
+    "/api/admin/teacher-leaves/current": {
+      "get": {
+        "summary": "List current teacher leaves",
+        "tags": ["Admin Leaves"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/teaching-schedules": {
+      "post": {
+        "summary": "Create teaching schedule",
+        "tags": ["Admin Schedule"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/teaching-schedules": {
+      "get": {
+        "summary": "List teaching schedules (public/limited)",
+        "tags": ["Schedule"]
+      }
+    },
+    "/api/admin/teaching-schedules/{id}": {
+      "put": {
+        "summary": "Update teaching schedule",
+        "tags": ["Admin Schedule"],
+        "security": [{ "bearerAuth": [] }]
+      },
+      "delete": {
+        "summary": "Delete teaching schedule",
+        "tags": ["Admin Schedule"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/tasks": {
+      "post": {
+        "summary": "Create task",
+        "tags": ["Admin Tasks"],
+        "security": [{ "bearerAuth": [] }]
+      },
+      "get": {
+        "summary": "List tasks",
+        "tags": ["Admin Tasks"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/tasks/{id}": {
+      "patch": {
+        "summary": "Update task status",
+        "tags": ["Admin Tasks"],
+        "security": [{ "bearerAuth": [] }]
+      },
+      "delete": {
+        "summary": "Delete task",
+        "tags": ["Admin Tasks"],
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/register": {
+      "post": {
+        "summary": "Register new user",
+        "tags": ["Auth"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "username",
+                  "password",
+                  "firstName",
+                  "lastName",
+                  "email",
+                  "phone",
+                  "rank",
+                  "profileImage"
+                ],
+                "properties": {
+                  "username": { "type": "string", "example": "admin01" },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "P@ssw0rd"
+                  },
+                  "firstName": { "type": "string" },
+                  "lastName": { "type": "string" },
+                  "email": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "rank": { "type": "string" },
+                  "profileImage": {
+                    "type": "string",
+                    "description": "Base64 image string or data URL"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string", "example": "admin01" },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "P@ssw0rd"
+                  },
+                  "avatar": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Registered successfully" },
+          "400": { "description": "Invalid input" },
+          "429": { "description": "Too many requests" }
+        }
+      }
+    },
+    "/api/login": {
+      "post": {
+        "summary": "User login",
+        "tags": ["Auth"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string", "example": "admin01" },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "P@ssw0rd"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login success" },
+          "401": { "description": "Invalid credentials" },
+          "429": { "description": "Too many login attempts" }
+        }
+      }
+    },
+    "/api/refresh-token": {
+      "post": {
+        "summary": "Refresh access token",
+        "tags": ["Auth"],
+        "security": [],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-refresh-token",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "refreshToken": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Token refreshed" },
+          "401": { "description": "Invalid refresh token" }
+        }
+      }
+    },
+    "/api/discipline-assessments/import": {
+      "post": {
+        "summary": "Import discipline assessments from Excel",
+        "tags": ["Discipline Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Import success" },
+          "400": { "description": "Invalid file or data" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/discipline-assessments": {
+      "get": {
+        "summary": "List discipline assessments",
+        "tags": ["Discipline Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "delete": {
+        "summary": "Delete all discipline assessments",
+        "tags": ["Discipline Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Deleted all" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/discipline-assessments/{id}": {
+      "delete": {
+        "summary": "Delete discipline assessment by id",
+        "tags": ["Discipline Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/ethics-assessments/import": {
+      "post": {
+        "summary": "Import ethics assessments from Excel",
+        "tags": ["Ethics Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Import success" },
+          "400": { "description": "Invalid file or data" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/ethics-assessments": {
+      "get": {
+        "summary": "List ethics assessments",
+        "tags": ["Ethics Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "delete": {
+        "summary": "Delete all ethics assessments",
+        "tags": ["Ethics Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Deleted all" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/ethics-assessments/{id}": {
+      "delete": {
+        "summary": "Delete ethics assessment by id",
+        "tags": ["Ethics Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/evaluations/import": {
+      "post": {
+        "summary": "Import evaluation scores from Excel",
+        "tags": ["Evaluations"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Imported" },
+          "400": { "description": "Invalid file or data" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/evaluations": {
+      "get": {
+        "summary": "List evaluation sheets",
+        "tags": ["Evaluations"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/evaluations/{id}": {
+      "get": {
+        "summary": "Get evaluation sheet by id",
+        "tags": ["Evaluations"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Sheet returned" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "summary": "Update evaluation sheet",
+        "tags": ["Evaluations"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": { "description": "Updated" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete evaluation sheet",
+        "tags": ["Evaluations"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/evaluations/template/download": {
+      "get": {
+        "summary": "Download evaluation Excel template",
+        "tags": ["Evaluations"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Template file" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/exam-results/import": {
+      "post": {
+        "summary": "Import exam results from Excel",
+        "tags": ["Exam Results"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Imported" },
+          "400": { "description": "Invalid file or data" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/exam-results": {
+      "get": {
+        "summary": "List exam results",
+        "tags": ["Exam Results"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "delete": {
+        "summary": "Delete all exam results",
+        "tags": ["Exam Results"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/exam-results/summary": {
+      "get": {
+        "summary": "Summarize exam results",
+        "tags": ["Exam Results"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Summary returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/exam-results/{id}": {
+      "delete": {
+        "summary": "Delete exam result by id",
+        "tags": ["Exam Results"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/exam-results/overview": {
+      "get": {
+        "summary": "Exam results overview",
+        "tags": ["Exam Results"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Overview returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/exam-results/export": {
+      "get": {
+        "summary": "Export exam results as Excel",
+        "tags": ["Exam Results"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Excel file" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/knowledge-assessments/import": {
+      "post": {
+        "summary": "Import knowledge assessments from Excel",
+        "tags": ["Knowledge Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Imported" },
+          "400": { "description": "Invalid file or data" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/knowledge-assessments": {
+      "get": {
+        "summary": "List knowledge assessments",
+        "tags": ["Knowledge Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "delete": {
+        "summary": "Delete all knowledge assessments",
+        "tags": ["Knowledge Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/knowledge-assessments/{id}": {
+      "delete": {
+        "summary": "Delete knowledge assessment by id",
+        "tags": ["Knowledge Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/library": {
+      "get": {
+        "summary": "List library items (public)",
+        "tags": ["Library"],
+        "security": [],
+        "responses": { "200": { "description": "List returned" } }
+      },
+      "post": {
+        "summary": "Create library item (admin)",
+        "tags": ["Library"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created" },
+          "400": { "description": "Invalid input or file" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/library/{id}": {
+      "put": {
+        "summary": "Update library item (admin)",
+        "tags": ["Library"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated" },
+          "400": { "description": "Invalid input or file" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete library item (admin)",
+        "tags": ["Library"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/admin/news": {
+      "post": {
+        "summary": "Create news (admin)",
+        "tags": ["News"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "get": {
+        "summary": "List all news (admin)",
+        "tags": ["News"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/admin/news/{id}": {
+      "put": {
+        "summary": "Update news (admin)",
+        "tags": ["News"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete news (admin)",
+        "tags": ["News"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/news/home": {
+      "get": {
+        "summary": "Get news for home page (public)",
+        "tags": ["News"],
+        "security": [],
+        "responses": { "200": { "description": "Home news returned" } }
+      }
+    },
+    "/api/news/{id}": {
+      "get": {
+        "summary": "Get news by id (public)",
+        "tags": ["News"],
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "News returned" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/owner/teacher-leaves": {
+      "get": {
+        "summary": "List teacher leave requests (owner)",
+        "tags": ["Owner"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/owner/teacher-leaves/{id}/status": {
+      "patch": {
+        "summary": "Update teacher leave status (owner)",
+        "tags": ["Owner"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": { "description": "Updated" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/owner/official-duty-leaves": {
+      "get": {
+        "summary": "List official duty leave requests (owner)",
+        "tags": ["Owner"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/owner/official-duty-leaves/{id}/status": {
+      "patch": {
+        "summary": "Update official duty leave status (owner)",
+        "tags": ["Owner"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": { "description": "Updated" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/owner/notifications": {
+      "get": {
+        "summary": "Get owner notifications",
+        "tags": ["Owner Notifications"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Notifications returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/owner/notifications/read": {
+      "patch": {
+        "summary": "Mark owner notifications as read",
+        "tags": ["Owner Notifications"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["ids"],
+                "properties": {
+                  "ids": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Marked as read" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/personal-merit-scores/import": {
+      "post": {
+        "summary": "Import personal merit scores from Excel",
+        "tags": ["Personal Merit Scores"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Imported" },
+          "400": { "description": "Invalid file or data" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/personal-merit-scores": {
+      "get": {
+        "summary": "List personal merit scores",
+        "tags": ["Personal Merit Scores"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "delete": {
+        "summary": "Delete all personal merit scores",
+        "tags": ["Personal Merit Scores"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/personal-merit-scores/overview": {
+      "get": {
+        "summary": "Personal merit scores overview",
+        "tags": ["Personal Merit Scores"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Overview returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/personal-merit-scores/{id}": {
+      "delete": {
+        "summary": "Delete personal merit score by id",
+        "tags": ["Personal Merit Scores"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/physical-assessments/import": {
+      "post": {
+        "summary": "Import physical assessments from Excel",
+        "tags": ["Physical Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Imported" },
+          "400": { "description": "Invalid file or data" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/physical-assessments": {
+      "get": {
+        "summary": "List physical assessments",
+        "tags": ["Physical Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "delete": {
+        "summary": "Delete all physical assessments",
+        "tags": ["Physical Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/physical-assessments/{id}": {
+      "delete": {
+        "summary": "Delete physical assessment by id",
+        "tags": ["Physical Assessments"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/public/soldier-intake/status": {
+      "get": {
+        "summary": "Get public soldier intake form status",
+        "tags": ["Soldier Intake"],
+        "security": [],
+        "responses": { "200": { "description": "Status returned" } }
+      }
+    },
+    "/api/admin/soldier-intake/status": {
+      "patch": {
+        "summary": "Update public soldier intake form status (admin)",
+        "tags": ["Soldier Intake"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": { "description": "Status updated" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/soldier-intakes": {
+      "post": {
+        "summary": "Submit soldier intake (public)",
+        "tags": ["Soldier Intake"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "description": "ID card image (optional)",
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created" },
+          "400": { "description": "Invalid input" }
+        }
+      }
+    },
+    "/api/admin/soldier-intakes": {
+      "get": {
+        "summary": "List soldier intakes (company/admin)",
+        "tags": ["Soldier Intake"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "delete": {
+        "summary": "Delete all soldier intakes (owner)",
+        "tags": ["Soldier Intake"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/admin/soldier-intakes/export": {
+      "get": {
+        "summary": "Export soldier intakes as Excel",
+        "tags": ["Soldier Intake"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Excel file" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/admin/soldier-intakes/export/pdf": {
+      "get": {
+        "summary": "Export soldier intakes as PDF",
+        "tags": ["Soldier Intake"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "PDF file" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/admin/soldier-intakes/export/pdf/person": {
+      "get": {
+        "summary": "Export a soldier intake profile as PDF (by citizenId or unitCode)",
+        "tags": ["Soldier Intake"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "citizenId",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "in": "query",
+            "name": "unitCode",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "PDF file" },
+          "400": { "description": "Missing/invalid query" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/admin/soldier-intakes/{id}": {
+      "get": {
+        "summary": "Get soldier intake by id",
+        "tags": ["Soldier Intake"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Record returned" },
+          "400": { "description": "Invalid id" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "summary": "Update soldier intake by id",
+        "tags": ["Soldier Intake"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "description": "ID card image (optional)",
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete soldier intake by id (owner)",
+        "tags": ["Soldier Intake"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "400": { "description": "Invalid id" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/admin/soldier-intakes-summary": {
+      "get": {
+        "summary": "Soldier intake summary",
+        "tags": ["Soldier Intake"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Summary returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/admin/soldier-intakes/import": {
+      "post": {
+        "summary": "Import/update unit assignments from Excel (admin)",
+        "tags": ["Soldier Intake"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Imported" },
+          "400": { "description": "Invalid file or data" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/admin/student-evaluation-templates": {
+      "post": {
+        "summary": "Create student evaluation template",
+        "tags": ["Student Evaluation Templates"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "201": { "description": "Created" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "get": {
+        "summary": "List student evaluation templates",
+        "tags": ["Student Evaluation Templates"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/admin/student-evaluation-templates/{id}": {
+      "get": {
+        "summary": "Get student evaluation template by id",
+        "tags": ["Student Evaluation Templates"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Template returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "summary": "Update student evaluation template",
+        "tags": ["Student Evaluation Templates"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": { "description": "Updated" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete student evaluation template",
+        "tags": ["Student Evaluation Templates"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/student-evaluations": {
+      "post": {
+        "summary": "Create student evaluation (admin or teacher)",
+        "tags": ["Student Evaluations"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "201": { "description": "Created" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "get": {
+        "summary": "List student evaluations (admin or teacher)",
+        "tags": ["Student Evaluations"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/student-evaluations/comparison": {
+      "get": {
+        "summary": "Compare student evaluations (admin or teacher)",
+        "tags": ["Student Evaluations"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Comparison result" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/student-evaluations/{id}": {
+      "get": {
+        "summary": "Get student evaluation by id",
+        "tags": ["Student Evaluations"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Evaluation returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "summary": "Update student evaluation",
+        "tags": ["Student Evaluations"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": { "description": "Updated" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete student evaluation",
+        "tags": ["Student Evaluations"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/teacher/training-reports": {
+      "post": {
+        "summary": "Submit training report (teacher)",
+        "tags": ["Teacher"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": { "description": "Submitted" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/teacher/training-reports/latest": {
+      "get": {
+        "summary": "Get latest training reports (teacher)",
+        "tags": ["Teacher"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Latest reports" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/teacher/training-reports/export": {
+      "get": {
+        "summary": "Export training reports as Excel (admin)",
+        "tags": ["Teacher"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Excel file" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/teacher/leaves": {
+      "post": {
+        "summary": "Request leave (admin or teacher)",
+        "tags": ["Teacher Leaves"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": { "description": "Requested" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "get": {
+        "summary": "List my leaves (admin or teacher)",
+        "tags": ["Teacher Leaves"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/teacher/official-duty-leaves": {
+      "post": {
+        "summary": "Request official duty leave (admin or teacher)",
+        "tags": ["Teacher Leaves"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": { "description": "Requested" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "get": {
+        "summary": "List my official duty leaves (admin or teacher)",
+        "tags": ["Teacher Leaves"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/teacher/leaves/{id}/cancel": {
+      "patch": {
+        "summary": "Cancel my leave request (admin or teacher)",
+        "tags": ["Teacher Leaves"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Cancelled" },
+          "400": { "description": "Invalid request" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/teacher/notifications": {
+      "get": {
+        "summary": "Get teacher notifications (non-student)",
+        "tags": ["Teacher Notifications"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": { "type": "integer" }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Notifications returned" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/teacher/notifications/read": {
+      "patch": {
+        "summary": "Mark teacher notifications as read",
+        "tags": ["Teacher Notifications"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["ids"],
+                "properties": {
+                  "ids": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Marked as read" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "summary": "Get my profile",
+        "tags": ["Users"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Profile returned" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "put": {
+        "summary": "Update my profile",
+        "tags": ["Users"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": { "description": "Profile updated" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/me/avatar": {
+      "post": {
+        "summary": "Upload my avatar (image)",
+        "tags": ["Users"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["avatar"],
+                "properties": {
+                  "avatar": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Avatar uploaded" },
+          "400": { "description": "Invalid file or input" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/me/change-password": {
+      "post": {
+        "summary": "Change my password",
+        "tags": ["Users"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["currentPassword", "newPassword"],
+                "properties": {
+                  "currentPassword": { "type": "string", "format": "password" },
+                  "newPassword": { "type": "string", "format": "password" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Password changed" },
+          "400": { "description": "Invalid password or input" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  },
+  "tags": []
+}

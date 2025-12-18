@@ -9,6 +9,11 @@ const config = require("./config");
 const { verifyToken, authorizeSoldierData } = require("./middlewares/middleware");
 const helmet = require("helmet");
 
+/* ===================== Swagger ===================== */
+const swaggerUi = require("swagger-ui-express");
+const swaggerJsdoc = require("swagger-jsdoc");
+/* =================================================== */
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -21,20 +26,63 @@ app.disable("x-powered-by");
 // ถ้าคุณคุม Security Headers ที่ Nginx แล้ว ให้ปิดใน helmet เพื่อไม่ให้ซ้ำ
 app.use(
   helmet({
-    contentSecurityPolicy: false, // กัน CSP ซ้ำกับ Nginx
-    xContentTypeOptions: false,   // กัน nosniff ซ้ำกับ Nginx
-    frameguard: false,            // กัน X-Frame-Options ซ้ำกับ Nginx
-    referrerPolicy: false,        // กัน Referrer-Policy ซ้ำกับ Nginx
-    permissionsPolicy: false,     // กัน Permissions-Policy ซ้ำกับ Nginx
+    contentSecurityPolicy: false,
+    xContentTypeOptions: false,
+    frameguard: false,
+    referrerPolicy: false,
+    permissionsPolicy: false,
   })
 );
 
-app.use(cors({
-  origin: ["https://rtcas.in.th", "https://www.rtcas.in.th"],
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: ["https://rtcas.in.th", "https://www.rtcas.in.th"],
+    credentials: true,
+  })
+);
 
 app.use(morgan("dev"));
+
+/* ===================== Swagger Config ===================== */
+const swaggerSpec = swaggerJsdoc({
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "RTCAS API",
+      version: "1.0.0",
+      description: "RTCAS Backend API Definition",
+    },
+    servers: [
+      { url: "http://localhost:3000" },
+      { url: "https://api.rtcas.in.th" },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
+    security: [{ bearerAuth: [] }],
+  },
+  apis: [path.join(__dirname, "routes/*.js")], // scan routes ทั้งหมด
+});
+
+/**
+ * 🔒 เปิด Swagger เฉพาะ DEV
+ * production ให้ดูผ่าน openapi.json หรือ VPN/SSH เท่านั้น
+ */
+if (process.env.NODE_ENV !== "production") {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
+
+// Definition file (ใช้กับ ZAP / Postman / CI)
+app.get("/openapi.json", (req, res) => {
+  res.json(swaggerSpec);
+});
+/* ========================================================= */
 
 const apiRateLimiter = rateLimit({
   windowMs: config.rateLimitWindowMs,
@@ -72,11 +120,7 @@ app.use(
   authorizeSoldierData,
   express.static(idCardsDir, {
     setHeaders: (res, filePath) => {
-      if (/\.(png|jpe?g|webp|gif|svg)$/i.test(filePath)) {
-        res.setHeader("Cache-Control", "private, max-age=600");
-      } else {
-        res.setHeader("Cache-Control", "private, max-age=600");
-      }
+      res.setHeader("Cache-Control", "private, max-age=600");
     },
   })
 );
@@ -102,4 +146,10 @@ app.use("/api", apiRateLimiter, routes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`Swagger UI → http://localhost:${PORT}/api-docs`);
+  }
+
+  console.log(`OpenAPI JSON → http://localhost:${PORT}/openapi.json`);
 });
