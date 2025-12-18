@@ -1,4 +1,55 @@
 const prisma = require("../utils/prisma");
+
+const MAX_SAFE_INT = BigInt(Number.MAX_SAFE_INTEGER);
+
+const parsePositiveInt = (raw, { name, defaultValue, min = 1, max }) => {
+  if (raw === undefined || raw === null || raw === "") return defaultValue;
+
+  const str = String(raw).trim();
+  if (!/^\d+$/.test(str)) {
+    const err = new Error(`${name} must be a positive integer`);
+    err.code = "INVALID_QUERY";
+    throw err;
+  }
+
+  const valueBigInt = BigInt(str);
+  if (valueBigInt > MAX_SAFE_INT) {
+    const err = new Error(`${name} is too large`);
+    err.code = "INVALID_QUERY";
+    throw err;
+  }
+
+  const value = Number(valueBigInt);
+  if (!Number.isSafeInteger(value)) {
+    const err = new Error(`${name} must be a safe integer`);
+    err.code = "INVALID_QUERY";
+    throw err;
+  }
+
+  if (value < min) {
+    const err = new Error(`${name} must be >= ${min}`);
+    err.code = "INVALID_QUERY";
+    throw err;
+  }
+
+  if (typeof max === "number" && value > max) {
+    const err = new Error(`${name} must be <= ${max}`);
+    err.code = "INVALID_QUERY";
+    throw err;
+  }
+
+  return value;
+};
+
+const parseSkip = ({ page, pageSize, maxSkip }) => {
+  const skipBigInt = BigInt(page - 1) * BigInt(pageSize);
+  if (skipBigInt > BigInt(maxSkip)) {
+    const err = new Error("pagination is too large");
+    err.code = "INVALID_QUERY";
+    throw err;
+  }
+  return Number(skipBigInt);
+};
 /**
  * สร้างข่าวใหม่
  * POST /admin/news
@@ -49,15 +100,20 @@ exports.createNews = async (req, res) => {
  */
 exports.getAllNews = async (req, res) => {
   try {
-    // ดึงค่าจาก query string เช่น /admin/news?page=2&pageSize=10
-    const page = parseInt(req.query.page, 10) || 1;       // หน้าเริ่มต้น = 1
-    const pageSize = parseInt(req.query.pageSize, 10) || 10; // ต่อหน้าเริ่มต้น = 10
+    const safePage = parsePositiveInt(req.query.page, {
+      name: "page",
+      defaultValue: 1,
+      min: 1,
+      max: 100000,
+    });
+    const safePageSize = parsePositiveInt(req.query.pageSize, {
+      name: "pageSize",
+      defaultValue: 10,
+      min: 1,
+      max: 100,
+    });
 
-    // กันค่าติดลบ/ผิดปกติ
-    const safePage = page < 1 ? 1 : page;
-    const safePageSize = pageSize < 1 ? 10 : pageSize;
-
-    const skip = (safePage - 1) * safePageSize;
+    const skip = parseSkip({ page: safePage, pageSize: safePageSize, maxSkip: 100000 });
 
     // ดึงข้อมูล + นับจำนวนทั้งหมดพร้อมกัน
     const [newsList, totalItems] = await Promise.all([
@@ -81,6 +137,9 @@ exports.getAllNews = async (req, res) => {
       },
     });
   } catch (err) {
+    if (err?.code === "INVALID_QUERY") {
+      return res.status(400).json({ message: err.message });
+    }
     console.error("getAllNews error:", err);
     return res.status(500).json({ message: "เกิดข้อผิดพลาดในระบบ" });
   }
@@ -94,13 +153,20 @@ exports.getAllNews = async (req, res) => {
  */
 exports.getNewsForHome = async (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const pageSize = parseInt(req.query.pageSize, 10) || 5;
+    const safePage = parsePositiveInt(req.query.page, {
+      name: "page",
+      defaultValue: 1,
+      min: 1,
+      max: 100000,
+    });
+    const safePageSize = parsePositiveInt(req.query.pageSize, {
+      name: "pageSize",
+      defaultValue: 5,
+      min: 1,
+      max: 20,
+    });
 
-    const safePage = page < 1 ? 1 : page;
-    const safePageSize = pageSize < 1 ? 5 : pageSize;
-
-    const skip = (safePage - 1) * safePageSize;
+    const skip = parseSkip({ page: safePage, pageSize: safePageSize, maxSkip: 10000 });
 
     const [newsList, totalItems] = await Promise.all([
       prisma.news.findMany({
@@ -126,6 +192,9 @@ exports.getNewsForHome = async (req, res) => {
       },
     });
   } catch (err) {
+    if (err?.code === "INVALID_QUERY") {
+      return res.status(400).json({ message: err.message });
+    }
     console.error("getNewsForHome error:", err);
     return res.status(500).json({ message: "เกิดข้อผิดพลาดในระบบ" });
   }
