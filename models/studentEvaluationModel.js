@@ -50,25 +50,58 @@ const evaluationIncludeWithAnswers = {
   },
 };
 
+const normalizeUnitCode = (value) =>
+  typeof value === "string" ? value.trim().toUpperCase() : "";
+
 // ใช้รวม logic สร้าง where สำหรับ list/summary
 const buildEvaluationWhere = (filters = {}) => {
   const where = {};
+  const templateTypeFilter = filters.templateType
+    ? normalizeTemplateType(filters.templateType)
+    : null;
   if (filters.templateId) {
     where.templateId = Number(filters.templateId);
   }
-   if (filters.templateType) {
-     where.template = {
-       templateType: normalizeTemplateType(filters.templateType),
-     };
-   }
-  if (filters.companyCode) {
-    where.companyCode = String(filters.companyCode).trim().toUpperCase();
+  if (templateTypeFilter) {
+    where.template = { templateType: templateTypeFilter };
   }
-  if (filters.battalionCode) {
-    where.battalionCode = String(filters.battalionCode).trim().toUpperCase();
+
+  const companyCode = normalizeUnitCode(filters.companyCode);
+  const battalionCode = normalizeUnitCode(filters.battalionCode);
+
+  // SERVICE = ราชการ/รายบุคคล (ไม่มีสังกัด) -> ไม่ควรเอา companyCode/battalionCode มากรอง
+  // เพื่อกันเคสที่ฝั่ง UI ส่ง filter หน่วยติดมาด้วยแล้วทำให้ผลไม่ขึ้น
+  if (templateTypeFilter !== "SERVICE") {
+    if (companyCode) where.companyCode = companyCode;
+    if (battalionCode) where.battalionCode = battalionCode;
   }
   if (filters.evaluatorId) {
     where.evaluatorId = Number(filters.evaluatorId);
+  }
+  if (filters.evaluatedPersonId !== undefined) {
+    const evaluatedPersonId =
+      filters.evaluatedPersonId !== null ? Number(filters.evaluatedPersonId) : null;
+    if (Number.isInteger(evaluatedPersonId) && evaluatedPersonId > 0) {
+      where.evaluatedPersonId = evaluatedPersonId;
+    }
+  }
+  if (filters.evaluatedPerson) {
+    const evaluatedPerson =
+      typeof filters.evaluatedPerson === "string"
+        ? filters.evaluatedPerson.trim()
+        : "";
+    if (evaluatedPerson) {
+      where.evaluatedPerson = { contains: evaluatedPerson };
+    }
+  }
+  if (filters.evaluationRound) {
+    const evaluationRound =
+      typeof filters.evaluationRound === "string"
+        ? filters.evaluationRound.trim()
+        : "";
+    if (evaluationRound) {
+      where.evaluationRound = evaluationRound;
+    }
   }
   return where;
 };
@@ -480,41 +513,6 @@ module.exports = {
     if (!subject) {
       throwValidationError("ต้องระบุวิชาที่ประเมิน");
     }
-    const companyCode = (() => {
-      const val =
-        typeof input.companyCode === "string"
-          ? input.companyCode.trim().toUpperCase()
-          : "";
-      if (isServiceTemplate) return val || "SERVICE";
-      return val;
-    })();
-    const battalionCode = (() => {
-      const val =
-        typeof input.battalionCode === "string"
-          ? input.battalionCode.trim().toUpperCase()
-          : "";
-      if (isServiceTemplate) return val || "SERVICE";
-      return val;
-    })();
-    if (!companyCode) {
-      throwValidationError("ต้องระบุรหัสกองร้อย");
-    }
-    if (!battalionCode) {
-      throwValidationError("ต้องระบุรหัสกองพัน");
-    }
-    const evaluationPeriod = (() => {
-      if (input.evaluationPeriod) {
-        const dt = new Date(input.evaluationPeriod);
-        if (Number.isNaN(dt.getTime())) {
-          throwValidationError("รูปแบบวันที่ประเมินไม่ถูกต้อง");
-        }
-        return dt;
-      }
-      if (isServiceTemplate) {
-        throwValidationError("ต้องระบุวันที่ประเมินสำหรับเทมเพลต SERVICE");
-      }
-      return new Date();
-    })();
     const evaluationRound =
       typeof input.evaluationRound === "string"
         ? input.evaluationRound.trim()
@@ -529,6 +527,19 @@ module.exports = {
     if (isServiceTemplate && !evaluatorName) {
       throwValidationError("ต้องระบุชื่อผู้ประเมินสำหรับเทมเพลต SERVICE");
     }
+    const evaluationPeriod = (() => {
+      if (input.evaluationPeriod) {
+        const dt = new Date(input.evaluationPeriod);
+        if (Number.isNaN(dt.getTime())) {
+          throwValidationError("รูปแบบวันที่ประเมินไม่ถูกต้อง");
+        }
+        return dt;
+      }
+      if (isServiceTemplate) {
+        throwValidationError("ต้องระบุวันที่ประเมินสำหรับเทมเพลต SERVICE");
+      }
+      return new Date();
+    })();
     let evaluatedPersonId =
       input.evaluatedPersonId !== undefined
         ? Number(input.evaluatedPersonId)
@@ -550,6 +561,18 @@ module.exports = {
       throwValidationError(
         "ต้องระบุชื่อผู้ถูกรับการประเมินหรือ evaluatedPersonId สำหรับเทมเพลต SERVICE"
       );
+    }
+
+    const companyCode = isServiceTemplate
+      ? "SERVICE"
+      : normalizeUnitCode(input.companyCode);
+    const battalionCode = isServiceTemplate
+      ? "SERVICE"
+      : normalizeUnitCode(input.battalionCode);
+
+    if (!isServiceTemplate) {
+      if (!companyCode) throwValidationError("ต้องระบุรหัสกองร้อย");
+      if (!battalionCode) throwValidationError("ต้องระบุรหัสกองพัน");
     }
     const questionMap = new Map();
     template.sections.forEach((section) => {
@@ -602,7 +625,7 @@ module.exports = {
   listEvaluations: async (filters = {}) => {
     const where = buildEvaluationWhere(filters);
     const includeAnswers = filters.includeAnswers === true;
-    const pageSize = Math.max(1, Math.min(Number(filters.pageSize) || 20, 200));
+    const pageSize = Math.max(1, Math.min(Number(filters.pageSize) || 20, 500));
     const page = Math.max(1, Number(filters.page) || 1);
     const skip = (page - 1) * pageSize;
 

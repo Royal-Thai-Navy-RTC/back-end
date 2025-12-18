@@ -17,16 +17,21 @@ const poolLimit =
   Number(process.env.DB_POOL_SIZE) && Number(process.env.DB_POOL_SIZE) > 0
     ? Number(process.env.DB_POOL_SIZE)
     : null;
-if (poolLimit) {
-  try {
-    const url = new URL(connectionString);
-    if (!url.searchParams.has("connectionLimit")) {
-      url.searchParams.set("connectionLimit", String(poolLimit));
-      connectionString = url.toString();
-    }
-  } catch {
-    // fallback silently if URL parsing fails
+try {
+  const url = new URL(connectionString);
+
+  // Ensure the connection uses utf8mb4 so Thai strings work reliably in WHERE/LIKE.
+  if (!url.searchParams.has("charset")) {
+    url.searchParams.set("charset", "utf8mb4");
   }
+
+  if (poolLimit && !url.searchParams.has("connectionLimit")) {
+    url.searchParams.set("connectionLimit", String(poolLimit));
+  }
+
+  connectionString = url.toString();
+} catch {
+  // fallback silently if URL parsing fails
 }
 
 // Driver adapter required for Prisma 7 client engine (MySQL/MariaDB)

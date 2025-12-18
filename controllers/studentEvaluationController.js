@@ -11,6 +11,18 @@ const formatEvaluation = (evaluation) => {
   if (formatted.overallScore !== undefined) {
     formatted.overallScore = formatOverallScore(formatted.overallScore);
   }
+  // Front-end fallback: SERVICE evaluations may not have evaluatedPersonId/user.
+  // Provide a stable display string so UI can render without relying on evaluatedPersonId.
+  if (formatted.evaluatedPersonName === undefined) {
+    const fromUser =
+      formatted.evaluatedPersonUser &&
+      (formatted.evaluatedPersonUser.firstName || formatted.evaluatedPersonUser.lastName)
+        ? [formatted.evaluatedPersonUser.firstName, formatted.evaluatedPersonUser.lastName]
+            .filter(Boolean)
+            .join(" ")
+        : "";
+    formatted.evaluatedPersonName = fromUser || formatted.evaluatedPerson || null;
+  }
   return formatted;
 };
 
@@ -70,6 +82,9 @@ const listEvaluations = async (req, res) => {
       companyCode,
       battalionCode,
       evaluatorId,
+      evaluatedPersonId,
+      evaluatedPerson,
+      evaluationRound,
       page,
       pageSize,
       includeAnswers,
@@ -81,6 +96,9 @@ const listEvaluations = async (req, res) => {
       companyCode,
       battalionCode,
       evaluatorId,
+      evaluatedPersonId,
+      evaluatedPerson,
+      evaluationRound,
       page,
       pageSize,
       includeAnswers: String(includeAnswers).toLowerCase() === "true",

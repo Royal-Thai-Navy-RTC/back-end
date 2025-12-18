@@ -547,8 +547,9 @@ Content-Type: application/json
 
 ### GET /api/student-evaluations
 - Auth: ADMIN หรือ TEACHER
-- Query: `templateId`, `companyCode`, `battalionCode`, `evaluatorId`
+- Query: `templateId`, `companyCode`, `battalionCode`, `evaluatorId`, `templateType`, `evaluationRound`, `evaluatedPersonId`, `evaluatedPerson`
 - ใช้กรองผลตาม template/กองร้อย/กองพัน หรือ evaluator
+- หมายเหตุ: `templateType=SERVICE` คือ “ราชการ/รายบุคคล” (ไม่มีสังกัด) ระบบจะไม่ใช้ `companyCode/battalionCode` มาช่วยกรองรายการ
 
 ### GET /api/student-evaluations/comparison
 - Auth: ADMIN หรือ TEACHER
@@ -561,6 +562,7 @@ Content-Type: application/json
 ### GET /api/student-evaluations/:id
 - Auth: ADMIN หรือ TEACHER
 - คืนรายละเอียดผลการประเมินพร้อมคำตอบทุกข้อ
+- ฟิลด์ช่วยแสดงผล: `evaluatedPersonName` จะเติมจาก `evaluatedPersonUser` หรือ fallback ไป `evaluatedPerson` (กรณี `evaluatedPersonId` เป็น null เช่น SERVICE)
 
 ### PUT /api/student-evaluations/:id
 - Auth: ADMIN หรือ TEACHER
