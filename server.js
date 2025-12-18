@@ -116,6 +116,31 @@ app.use(
   })
 );
 
+// ---------- Body parser error handler ----------
+// Handles invalid JSON payloads (e.g. `""John Doe""` which is not valid JSON)
+app.use((err, req, res, next) => {
+  const contentType = String(req.headers["content-type"] || "").toLowerCase();
+  const isJsonRequest =
+    req.is?.("application/json") ||
+    contentType.includes("application/json") ||
+    contentType.includes("+json");
+
+  const isBodyParserJsonError =
+    err &&
+    (err.type === "entity.parse.failed" ||
+      (err instanceof SyntaxError && err.status === 400 && "body" in err));
+
+  if (isJsonRequest && isBodyParserJsonError) {
+    return res.status(400).json({
+      message: "Invalid JSON payload",
+      detail: err.message,
+      hint: 'Make sure strings are quoted once, e.g. "John Doe" (not ""John Doe"")',
+    });
+  }
+
+  return next(err);
+});
+
 // ---------- Static uploads ----------
 const uploadsDir = path.join(__dirname, "uploads");
 const idCardsDir = path.join(uploadsDir, "idcards");
