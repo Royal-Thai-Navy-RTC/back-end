@@ -29,7 +29,11 @@ app.use(
   })
 );
 
-app.use(cors());
+app.use(cors({
+  origin: ["https://rtcas.in.th", "https://www.rtcas.in.th"],
+  credentials: true
+}));
+
 app.use(morgan("dev"));
 
 const apiRateLimiter = rateLimit({
