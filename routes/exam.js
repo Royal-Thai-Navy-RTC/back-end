@@ -97,6 +97,37 @@ router.get(
  *     responses:
  *       200:
  *         description: Summary returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 battalions:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       battalionCode:
+ *                         type: string
+ *                       averageScore:
+ *                         type: number
+ *                         description: Normalized average score (0..1)
+ *                       total:
+ *                         type: integer
+ *                       companies:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             battalionCode:
+ *                               type: string
+ *                             companyCode:
+ *                               type: string
+ *                             averageScore:
+ *                               type: number
+ *                               description: Normalized average score (0..1)
+ *                             total:
+ *                               type: integer
  *       401:
  *         description: Unauthorized
  *       403:
