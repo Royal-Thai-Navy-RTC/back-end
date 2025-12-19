@@ -40,6 +40,12 @@ app.use(
   cors({
     origin: ["https://rtcas.in.th", "https://www.rtcas.in.th"],
     credentials: true,
+    exposedHeaders: [
+      "Content-Length",
+      "X-Archive-Uncompressed-Bytes",
+      "Content-Disposition",
+      "X-Archive-Total-Files",
+    ],
   })
 );
 

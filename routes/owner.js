@@ -2,6 +2,7 @@ const express = require("express");
 const middleware = require("../middlewares/middleware");
 const ownerLeaveController = require("../controllers/ownerLeaveController");
 const ownerNotificationController = require("../controllers/ownerNotificationController");
+const ownerBackupController = require("../controllers/ownerBackupController");
 
 const router = express.Router();
 
@@ -167,6 +168,31 @@ router.get(
   middleware.verifyToken,
   middleware.authorizeOwner,
   ownerNotificationController.getOwnerNotifications
+);
+
+/**
+ * @openapi
+ * /api/owner/database/backup:
+ *   get:
+ *     summary: สำรองฐานข้อมูล (ดาวน์โหลดไฟล์ .sql)
+ *     tags: [Owner]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: ไฟล์สำรองฐานข้อมูล (.sql)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Backup failed
+ */
+router.get(
+  "/owner/database/backup",
+  middleware.verifyToken,
+  middleware.authorizeOwner,
+  ownerBackupController.downloadDatabaseBackup
 );
 
 /**
