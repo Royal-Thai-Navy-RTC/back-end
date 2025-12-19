@@ -1119,7 +1119,10 @@ const buildUserProfilePdfBuffer = (user) =>
       leftLabel: "ไปช่วยราชการ",
       leftValue: formatBooleanThai(user?.isOnOfficialDuty),
       rightLabel: "หมายเหตุช่วยราชการ",
-      rightValue: user?.officialDutyNote,
+      rightValue:
+        user?.isOnOfficialDuty === true
+          ? user?.officialDutyNote || "-"
+          : "-",
     });
     drawFieldRow2({
       leftLabel: "อีเมล",
@@ -1158,6 +1161,10 @@ const buildUserProfilePdfBuffer = (user) =>
     drawFieldRow1({ label: "อาชีพเสริม", value: user?.secondaryOccupation });
 
     drawSectionTitle("ข้อมูลสุขภาพ");
+    drawFieldRow1({
+      label: "ตรวจสุขภาพประจำปี",
+      value: formatBooleanThai(user?.isAnnualHealthCheckDone),
+    });
     drawFieldRow1({ label: "ประวัติการรักษา", value: user?.medicalHistory });
     drawFieldRow1({
       label: "โรคประจำตัว",
