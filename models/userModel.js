@@ -61,13 +61,7 @@ const normalizeRankValue = (value) => {
   throw err;
 };
 
-const PLACEHOLDER_STRINGS = new Set([
-  "-",
-  "ไม่มี",
-  "ไม่ระบุ",
-  "n/a",
-  "none",
-]);
+const PLACEHOLDER_STRINGS = new Set(["-", "ไม่มี", "ไม่ระบุ", "n/a", "none"]);
 
 const sanitizeStringValue = (value) => {
   if (value === undefined || value === null) return undefined;
@@ -75,6 +69,21 @@ const sanitizeStringValue = (value) => {
   if (!trimmed) return undefined;
   if (PLACEHOLDER_STRINGS.has(trimmed.toLowerCase())) return undefined;
   return trimmed;
+};
+
+const normalizeBooleanValue = (value) => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "string") {
+    const t = value.trim().toLowerCase();
+    if (!t) return undefined;
+    if (["true", "1", "yes", "y"].includes(t)) return true;
+    if (["false", "0", "no", "n"].includes(t)) return false;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return undefined;
+    return value !== 0;
+  }
+  return Boolean(value);
 };
 
 const normalizeStringList = (value) => {
@@ -107,6 +116,7 @@ const sanitizeUserPayload = (payload) => {
     "education",
     "position",
     "division",
+    "officialDutyNote",
     "email",
     "phone",
     "emergencyContactName",
@@ -166,7 +176,9 @@ const roundTwoDecimals = (value) => {
 };
 
 const computeEducationScore = (education = "") => {
-  const text = String(education || "").trim().toLowerCase();
+  const text = String(education || "")
+    .trim()
+    .toLowerCase();
   let score = 30;
   if (
     text.includes("phd") ||
@@ -295,6 +307,8 @@ const USER_PROFILE_SELECT = {
   religion: true,
   specialSkills: true,
   secondaryOccupation: true,
+  isOnOfficialDuty: true,
+  officialDutyNote: true,
   avatar: true,
   createdAt: true,
   updatedAt: true,
@@ -304,8 +318,7 @@ const USER_PROFILE_CACHE_TTL_MS = 30 * 1000;
 const USER_PROFILE_CACHE_MAX = 500;
 const userProfileCache = new Map();
 
-const cloneProfilePayload = (payload) =>
-  payload ? { ...payload } : payload;
+const cloneProfilePayload = (payload) => (payload ? { ...payload } : payload);
 
 const normalizeUserId = (value) => {
   const num = Number(value);
@@ -441,7 +454,13 @@ const getUserAdminDetail = async (id) => {
         notes: true,
         answers: {
           orderBy: { id: "asc" },
-          select: { id: true, section: true, itemCode: true, itemText: true, rating: true },
+          select: {
+            id: true,
+            section: true,
+            itemCode: true,
+            itemText: true,
+            rating: true,
+          },
         },
       },
     }),
@@ -595,14 +614,14 @@ const getUserAdminDetail = async (id) => {
     // teacherEvaluationStats = ครูประเมินนักเรียน (evaluation ที่ครูเป็นผู้ประเมิน)
     teacherEvaluationStats: {
       total: evaluationAggregate._count?._all || 0,
-      averageOverallScore:
-        evaluationAggregate._avg?.overallScore ?? null,
+      averageOverallScore: evaluationAggregate._avg?.overallScore ?? null,
       lastSubmittedAt: evaluationAggregate._max?.submittedAt || null,
     },
     leaveStats,
     serviceEvaluationStats: {
       total: serviceEvaluationAggregate._count?._all || 0,
-      averageOverallScore: serviceEvaluationAggregate._avg?.overallScore ?? null,
+      averageOverallScore:
+        serviceEvaluationAggregate._avg?.overallScore ?? null,
       lastSubmittedAt: serviceEvaluationAggregate._max?.submittedAt || null,
       recentEvaluations: recentServiceEvaluations.map((ev) => ({
         id: ev.id,
@@ -610,10 +629,11 @@ const getUserAdminDetail = async (id) => {
         templateName: ev.template?.name || null,
         templateType: ev.template?.templateType || null,
         evaluatorId: ev.evaluatorId,
-        evaluatorName: [ev.evaluator?.firstName, ev.evaluator?.lastName]
-          .filter(Boolean)
-          .join(" ")
-          .trim() || null,
+        evaluatorName:
+          [ev.evaluator?.firstName, ev.evaluator?.lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim() || null,
         evaluatorRole: ev.evaluator?.role || null,
         evaluatorRank: ev.evaluator?.rank || null,
         evaluatorRankLabel:
@@ -668,9 +688,7 @@ const normalizeAndValidateUserInput = (input = {}) => {
   // แปลง birthDate เป็น Date (ใช้วันปัจจุบันเป็นค่าเริ่มต้นถ้าไม่ได้ส่งมา)
   const birthDateInput = input.birthDate || new Date();
   const birthDate =
-    birthDateInput instanceof Date
-      ? birthDateInput
-      : new Date(birthDateInput);
+    birthDateInput instanceof Date ? birthDateInput : new Date(birthDateInput);
   if (isNaN(birthDate.getTime())) {
     const err = new Error("รูปแบบวันเกิด (birthDate) ไม่ถูกต้อง");
     err.code = "VALIDATION_ERROR";
@@ -717,11 +735,12 @@ const normalizeAndValidateUserInput = (input = {}) => {
     isActive:
       input.isActive !== undefined ? Boolean(input.isActive) : undefined, // default true จาก schema
     rank: rankValue || undefined, // ใช้ค่า default ใน schema ถ้าไม่ส่งมา
-    fullAddress:
-      fullAddressValue === undefined ? "" : fullAddressValue,
+    fullAddress: fullAddressValue === undefined ? "" : fullAddressValue,
     education: sanitizeStringValue(input.education),
     position: sanitizeStringValue(input.position),
     division: divisionValue,
+    isOnOfficialDuty: normalizeBooleanValue(input.isOnOfficialDuty),
+    officialDutyNote: sanitizeStringValue(input.officialDutyNote),
     email: sanitizeStringValue(input.email),
     phone: sanitizeStringValue(input.phone),
     emergencyContactName: sanitizeStringValue(input.emergencyContactName),
@@ -854,6 +873,8 @@ module.exports = {
       "specialSkills",
       "secondaryOccupation",
       "avatar",
+      "isOnOfficialDuty",
+      "officialDutyNote",
     ]);
 
     const data = {};
@@ -890,6 +911,24 @@ module.exports = {
         const divisionValue = String(v).trim();
         if (divisionValue) {
           data.division = divisionValue;
+        }
+        continue;
+      }
+      if (k === "isOnOfficialDuty") {
+        const flag = normalizeBooleanValue(v);
+        if (flag !== undefined) {
+          data.isOnOfficialDuty = flag;
+        }
+        continue;
+      }
+      if (k === "officialDutyNote") {
+        if (v === null) {
+          data.officialDutyNote = null;
+        } else {
+          const note = sanitizeStringValue(v);
+          if (note !== undefined) {
+            data.officialDutyNote = note;
+          }
         }
         continue;
       }
@@ -1024,6 +1063,8 @@ module.exports = {
           religion: true,
           specialSkills: true,
           secondaryOccupation: true,
+          isOnOfficialDuty: true,
+          officialDutyNote: true,
           avatar: true,
           createdAt: true,
           updatedAt: true,
@@ -1045,7 +1086,11 @@ module.exports = {
   },
   searchUserPersonalInfo: async ({ query, limit = 100 } = {}) => {
     const normalizedQuery =
-      typeof query === "string" ? query.trim() : query ? String(query).trim() : "";
+      typeof query === "string"
+        ? query.trim()
+        : query
+        ? String(query).trim()
+        : "";
     if (!normalizedQuery) {
       const err = new Error("ต้องระบุ query สำหรับค้นหา");
       err.code = "VALIDATION_ERROR";
@@ -1164,6 +1209,8 @@ module.exports = {
       "education",
       "position",
       "division",
+      "isOnOfficialDuty",
+      "officialDutyNote",
       "email",
       "phone",
       "emergencyContactName",
@@ -1219,6 +1266,24 @@ module.exports = {
         }
         continue;
       }
+      if (k === "isOnOfficialDuty") {
+        const flag = normalizeBooleanValue(v);
+        if (flag !== undefined) {
+          data.isOnOfficialDuty = flag;
+        }
+        continue;
+      }
+      if (k === "officialDutyNote") {
+        if (v === null) {
+          data.officialDutyNote = null;
+        } else {
+          const note = sanitizeStringValue(v);
+          if (note !== undefined) {
+            data.officialDutyNote = note;
+          }
+        }
+        continue;
+      }
       if (k === "password") continue; // controller จะจัดการ hash
       data[k] = typeof v === "string" ? v.trim() : v;
     }
@@ -1236,7 +1301,10 @@ module.exports = {
     const finalRole = data.role || existing.role;
     const finalDivision =
       data.division !== undefined ? data.division : existing.division;
-    if (finalRole === "TEACHER" && (!finalDivision || !String(finalDivision).trim())) {
+    if (
+      finalRole === "TEACHER" &&
+      (!finalDivision || !String(finalDivision).trim())
+    ) {
       const err = new Error("ครูผู้สอนต้องระบุ division (หมวดวิชา)");
       err.code = "VALIDATION_ERROR";
       throw err;

@@ -23,6 +23,8 @@ model User {
   education                   String?                     @db.VarChar(255)
   position                    String?                     @db.VarChar(150)
   division                    String?                     @db.VarChar(150)
+  isOnOfficialDuty            Boolean                     @default(false)
+  officialDutyNote            String?                     @db.Text
   email                       String                      @unique
   phone                       String                      @unique @db.VarChar(32)
   emergencyContactName        String?                     @db.VarChar(100)

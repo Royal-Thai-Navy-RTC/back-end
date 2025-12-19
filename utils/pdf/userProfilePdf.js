@@ -1116,6 +1116,12 @@ const buildUserProfilePdfBuffer = (user) =>
       rightValue: user?.rank,
     });
     drawFieldRow2({
+      leftLabel: "ไปช่วยราชการ",
+      leftValue: formatBooleanThai(user?.isOnOfficialDuty),
+      rightLabel: "หมายเหตุช่วยราชการ",
+      rightValue: user?.officialDutyNote,
+    });
+    drawFieldRow2({
       leftLabel: "อีเมล",
       leftValue: user?.email,
       rightLabel: "โทรศัพท์",

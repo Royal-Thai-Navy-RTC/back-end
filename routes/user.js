@@ -43,6 +43,13 @@ router.get("/me", middleware.verifyToken, userController.getMe);
  *         application/json:
  *           schema:
  *             type: object
+ *             properties:
+ *               isOnOfficialDuty:
+ *                 type: boolean
+ *                 description: ระบุว่ากำลังไปช่วยราชการหรือไม่
+ *               officialDutyNote:
+ *                 type: string
+ *                 description: หมายเหตุการไปช่วยราชการ
  *     responses:
  *       200:
  *         description: Profile updated

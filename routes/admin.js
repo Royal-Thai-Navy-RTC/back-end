@@ -201,36 +201,43 @@ router.get(
 
 /**
  * @openapi
-  * /api/admin/users/{id}:
-  *   put:
-  *     summary: Update user
-  *     tags: [Admin Users]
-  *     security:
-  *       - bearerAuth: []
-  *     parameters:
-  *       - in: path
-  *         name: id
-  *         required: true
-  *         schema:
-  *           type: integer
-  *     requestBody:
-  *       required: true
-  *       content:
-  *         application/json:
-  *           schema:
-  *             type: object
-  *     responses:
-  *       200:
-  *         description: User updated
-  *       400:
-  *         description: Invalid input
-  *       401:
-  *         description: Unauthorized
-  *       403:
-  *         description: Forbidden
-  *       404:
-  *         description: Not found
-  */
+ * /api/admin/users/{id}:
+ *   put:
+ *     summary: Update user
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isOnOfficialDuty:
+ *                 type: boolean
+ *                 description: ระบุว่าผู้ใช้อยู่ระหว่างไปช่วยราชการหรือไม่
+ *               officialDutyNote:
+ *                 type: string
+ *                 description: หมายเหตุการไปช่วยราชการ
+ *     responses:
+ *       200:
+ *         description: User updated
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ */
 router.put(
   "/admin/users/:id",
   middleware.verifyToken,
