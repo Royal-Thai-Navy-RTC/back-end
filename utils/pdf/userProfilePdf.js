@@ -146,6 +146,20 @@ const ROLE_LABELS = {
   commander: "ผู้บังคับบัญชา",
 };
 
+const PRIORITY_LABELS = {
+  HIGH: "สูง",
+  MEDIUM: "ปานกลาง",
+  LOW: "ต่ำ",
+};
+
+const TASK_STATUS_LABELS = {
+  PENDING: "รอดำเนินการ",
+  IN_PROGRESS: "กำลังดำเนินการ",
+  DONE: "เสร็จสิ้น",
+  CANCELLED: "ยกเลิก",
+  CANCELED: "ยกเลิก",
+};
+
 const formatRoleLabel = (role) => {
   if (!role) return "-";
   const key = String(role).trim().toLowerCase();
@@ -167,6 +181,24 @@ const resolveAvatarFilePath = (avatarUrl) => {
   const relative = raw.replace(/^\//, "");
   return path.join(__dirname, "..", "..", relative);
 };
+
+const formatRankedName = (person = {}) => {
+  if (!person) return "-";
+  const rank = person.rankLabel || person.rank;
+  const name = [person.firstName, person.lastName].filter(Boolean).join(" ");
+  const combined = `${rank ? `${rank} ` : ""}${name}`.trim();
+  return combined || "-";
+};
+
+const formatScore = (score) => {
+  const num = Number(score);
+  if (!Number.isFinite(num)) return "-";
+  const text = num.toFixed(2).replace(/\.?0+$/, "");
+  return text;
+};
+
+const formatPriority = (value) => formatEnumLabel(value, PRIORITY_LABELS);
+const formatTaskStatus = (value) => formatEnumLabel(value, TASK_STATUS_LABELS);
 
 const buildUserProfilePdfBuffer = (user) =>
   new Promise(async (resolve, reject) => {
@@ -841,6 +873,144 @@ const buildUserProfilePdfBuffer = (user) =>
       doc.x = L;
     };
 
+    const drawServiceEvaluationSection = (stats = {}) => {
+      drawSectionTitle("สถิติประเมินราชการ");
+
+      const total = stats.total ?? "-";
+      const avg = formatScore(stats.averageOverallScore);
+      const last = formatDateTimeThai(stats.lastSubmittedAt) || "-";
+
+      drawFieldRow2({
+        leftLabel: "จำนวนทั้งหมด",
+        leftValue: total,
+        rightLabel: "อัปเดตล่าสุด",
+        rightValue: last,
+      });
+      drawFieldRow1({ label: "คะแนนเฉลี่ย", value: avg });
+
+      const items = Array.isArray(stats.recentEvaluations)
+        ? stats.recentEvaluations
+        : [];
+      if (!items.length) {
+        drawFieldRow1({
+          label: "แบบประเมินล่าสุด",
+          value: "ไม่มีข้อมูลผลประเมินราชการ",
+        });
+        return;
+      }
+
+      items.forEach((ev) => {
+        const evaluatorDisplay = (() => {
+          const rankPart = ev.evaluatorRankLabel || ev.evaluatorRank || "";
+          if (ev.evaluatorName) {
+            return `${rankPart ? `${rankPart} ` : ""}${ev.evaluatorName}`.trim();
+          }
+          return rankPart || "-";
+        })();
+
+        drawFieldRow1({
+          label: "แบบประเมิน",
+          value: `${ev.templateName || "-"}`,
+        });
+        drawFieldRow2({
+          leftLabel: "รอบ",
+          leftValue: ev.evaluationRound || "-",
+          rightLabel: "คะแนน",
+          rightValue: formatScore(ev.overallScore),
+        });
+        drawFieldRow2({
+          leftLabel: "ผู้ประเมิน",
+          leftValue: evaluatorDisplay || "-",
+          rightLabel: "ส่งเมื่อ",
+          rightValue: formatDateTimeThai(ev.submittedAt) || "-",
+        });
+        if (ev.summary) {
+          drawFieldRow1({ label: "สรุป", value: ev.summary });
+        }
+      });
+    };
+
+    const drawTaskCard = (task) => {
+      drawFieldRow1({
+        label: "ชื่องาน",
+        value: `${task.title || "-"}${
+          task.priority ? ` (${formatPriority(task.priority)})` : ""
+        }`,
+      });
+      drawFieldRow2({
+        leftLabel: "สถานะ",
+        leftValue: formatTaskStatus(task.status),
+        rightLabel: "ผู้มอบหมาย",
+        rightValue: formatRankedName(task.creator),
+      });
+      drawFieldRow2({
+        leftLabel: "เริ่ม",
+        leftValue: formatDateTimeThai(task.startDate) || "-",
+        rightLabel: "กำหนดส่ง",
+        rightValue: formatDateTimeThai(task.dueDate) || "-",
+      });
+      drawFieldRow2({
+        leftLabel: "ผู้รับผิดชอบ",
+        leftValue: formatRankedName(task.assignee),
+        rightLabel: "อัปเดตล่าสุด",
+        rightValue: formatDateTimeThai(task.updatedAt) || "-",
+      });
+      if (task.description || task.noteToAssignee) {
+        drawFieldRow1({
+          label: "รายละเอียด",
+          value: task.description || task.noteToAssignee || "-",
+        });
+      }
+    };
+
+    const drawTaskAssignmentsSection = (tasksData = {}) => {
+      drawSectionTitle("ภารกิจ / มอบหมายงาน");
+      const stats = tasksData.stats || {};
+      drawFieldRow2({
+        leftLabel: "ได้รับทั้งหมด",
+        leftValue: stats.assignedTotal ?? "-",
+        rightLabel: "กำลังทำ",
+        rightValue: stats.assignedActive ?? "-",
+      });
+      // drawFieldRow1({
+      //   label: "งานที่สร้าง (ทั้งหมด)",
+      //   value: stats.createdTotal ?? "-",
+      // });
+
+      const received = Array.isArray(tasksData.asAssignee)
+        ? tasksData.asAssignee
+        : [];
+      // const created = Array.isArray(tasksData.createdByUser)
+      //   ? tasksData.createdByUser
+      //   : [];
+
+      if (!received.length) {
+        drawFieldRow1({
+          label: "งานที่ได้รับ",
+          value: "ไม่มีข้อมูลงานที่ได้รับ",
+        });
+      } else {
+        drawFieldRow1({
+          label: "งานที่ได้รับ",
+          value: `จำนวน ${received.length} งาน`,
+        });
+        received.forEach((task) => drawTaskCard(task));
+      }
+
+      // if (!created.length) {
+      //   drawFieldRow1({
+      //     label: "งานที่สร้าง",
+      //     value: "ไม่มีข้อมูลงานที่สร้าง",
+      //   });
+      // } else {
+      //   drawFieldRow1({
+      //     label: "งานที่สร้าง",
+      //     value: `จำนวน ${created.length} งาน`,
+      //   });
+      //   created.forEach((task) => drawTaskCard(task));
+      // }
+    };
+
     const drawLatestStudentEvaluationSheet = (sheet) => {
       if (!sheet) return;
 
@@ -1009,6 +1179,8 @@ const buildUserProfilePdfBuffer = (user) =>
       teacherTotal: teacherStats.total,
       teacherLastSubmittedAt: teacherStats.lastSubmittedAt,
     });
+    drawServiceEvaluationSection(user?.serviceEvaluationStats);
+    drawTaskAssignmentsSection(user?.taskAssignments);
     drawLeaveSection(leaveStats);
 
     drawRadarChart(user?.radarProfile);

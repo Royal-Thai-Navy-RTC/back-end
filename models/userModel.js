@@ -147,6 +147,15 @@ const withThaiRank = (payload) => {
   return sanitizeUserPayload({ ...payload, rank: rankLabel });
 };
 
+const appendRankLabel = (userPayload) => {
+  if (!userPayload) return userPayload;
+  const rankLabel =
+    userPayload.rank && rankLabelMap[userPayload.rank]
+      ? rankLabelMap[userPayload.rank]
+      : userPayload.rank || null;
+  return { ...userPayload, rankLabel };
+};
+
 const clampScore = (val, min = 0, max = 100) =>
   Math.min(max, Math.max(min, Number.isFinite(val) ? val : 0));
 
@@ -467,6 +476,7 @@ const getUserAdminDetail = async (id) => {
             firstName: true,
             lastName: true,
             role: true,
+            rank: true,
           },
         },
         template: {
@@ -494,6 +504,7 @@ const getUserAdminDetail = async (id) => {
             firstName: true,
             lastName: true,
             role: true,
+            rank: true,
             position: true,
           },
         },
@@ -519,12 +530,24 @@ const getUserAdminDetail = async (id) => {
             firstName: true,
             lastName: true,
             role: true,
+            rank: true,
             position: true,
           },
         },
       },
     }),
   ]);
+
+  const tasksAsAssigneeWithRank = tasksAsAssignee.map((task) => ({
+    ...task,
+    assignee: appendRankLabel(task.assignee),
+    creator: appendRankLabel(task.creator),
+  }));
+  const tasksCreatedByUserWithRank = tasksCreatedByUser.map((task) => ({
+    ...task,
+    assignee: appendRankLabel(task.assignee),
+    creator: appendRankLabel(task.creator),
+  }));
 
   const leaveByStatus = leaveGroups.reduce((acc, group) => {
     acc[group.status] = group._count?._all || 0;
@@ -592,6 +615,11 @@ const getUserAdminDetail = async (id) => {
           .join(" ")
           .trim() || null,
         evaluatorRole: ev.evaluator?.role || null,
+        evaluatorRank: ev.evaluator?.rank || null,
+        evaluatorRankLabel:
+          ev.evaluator?.rank && rankLabelMap[ev.evaluator.rank]
+            ? rankLabelMap[ev.evaluator.rank]
+            : ev.evaluator?.rank || null,
         evaluationRound: ev.evaluationRound || null,
         subject: ev.subject || null,
         overallScore: ev.overallScore ?? null,
@@ -600,12 +628,12 @@ const getUserAdminDetail = async (id) => {
       })),
     },
     taskAssignments: {
-      asAssignee: tasksAsAssignee,
-      createdByUser: tasksCreatedByUser,
+      asAssignee: tasksAsAssigneeWithRank,
+      createdByUser: tasksCreatedByUserWithRank,
       stats: {
-        assignedTotal: tasksAsAssignee.length,
+        assignedTotal: tasksAsAssigneeWithRank.length,
         assignedActive: activeAssignedTasks.length,
-        createdTotal: tasksCreatedByUser.length,
+        createdTotal: tasksCreatedByUserWithRank.length,
       },
     },
   };
