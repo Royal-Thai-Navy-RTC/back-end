@@ -40,6 +40,7 @@ const setToggle = async (key, enabled, updatedById, description) => {
 };
 
 const soldierIntakeKey = "SOLDIER_INTAKE_PUBLIC";
+const registrationKey = "USER_REGISTRATION_OPEN";
 
 module.exports = {
   getToggle,
@@ -47,5 +48,13 @@ module.exports = {
   getSoldierIntakeStatus: () => getToggle(soldierIntakeKey, true),
   setSoldierIntakeStatus: (enabled, updatedById) =>
     setToggle(soldierIntakeKey, enabled, updatedById, "เปิด/ปิดฟอร์มรับทหารใหม่"),
+  getRegistrationStatus: () => getToggle(registrationKey, true),
+  setRegistrationStatus: (enabled, updatedById) =>
+    setToggle(
+      registrationKey,
+      enabled,
+      updatedById,
+      "เปิด/ปิดการสมัครสมาชิก (owner เท่านั้น)"
+    ),
   getBoolean,
 };

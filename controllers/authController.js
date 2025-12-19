@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs"); // เรียกใช้งาน bcryptj
 const axios = require("axios"); // ✅ เพิ่ม: ใช้เรียก Cloudflare siteverify
 const config = require("../config"); // เรียกใช้งานไฟล์ config.js ที่เราสร้างไว้
 const User = require("../models/userModel"); // เรียกใช้งาน userModel.js ที่เราสร้างไว้
+const FeatureToggle = require("../models/featureToggleModel");
 const {
   registerLoginFailure,
   registerLoginSuccess,
@@ -231,6 +232,19 @@ const register = async (req, res) => {
     division,
   } = req.body;
 
+  try {
+    const isRegistrationOpen = await FeatureToggle.getRegistrationStatus();
+    if (!isRegistrationOpen) {
+      return res
+        .status(403)
+        .json({ message: "ปิดการสมัครสมาชิกชั่วคราว" });
+    }
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: "ไม่สามารถตรวจสอบสถานะการสมัครได้" });
+  }
+
   const localFilePath = tryPickupLocalFileFromBody(req.body);
   const base64Image = parseBase64Image(profileImage || avatar);
   const fullAddressValue =
@@ -250,12 +264,7 @@ const register = async (req, res) => {
     .filter(({ value }) => value === undefined || value === null || value === "")
     .map(({ key }) => key);
   const normalizedRole = role ? String(role).trim().toUpperCase() : "";
-  if (
-    normalizedRole === "TEACHER" &&
-    (!division || String(division).trim() === "")
-  ) {
-    missing.push("division");
-  }
+  const finalRole = normalizedRole || "TEACHER";
   const hasUploadedAvatar =
     Boolean(profileImage) ||
     Boolean(avatar) ||
@@ -294,7 +303,7 @@ const register = async (req, res) => {
       fullAddress: fullAddressValue,
       emergencyContactName,
       emergencyContactPhone,
-      role,
+      role: finalRole,
       education,
       position,
       medicalHistory,
@@ -433,8 +442,35 @@ const refreshToken = async (req, res) => {
   }
 };
 
+const getRegistrationStatus = async (_req, res) => {
+  try {
+    const enabled = await FeatureToggle.getRegistrationStatus();
+    res.json({ enabled });
+  } catch (err) {
+    res.status(500).json({ message: "ไม่สามารถดึงสถานะการสมัครได้" });
+  }
+};
+
+const updateRegistrationStatus = async (req, res) => {
+  try {
+    const parsed = FeatureToggle.getBoolean(req.body?.enabled);
+    if (parsed === null) {
+      return res.status(400).json({ message: "enabled ต้องเป็น boolean" });
+    }
+    await FeatureToggle.setRegistrationStatus(parsed, req.userId);
+    res.json({ enabled: parsed });
+  } catch (err) {
+    if (err.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ message: err.message });
+    }
+    res.status(500).json({ message: "ไม่สามารถอัปเดตสถานะการสมัครได้" });
+  }
+};
+
 module.exports = {
   register,
   login,
   refreshToken,
+  getRegistrationStatus,
+  updateRegistrationStatus,
 };

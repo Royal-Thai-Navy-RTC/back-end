@@ -722,12 +722,6 @@ const normalizeAndValidateUserInput = (input = {}) => {
       : undefined;
   const divisionValue = sanitizeStringValue(divisionValueRaw);
 
-  if (normalizedRole === "TEACHER" && !divisionValue) {
-    const err = new Error("ต้องระบุ division (หมวดวิชา) สำหรับครูผู้สอน");
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
-
   // เตรียมข้อมูลตาม schema (field ชื่อให้ตรง)
   const fullAddressValue = sanitizeStringValue(input.fullAddress);
   const data = {

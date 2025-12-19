@@ -1,7 +1,12 @@
 const express = require("express");
 const authController = require("../controllers/authController");
 const { avatarUploadOne } = require("../middlewares/upload");
-const { authRateLimiter, loginBruteForceGuard } = require("../middlewares/middleware");
+const {
+  authRateLimiter,
+  loginBruteForceGuard,
+  verifyToken,
+  authorizeOwner,
+} = require("../middlewares/middleware");
 
 const router = express.Router();
 
@@ -92,6 +97,53 @@ router.post(
   authRateLimiter,
   optionalAvatarUpload,
   authController.register
+);
+
+/**
+ * @openapi
+ * /api/registration/status:
+ *   get:
+ *     summary: Get registration availability
+ *     tags: [Auth]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Status returned
+ */
+router.get("/registration/status", authController.getRegistrationStatus);
+
+/**
+ * @openapi
+ * /api/owner/registration/status:
+ *   patch:
+ *     summary: Toggle registration availability (owner only)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               enabled:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Status updated
+ *       400:
+ *         description: Invalid payload
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.patch(
+  "/owner/registration/status",
+  verifyToken,
+  authorizeOwner,
+  authController.updateRegistrationStatus
 );
 
 /**
