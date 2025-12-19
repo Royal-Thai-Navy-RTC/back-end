@@ -83,6 +83,59 @@ router.get(
   physicalAssessmentController.listPhysicalAssessments
 );
 
+// สรุปคะแนนเฉลี่ยรายกองพัน/กองร้อย
+/**
+ * @openapi
+ * /api/physical-assessments/summary:
+ *   get:
+ *     summary: Summarize physical assessments
+ *     tags: [Physical Assessments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Summary returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 battalions:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       battalionCode:
+ *                         type: string
+ *                       averageScore:
+ *                         type: number
+ *                       total:
+ *                         type: integer
+ *                       companies:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             battalionCode:
+ *                               type: string
+ *                             companyCode:
+ *                               type: string
+ *                             averageScore:
+ *                               type: number
+ *                             total:
+ *                               type: integer
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get(
+  "/physical-assessments/summary",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  physicalAssessmentController.summarizePhysicalAssessments
+);
+
 /**
  * @openapi
  * /api/physical-assessments/{id}:
