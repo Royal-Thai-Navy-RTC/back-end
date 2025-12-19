@@ -377,6 +377,10 @@ const getUserAdminDetail = async (id) => {
     teacherSheetAggregate,
     teacherRatingAggregate,
     latestTeacherSheet,
+    serviceEvaluationAggregate,
+    recentServiceEvaluations,
+    tasksAsAssignee,
+    tasksCreatedByUser,
   ] = await Promise.all([
     prisma.studentEvaluation.aggregate({
       where: { evaluatorId: numericId },
@@ -432,12 +436,105 @@ const getUserAdminDetail = async (id) => {
         },
       },
     }),
+    prisma.studentEvaluation.aggregate({
+      where: {
+        evaluatedPersonId: numericId,
+        template: { templateType: "SERVICE" },
+      },
+      _count: { _all: true },
+      _avg: { overallScore: true },
+      _max: { submittedAt: true },
+    }),
+    prisma.studentEvaluation.findMany({
+      where: {
+        evaluatedPersonId: numericId,
+        template: { templateType: "SERVICE" },
+      },
+      orderBy: { submittedAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        templateId: true,
+        evaluationRound: true,
+        subject: true,
+        overallScore: true,
+        submittedAt: true,
+        summary: true,
+        evaluatorId: true,
+        evaluator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+        template: {
+          select: { id: true, name: true, templateType: true },
+        },
+      },
+    }),
+    prisma.taskAssignment.findMany({
+      where: { assigneeId: numericId },
+      orderBy: [{ status: "asc" }, { dueDate: "asc" }],
+      include: {
+        assignee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            rank: true,
+            position: true,
+            role: true,
+          },
+        },
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            position: true,
+          },
+        },
+      },
+    }),
+    prisma.taskAssignment.findMany({
+      where: { createdById: numericId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        assignee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            rank: true,
+            position: true,
+            role: true,
+          },
+        },
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            position: true,
+          },
+        },
+      },
+    }),
   ]);
 
   const leaveByStatus = leaveGroups.reduce((acc, group) => {
     acc[group.status] = group._count?._all || 0;
     return acc;
   }, {});
+
+  const closedTaskStatuses = new Set(["DONE", "CANCELLED", "CANCELED"]);
+  const activeAssignedTasks = tasksAsAssignee.filter(
+    (task) => !closedTaskStatuses.has(String(task.status || "").toUpperCase())
+  );
 
   const studentStats = {
     totalSheets: teacherSheetAggregate._count?._all || 0,
@@ -480,6 +577,37 @@ const getUserAdminDetail = async (id) => {
       lastSubmittedAt: evaluationAggregate._max?.submittedAt || null,
     },
     leaveStats,
+    serviceEvaluationStats: {
+      total: serviceEvaluationAggregate._count?._all || 0,
+      averageOverallScore: serviceEvaluationAggregate._avg?.overallScore ?? null,
+      lastSubmittedAt: serviceEvaluationAggregate._max?.submittedAt || null,
+      recentEvaluations: recentServiceEvaluations.map((ev) => ({
+        id: ev.id,
+        templateId: ev.templateId,
+        templateName: ev.template?.name || null,
+        templateType: ev.template?.templateType || null,
+        evaluatorId: ev.evaluatorId,
+        evaluatorName: [ev.evaluator?.firstName, ev.evaluator?.lastName]
+          .filter(Boolean)
+          .join(" ")
+          .trim() || null,
+        evaluatorRole: ev.evaluator?.role || null,
+        evaluationRound: ev.evaluationRound || null,
+        subject: ev.subject || null,
+        overallScore: ev.overallScore ?? null,
+        submittedAt: ev.submittedAt || null,
+        summary: ev.summary || null,
+      })),
+    },
+    taskAssignments: {
+      asAssignee: tasksAsAssignee,
+      createdByUser: tasksCreatedByUser,
+      stats: {
+        assignedTotal: tasksAsAssignee.length,
+        assignedActive: activeAssignedTasks.length,
+        createdTotal: tasksCreatedByUser.length,
+      },
+    },
   };
 };
 

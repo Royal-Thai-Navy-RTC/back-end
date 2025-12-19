@@ -53,7 +53,7 @@ app.use(
 );
 
 app.use(
-  morgan("| remote-addr | :method :url :status :response-time ms")
+  morgan("| :remote-addr | :method :url :status :response-time ms")
 );
 
 /* ===================== Swagger Config ===================== */
