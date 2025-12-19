@@ -6,7 +6,10 @@ const rateLimit = require("express-rate-limit");
 const routes = require("./routes");
 const morgan = require("morgan");
 const config = require("./config");
-const { verifyToken, authorizeSoldierData } = require("./middlewares/middleware");
+const {
+  verifyToken,
+  authorizeSoldierData,
+} = require("./middlewares/middleware");
 const helmet = require("helmet");
 
 /* ===================== Swagger ===================== */
@@ -49,7 +52,9 @@ app.use(
   })
 );
 
-app.use(morgan("dev"));
+app.use(
+  morgan(":date[iso] | :remote-addr | :method :url :status :response-time ms")
+);
 
 /* ===================== Swagger Config ===================== */
 const swaggerSpec = swaggerJsdoc({
