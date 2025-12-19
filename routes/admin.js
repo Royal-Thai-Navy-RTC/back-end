@@ -226,6 +226,9 @@ router.get(
  *               officialDutyNote:
  *                 type: string
  *                 description: หมายเหตุการไปช่วยราชการ
+ *               isAnnualHealthCheckDone:
+ *                 type: boolean
+ *                 description: ตรวจสุขภาพประจำปีแล้วหรือไม่
  *     responses:
  *       200:
  *         description: User updated

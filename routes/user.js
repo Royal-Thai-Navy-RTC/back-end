@@ -50,6 +50,9 @@ router.get("/me", middleware.verifyToken, userController.getMe);
  *               officialDutyNote:
  *                 type: string
  *                 description: หมายเหตุการไปช่วยราชการ
+ *               isAnnualHealthCheckDone:
+ *                 type: boolean
+ *                 description: ตรวจสุขภาพประจำปีแล้วหรือไม่
  *     responses:
  *       200:
  *         description: Profile updated

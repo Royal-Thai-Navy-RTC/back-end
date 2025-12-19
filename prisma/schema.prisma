@@ -25,6 +25,7 @@ model User {
   division                    String?                     @db.VarChar(150)
   isOnOfficialDuty            Boolean                     @default(false)
   officialDutyNote            String?                     @db.Text
+  isAnnualHealthCheckDone     Boolean                     @default(false)
   email                       String                      @unique
   phone                       String                      @unique @db.VarChar(32)
   emergencyContactName        String?                     @db.VarChar(100)

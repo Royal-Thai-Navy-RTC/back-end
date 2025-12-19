@@ -212,6 +212,8 @@ const normalizeSkillEntries = (value) => {
 };
 
 const computeHealthScore = (profile = {}) => {
+  // Base 50 points for completing annual health check; remaining 50 derived from health factors
+  const base = profile.isAnnualHealthCheckDone ? 50 : 0;
   let score = 100;
   const chronicCount = Array.isArray(profile.chronicDiseases)
     ? profile.chronicDiseases.length
@@ -222,7 +224,9 @@ const computeHealthScore = (profile = {}) => {
   if (profile.medicalHistory) score -= 10;
   score -= chronicCount * 15;
   score -= allergyCount * 5;
-  return clampScore(score);
+  const normalized = clampScore(score); // 0-100
+  const scaledRemaining = (normalized / 100) * 50; // convert to 0-50 band
+  return clampScore(base + scaledRemaining);
 };
 
 const computeEvaluationScore = (stats = {}) => {
@@ -309,6 +313,7 @@ const USER_PROFILE_SELECT = {
   secondaryOccupation: true,
   isOnOfficialDuty: true,
   officialDutyNote: true,
+  isAnnualHealthCheckDone: true,
   avatar: true,
   createdAt: true,
   updatedAt: true,
@@ -741,6 +746,9 @@ const normalizeAndValidateUserInput = (input = {}) => {
     division: divisionValue,
     isOnOfficialDuty: normalizeBooleanValue(input.isOnOfficialDuty),
     officialDutyNote: sanitizeStringValue(input.officialDutyNote),
+    isAnnualHealthCheckDone: normalizeBooleanValue(
+      input.isAnnualHealthCheckDone
+    ),
     email: sanitizeStringValue(input.email),
     phone: sanitizeStringValue(input.phone),
     emergencyContactName: sanitizeStringValue(input.emergencyContactName),
@@ -870,12 +878,13 @@ module.exports = {
       "drugAllergies",
       "foodAllergies",
       "religion",
-      "specialSkills",
-      "secondaryOccupation",
-      "avatar",
-      "isOnOfficialDuty",
-      "officialDutyNote",
-    ]);
+    "specialSkills",
+    "secondaryOccupation",
+    "avatar",
+    "isOnOfficialDuty",
+    "officialDutyNote",
+    "isAnnualHealthCheckDone",
+  ]);
 
     const data = {};
     for (const [k, v] of Object.entries(input || {})) {
@@ -929,6 +938,13 @@ module.exports = {
           if (note !== undefined) {
             data.officialDutyNote = note;
           }
+        }
+        continue;
+      }
+      if (k === "isAnnualHealthCheckDone") {
+        const flag = normalizeBooleanValue(v);
+        if (flag !== undefined) {
+          data.isAnnualHealthCheckDone = flag;
         }
         continue;
       }
@@ -1065,6 +1081,7 @@ module.exports = {
           secondaryOccupation: true,
           isOnOfficialDuty: true,
           officialDutyNote: true,
+          isAnnualHealthCheckDone: true,
           avatar: true,
           createdAt: true,
           updatedAt: true,
@@ -1211,6 +1228,7 @@ module.exports = {
       "division",
       "isOnOfficialDuty",
       "officialDutyNote",
+      "isAnnualHealthCheckDone",
       "email",
       "phone",
       "emergencyContactName",
@@ -1281,6 +1299,13 @@ module.exports = {
           if (note !== undefined) {
             data.officialDutyNote = note;
           }
+        }
+        continue;
+      }
+      if (k === "isAnnualHealthCheckDone") {
+        const flag = normalizeBooleanValue(v);
+        if (flag !== undefined) {
+          data.isAnnualHealthCheckDone = flag;
         }
         continue;
       }
