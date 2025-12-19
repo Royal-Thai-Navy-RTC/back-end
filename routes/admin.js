@@ -182,7 +182,7 @@ router.get(
   *           type: integer
   *     responses:
   *       200:
-  *         description: User returned
+  *         description: User returned (รวมข้อมูลประเมินราชการและงานที่มอบหมาย)
   *       400:
   *         description: Invalid id
   *       401:
