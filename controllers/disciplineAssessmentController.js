@@ -639,6 +639,92 @@ const deleteDisciplineAssessmentById = async (req, res) => {
   }
 };
 
+const summarizeDisciplineAssessments = async (req, res) => {
+  const extractCode = (value) => {
+    const normalized = thaiDigitsToArabic(safeString(value));
+    if (!normalized) return null;
+    const match = normalized.match(/(\d+)/);
+    return match ? match[1] : null;
+  };
+
+  try {
+    const { battalionCodes, companyCodes } = req.query || {};
+    const battalionCodesList =
+      typeof battalionCodes === "string" && battalionCodes
+        ? battalionCodes.split(",").map(safeString).filter(Boolean)
+        : ["1", "2", "3", "4"];
+    const companyCodesList =
+      typeof companyCodes === "string" && companyCodes
+        ? companyCodes.split(",").map(safeString).filter(Boolean)
+        : ["1", "2", "3", "4", "5"];
+
+    const rows = await prisma.disciplineAssessment.findMany({
+      select: {
+        battalion: true,
+        company: true,
+        averageScore: true,
+        totalScore: true,
+      },
+    });
+
+    const key = (b, c) => `${b || ""}__${c || ""}`;
+    const agg = new Map();
+
+    rows.forEach((row) => {
+      const battalionCode = extractCode(row.battalion);
+      const companyCode = extractCode(row.company);
+      const score = row.averageScore ?? row.totalScore;
+      if (!battalionCode || !companyCode) return;
+      if (score == null || Number.isNaN(Number(score))) return;
+      const k = key(battalionCode, companyCode);
+      const prev = agg.get(k) || { sum: 0, count: 0 };
+      prev.sum += Number(score);
+      prev.count += 1;
+      agg.set(k, prev);
+    });
+
+    const battalions = battalionCodesList.map((bCode) => {
+      let battalionCompanySum = 0;
+      let battalionHasAnyCompany = false;
+
+      const companies = companyCodesList.map((cCode) => {
+        const a = agg.get(key(bCode, cCode));
+        const avg = a && a.count > 0 ? a.sum : null;
+        if (avg != null) {
+          battalionHasAnyCompany = true;
+          battalionCompanySum += avg;
+        }
+        return {
+          battalionCode: bCode,
+          companyCode: cCode,
+          averageScore: avg != null ? Number(avg.toFixed(2)) : null,
+          total: a ? a.count : 0,
+        };
+      });
+
+      const averageScore = battalionHasAnyCompany
+        ? Number((battalionCompanySum / companyCodesList.length).toFixed(2))
+        : null;
+      const total = companies.reduce((acc, c) => acc + (c.total || 0), 0);
+
+      return {
+        battalionCode: bCode,
+        averageScore,
+        total,
+        companies,
+      };
+    });
+
+    return res.json({ battalions });
+  } catch (err) {
+    console.error("summarizeDisciplineAssessments failed:", err);
+    return res.status(500).json({
+      message: "ไม่สามารถสรุปผลการประเมินด้านวินัยได้",
+      detail: err?.message,
+    });
+  }
+};
+
 const deleteAllDisciplineAssessments = async (_req, res) => {
   try {
     const result = await prisma.disciplineAssessment.deleteMany();
@@ -655,6 +741,7 @@ const deleteAllDisciplineAssessments = async (_req, res) => {
 module.exports = {
   importDisciplineAssessments,
   listDisciplineAssessments,
+  summarizeDisciplineAssessments,
   deleteDisciplineAssessmentById,
   deleteAllDisciplineAssessments,
 };

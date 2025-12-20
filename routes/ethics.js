@@ -85,6 +85,29 @@ router.get(
 
 /**
  * @openapi
+ * /api/ethics-assessments/summary:
+ *   get:
+ *     summary: Summarize ethics assessments
+ *     tags: [Ethics Assessments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Summary returned
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get(
+  "/ethics-assessments/summary",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  ethicsController.summarizeEthicsAssessments
+);
+
+/**
+ * @openapi
  * /api/ethics-assessments/{id}:
  *   delete:
  *     summary: Delete ethics assessment by id

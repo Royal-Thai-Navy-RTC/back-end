@@ -85,6 +85,29 @@ router.get(
 
 /**
  * @openapi
+ * /api/discipline-assessments/summary:
+ *   get:
+ *     summary: Summarize discipline assessments
+ *     tags: [Discipline Assessments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Summary returned
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get(
+  "/discipline-assessments/summary",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  disciplineAssessmentController.summarizeDisciplineAssessments
+);
+
+/**
+ * @openapi
  * /api/discipline-assessments/{id}:
  *   delete:
  *     summary: Delete discipline assessment by id
