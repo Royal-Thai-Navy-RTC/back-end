@@ -55,7 +55,8 @@ const parseRankingFromNote = (note) => {
   return Number.isFinite(num) ? Math.round(num) : null;
 };
 
-const normalizeText = (value) => safeString(value).toLowerCase().replace(/\s+/g, " ");
+const normalizeText = (value) =>
+  safeString(value).toLowerCase().replace(/\s+/g, " ");
 
 const MIN_HEADER_ROW = 0; // start scanning from the first row
 
@@ -72,14 +73,21 @@ const getMergedCellValue = (rowIndex, colIndex, rows, worksheet, merges) => {
       merge.s.c <= colIndex &&
       colIndex <= merge.e.c
     ) {
-      const startAddress = XLSX.utils.encode_cell({ r: merge.s.r, c: merge.s.c });
+      const startAddress = XLSX.utils.encode_cell({
+        r: merge.s.r,
+        c: merge.s.c,
+      });
       const startCell = worksheet[startAddress];
       if (startCell && startCell.v !== undefined && startCell.v !== null) {
         return startCell.v;
       }
       const fallbackRow = rows[merge.s.r];
       const fallbackValue = fallbackRow ? fallbackRow[merge.s.c] : undefined;
-      if (fallbackValue !== undefined && fallbackValue !== null && fallbackValue !== "") {
+      if (
+        fallbackValue !== undefined &&
+        fallbackValue !== null &&
+        fallbackValue !== ""
+      ) {
         return fallbackValue;
       }
     }
@@ -92,7 +100,10 @@ const getMaxColumns = (rows, merges) => {
     if (!Array.isArray(row)) return max;
     return Math.max(max, row.length);
   }, 0);
-  const mergeMax = merges.reduce((max, merge) => Math.max(max, merge.e.c + 1), 0);
+  const mergeMax = merges.reduce(
+    (max, merge) => Math.max(max, merge.e.c + 1),
+    0
+  );
   return Math.max(rowMax, mergeMax, 1);
 };
 
@@ -193,12 +204,22 @@ const deduceLocationFromHeaderRows = (
     .slice()
     .sort((a, b) => b - a)
     .forEach(addRow);
-  for (let rowIndex = Math.max(primaryHeaderRow - 1, 0); rowIndex >= 0; rowIndex--) {
+  for (
+    let rowIndex = Math.max(primaryHeaderRow - 1, 0);
+    rowIndex >= 0;
+    rowIndex--
+  ) {
     addRow(rowIndex);
   }
 
   for (const rowIndex of rowCandidates) {
-    const rawValue = getMergedCellValue(rowIndex, colIndex, rows, worksheet, merges);
+    const rawValue = getMergedCellValue(
+      rowIndex,
+      colIndex,
+      rows,
+      worksheet,
+      merges
+    );
     const safeValue = safeString(rawValue);
     if (!safeValue) continue;
     const normalized = normalizeText(safeValue);
@@ -213,7 +234,13 @@ const deduceLocationFromHeaderRows = (
 const findHeaderRowIndex = (rows, worksheet, merges, maxCols) => {
   if (!Array.isArray(rows)) return -1;
   for (let index = MIN_HEADER_ROW; index < rows.length; index++) {
-    const normalized = getNormalizedRow(index, worksheet, rows, merges, maxCols);
+    const normalized = getNormalizedRow(
+      index,
+      worksheet,
+      rows,
+      merges,
+      maxCols
+    );
     if (normalized.some((cell) => containsAny(cell, HEADER_KEYWORDS))) {
       return index;
     }
@@ -228,15 +255,14 @@ const buildColumnMap = (headerRows, worksheet, rows, merges, maxCols) => {
   for (let col = 0; col < maxCols; col++) {
     const normalized = headerRows
       .map((rowIndex) =>
-        normalizeText(getMergedCellValue(rowIndex, col, rows, worksheet, merges))
+        normalizeText(
+          getMergedCellValue(rowIndex, col, rows, worksheet, merges)
+        )
       )
       .join(" ");
     if (!normalized) continue;
 
-    if (
-      !map.note &&
-      containsAny(normalized, ["หมายเหตุ", "note", "remarks"])
-    ) {
+    if (!map.note && containsAny(normalized, ["หมายเหตุ", "note", "remarks"])) {
       map.note = col;
       continue;
     }
@@ -299,6 +325,7 @@ const importPhysicalAssessments = async (req, res) => {
   }
 
   const filePath = req.file.path;
+
   try {
     const workbook = XLSX.readFile(filePath, { cellDates: true });
     const sheetName = findPhysicalSheetName(workbook);
@@ -313,8 +340,10 @@ const importPhysicalAssessments = async (req, res) => {
       header: 1,
       defval: null,
     });
+
     const merges = Array.isArray(worksheet["!merges"]) ? worksheet["!merges"] : [];
     const maxCols = getMaxColumns(rows, merges);
+
     const headerRowIndex = findHeaderRowIndex(rows, worksheet, merges, maxCols);
     if (headerRowIndex === -1) {
       return res.status(400).json({
@@ -328,15 +357,16 @@ const importPhysicalAssessments = async (req, res) => {
       nextRowIndex < rows.length
         ? getNormalizedRow(nextRowIndex, worksheet, rows, merges, maxCols)
         : [];
+
     const hasSecondaryHeader = nextRowNormalized.some((cell) =>
       containsAny(cell, ["สถานี", "กอง", "คะแนน", "หมายเหตุ"])
     );
+
     const headerIndices = [headerRowIndex];
-    if (hasSecondaryHeader) {
-      headerIndices.push(nextRowIndex);
-    }
+    if (hasSecondaryHeader) headerIndices.push(nextRowIndex);
 
     let startIndex = headerRowIndex + (hasSecondaryHeader ? 2 : 1);
+
     const isScoreHeaderRow = (rowIndex) => {
       const normalized = getNormalizedRow(
         rowIndex,
@@ -350,10 +380,12 @@ const importPhysicalAssessments = async (req, res) => {
       ).length;
       return keywordCount >= 3;
     };
+
     while (startIndex < rows.length && isScoreHeaderRow(startIndex)) {
       startIndex += 1;
     }
 
+    // สร้าง map เดิมก่อน
     const columnMap = buildColumnMap(
       headerIndices,
       worksheet,
@@ -361,125 +393,135 @@ const importPhysicalAssessments = async (req, res) => {
       merges,
       maxCols
     );
-    if (!columnMap.company || !columnMap.sitUp || !columnMap.total) {
-      return res.status(400).json({
-        message:
-          "หัวตารางไม่ครบถ้วน (ต้องมีอย่างน้อย กองร้อยฝึก, สถานีลุก-นั่ง, คะแนนรวม)",
-      });
-    }
 
-    const dataStartIndex = startIndex;
-    const dataRows = rows.slice(dataStartIndex);
-    const totalRows = dataRows.length;
     const getCellValue = (rowIndex, colIndex) =>
       getMergedCellValue(rowIndex, colIndex, rows, worksheet, merges);
 
+    // ============================================================
+    // ✅ FIX เด็ดขาด: Override columnMap ด้วย “หัวตารางจริง”
+    // ============================================================
+    const normalizeHeader = (v) => {
+      const s = normalizeText(safeString(v || ""));
+      // บางไฟล์มีวรรณยุกต์/เว้นวรรค/ตัวเลขไทย
+      return thaiDigitsToArabic(s).replace(/\s+/g, " ").trim();
+    };
+
+    const findColByHeaderKeywords = (keywords) => {
+      // keywords: array of strings (already normalized-ish)
+      for (const r of headerIndices) {
+        for (let c = 0; c < maxCols; c++) {
+          const cell = normalizeHeader(getCellValue(r, c));
+          if (!cell) continue;
+          for (const kw of keywords) {
+            const nkw = normalizeHeader(kw);
+            if (cell.includes(nkw)) return c;
+          }
+        }
+      }
+      return null;
+    };
+
+    // map ตามหัวจริงในไฟล์ด้านร่างกาย
+    const colCompany = findColByHeaderKeywords(["กองร้อยฝึก", "กองร้อย"]);
+    const colBattalion = findColByHeaderKeywords(["กองพันฝึก", "กองพัน"]);
+    const colSitUp = findColByHeaderKeywords(["สถานีลุก-นั่ง", "ลุก-นั่ง"]);
+    const colPushUp = findColByHeaderKeywords(["สถานีดันพื้น", "ดันพื้น"]);
+    const colRun = findColByHeaderKeywords(["สถานีวิ่ง", "วิ่ง"]);
+    const colRoutine = findColByHeaderKeywords(["กายบริหารราชนาวี", "กายบริหาร"]);
+    const colTotal = findColByHeaderKeywords(["คะแนนรวม"]);
+    const colAvg = findColByHeaderKeywords(["คะแนนรวมเฉลี่ย", "เฉลี่ย"]);
+    const colNote = findColByHeaderKeywords(["หมายเหตุ"]);
+
+    // ✅ override ถ้าเจอ
+    if (colCompany != null) columnMap.company = colCompany;
+    if (colBattalion != null) columnMap.battalion = colBattalion;
+    if (colSitUp != null) columnMap.sitUp = colSitUp;
+    if (colPushUp != null) columnMap.pushUp = colPushUp;
+    if (colRun != null) columnMap.run = colRun;
+    if (colRoutine != null) columnMap.physicalRoutine = colRoutine;
+    if (colTotal != null) columnMap.total = colTotal;
+    if (colAvg != null) columnMap.average = colAvg;
+    if (colNote != null) columnMap.note = colNote;
+
+    // ✅ (optional) ให้ order = company เพื่อใช้ต่อได้ถ้าโค้ดอื่นอ้าง
+    if (!columnMap.order && columnMap.company != null) {
+      columnMap.order = columnMap.company;
+    }
+
+    // ตรวจขั้นต่ำ
+    if (columnMap.company == null || columnMap.sitUp == null || columnMap.total == null) {
+      return res.status(400).json({
+        message:
+          "หัวตารางไม่ครบถ้วน (ต้องมีอย่างน้อย กองร้อยฝึก, สถานีลุก-นั่ง, คะแนนรวม)",
+        debug: {
+          company: columnMap.company,
+          battalion: columnMap.battalion,
+          sitUp: columnMap.sitUp,
+          total: columnMap.total,
+        },
+      });
+    }
+
+    // ============================================================
+    // ✅ parse data
+    // ============================================================
+    const dataStartIndex = startIndex;
+    const dataRows = rows.slice(dataStartIndex);
+    const totalRows = dataRows.length;
+
     const sourceFile =
       path.basename(req.file.originalname || req.file.filename || "") || null;
+
     const batchId =
       safeString(req.body?.batchId || req.query?.batchId) ||
       `physical-assessment-${Date.now()}`;
+
     const importerId = Number(req.userId);
     const canonicalSheetName = safeString(sheetName);
-    const fallbackOrderLabel = deduceLocationFromHeaderRows(
-      columnMap.order,
-      headerIndices,
-      rows,
-      worksheet,
-      merges,
-      headerRowIndex
-    );
-    const fallbackCompanyColumn = deduceLocationFromHeaderRows(
-      columnMap.company,
-      headerIndices,
-      rows,
-      worksheet,
-      merges,
-      headerRowIndex
-    );
-    const fallbackBattalionColumn = deduceLocationFromHeaderRows(
-      columnMap.battalion,
-      headerIndices,
-      rows,
-      worksheet,
-      merges,
-      headerRowIndex
-    );
 
     const records = [];
-    let lastOrderLabel = null;
-    let lastCompanyColumnValue = null;
+
+    // battalion มัก merge -> carry forward
     let lastBattalionValue = null;
+
     for (let idx = 0; idx < dataRows.length; idx++) {
       const rowIndex = dataStartIndex + idx;
 
-      const rawOrderLabelText = columnMap.order
-        ? safeString(getCellValue(rowIndex, columnMap.order))
-        : "";
-      const normalizedOrderLabelText = thaiDigitsToArabic(rawOrderLabelText) || "";
-      let orderLabelValue = null;
-      if (normalizedOrderLabelText) {
-        orderLabelValue = normalizedOrderLabelText;
-        lastOrderLabel = normalizedOrderLabelText;
-      } else if (lastOrderLabel) {
-        orderLabelValue = lastOrderLabel;
-      } else if (fallbackOrderLabel) {
-        orderLabelValue = fallbackOrderLabel;
-      }
-      const rawCompanyColumnText = columnMap.company
-        ? safeString(getCellValue(rowIndex, columnMap.company))
-        : "";
-      const normalizedCompanyColumnText =
-        thaiDigitsToArabic(rawCompanyColumnText) || "";
-      let companyValue = null;
-      if (normalizedCompanyColumnText) {
-        companyValue = normalizedCompanyColumnText;
-        lastCompanyColumnValue = normalizedCompanyColumnText;
-      } else if (lastCompanyColumnValue) {
-        companyValue = lastCompanyColumnValue;
-      } else if (fallbackCompanyColumn) {
-        companyValue = fallbackCompanyColumn;
-      }
-      const rawBattalionText = columnMap.battalion
-        ? safeString(getCellValue(rowIndex, columnMap.battalion))
-        : "";
+      // ✅ company: ต้องอ่าน “ทุกแถว”
+      const rawCompanyText = safeString(getCellValue(rowIndex, columnMap.company));
+      const companyValue = thaiDigitsToArabic(rawCompanyText) || null;
+
+      // ✅ battalion: อาจว่างเพราะ merge -> carry forward
+      const rawBattalionText =
+        columnMap.battalion != null ? safeString(getCellValue(rowIndex, columnMap.battalion)) : "";
       const normalizedBattalionText = thaiDigitsToArabic(rawBattalionText) || "";
       let battalionValue = null;
+
       if (normalizedBattalionText) {
         battalionValue = normalizedBattalionText;
         lastBattalionValue = normalizedBattalionText;
       } else if (lastBattalionValue) {
         battalionValue = lastBattalionValue;
-      } else if (fallbackBattalionColumn) {
-        battalionValue = fallbackBattalionColumn;
       }
-      const sitUpScore = columnMap.sitUp
-        ? parseNumeric(getCellValue(rowIndex, columnMap.sitUp))
-        : null;
-      const pushUpScore = columnMap.pushUp
-        ? parseNumeric(getCellValue(rowIndex, columnMap.pushUp))
-        : null;
-      const runScore = columnMap.run
-        ? parseNumeric(getCellValue(rowIndex, columnMap.run))
-        : null;
-      const physicalRoutineScore = columnMap.physicalRoutine
-        ? parseNumeric(
-            getCellValue(rowIndex, columnMap.physicalRoutine)
-          )
-        : null;
-      const totalScore = columnMap.total
-        ? parseNumeric(getCellValue(rowIndex, columnMap.total))
-        : null;
-      const averageScore = columnMap.average
-        ? parseNumeric(getCellValue(rowIndex, columnMap.average))
-        : null;
-      const rawNote = columnMap.note
-        ? safeString(getCellValue(rowIndex, columnMap.note))
-        : "";
+
+      const sitUpScore = parseNumeric(getCellValue(rowIndex, columnMap.sitUp));
+      const pushUpScore =
+        columnMap.pushUp != null ? parseNumeric(getCellValue(rowIndex, columnMap.pushUp)) : null;
+      const runScore =
+        columnMap.run != null ? parseNumeric(getCellValue(rowIndex, columnMap.run)) : null;
+      const physicalRoutineScore =
+        columnMap.physicalRoutine != null
+          ? parseNumeric(getCellValue(rowIndex, columnMap.physicalRoutine))
+          : null;
+      const totalScore = parseNumeric(getCellValue(rowIndex, columnMap.total));
+      const averageScore =
+        columnMap.average != null ? parseNumeric(getCellValue(rowIndex, columnMap.average)) : null;
+
+      const rawNote =
+        columnMap.note != null ? safeString(getCellValue(rowIndex, columnMap.note)) : "";
       const normalizedNote = normalizeText(rawNote);
-      if (NOTE_HEADER_KEYWORDS.includes(normalizedNote)) {
-        continue;
-      }
+      if (NOTE_HEADER_KEYWORDS.includes(normalizedNote)) continue;
+
       const note = rawNote ? thaiDigitsToArabic(rawNote) : null;
       const ranking = parseRankingFromNote(note);
 
@@ -490,22 +532,23 @@ const importPhysicalAssessments = async (req, res) => {
         physicalRoutineScore != null ||
         totalScore != null ||
         averageScore != null;
-      if (!hasScore) {
-        continue; // skip rows without any actual scores (headers/notes)
-      }
-      const hasLocation = !!(companyValue || battalionValue);
-      if (!hasLocation) {
-        continue; // skip rows that only show score maxima but no unit
-      }
 
-      const parsedOrder = parseInteger(orderLabelValue);
-      const orderNumber =
-        parsedOrder != null ? parsedOrder : records.length + 1;
+      if (!hasScore) continue;
+
+      // ต้องมี location อย่างน้อยอย่างใดอย่างหนึ่ง
+      const hasLocation = !!(companyValue || battalionValue);
+      if (!hasLocation) continue;
+
+      const companyInt = parseInteger(companyValue);
+      const battalionInt = parseInteger(battalionValue);
+
+      // ✅ DEBUG (ลบได้ทีหลัง)
+      // console.log("DEBUG", { rowIndex, companyValue, battalionValue, totalScore });
 
       records.push({
-        orderNumber,
-        battalion: battalionValue || null,
-        company: companyValue || null,
+        orderNumber: records.length + 1,
+        battalion: battalionInt != null ? String(battalionInt) : battalionValue || null,
+        company: companyInt != null ? String(companyInt) : companyValue || null,
         sitUpScore,
         pushUpScore,
         runScore,
@@ -553,10 +596,14 @@ const importPhysicalAssessments = async (req, res) => {
   }
 };
 
+
 const listPhysicalAssessments = async (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
-    const pageSize = Math.min(200, Math.max(1, Number(req.query.pageSize) || 50));
+    const pageSize = Math.min(
+      200,
+      Math.max(1, Number(req.query.pageSize) || 50)
+    );
     const filters = {};
     if (req.query.batchId) {
       filters.batchId = safeString(req.query.batchId);
@@ -595,10 +642,10 @@ const listPhysicalAssessments = async (req, res) => {
       averageScore: formatScore(item.averageScore),
     }));
 
-    const formattedItems = formatted.map(item => ({
+    const formattedItems = formatted.map((item) => ({
       ...item,
       battalion: item.battalion ? parseInt(item.battalion) : null,
-      company: item.company ? parseInt(item.company) : null
+      company: item.company ? parseInt(item.company) : null,
     }));
 
     return res.json({
@@ -637,7 +684,12 @@ const summarizePhysicalAssessments = async (req, res) => {
         : ["1", "2", "3", "4", "5"];
 
     const rows = await prisma.physicalAssessment.findMany({
-      select: { battalion: true, company: true, averageScore: true, totalScore: true },
+      select: {
+        battalion: true,
+        company: true,
+        averageScore: true,
+        totalScore: true,
+      },
     });
 
     const EXPECTED_PER_COMPANY = 100;
@@ -711,7 +763,9 @@ const deletePhysicalAssessmentById = async (req, res) => {
     return res.json({ message: "ลบข้อมูลสำเร็จ", deleted });
   } catch (err) {
     if (err.code === "P2025") {
-      return res.status(404).json({ message: "ไม่พบข้อมูลการประเมินด้านร่างกาย" });
+      return res
+        .status(404)
+        .json({ message: "ไม่พบข้อมูลการประเมินด้านร่างกาย" });
     }
     console.error("deletePhysicalAssessmentById failed:", err);
     return res.status(500).json({
@@ -724,7 +778,10 @@ const deletePhysicalAssessmentById = async (req, res) => {
 const deleteAllPhysicalAssessments = async (_req, res) => {
   try {
     const result = await prisma.physicalAssessment.deleteMany();
-    return res.json({ message: "ลบข้อมูลทั้งหมดสำเร็จ", deleted: result.count });
+    return res.json({
+      message: "ลบข้อมูลทั้งหมดสำเร็จ",
+      deleted: result.count,
+    });
   } catch (err) {
     console.error("deleteAllPhysicalAssessments failed:", err);
     return res.status(500).json({
