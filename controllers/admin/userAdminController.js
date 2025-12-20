@@ -130,8 +130,24 @@ const adminUpdateUser = async (req, res) => {
 
 const adminGetAllUsers = async (req, res) => {
   try {
-    const { page, pageSize, search, role } = req.query || {};
-    const result = await User.listUsers({ page, pageSize, search, role });
+    const {
+      page,
+      pageSize,
+      search,
+      role,
+      division,
+      isOnOfficialDuty,
+      isAnnualHealthCheckDone,
+    } = req.query || {};
+    const result = await User.listUsers({
+      page,
+      pageSize,
+      search,
+      role,
+      division,
+      isOnOfficialDuty,
+      isAnnualHealthCheckDone,
+    });
     const totalPages = Math.ceil(result.total / result.pageSize) || 1;
     res.json({
       data: result.items,

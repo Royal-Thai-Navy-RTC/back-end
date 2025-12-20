@@ -872,13 +872,13 @@ module.exports = {
       "drugAllergies",
       "foodAllergies",
       "religion",
-    "specialSkills",
-    "secondaryOccupation",
-    "avatar",
-    "isOnOfficialDuty",
-    "officialDutyNote",
-    "isAnnualHealthCheckDone",
-  ]);
+      "specialSkills",
+      "secondaryOccupation",
+      "avatar",
+      "isOnOfficialDuty",
+      "officialDutyNote",
+      "isAnnualHealthCheckDone",
+    ]);
 
     const data = {};
     for (const [k, v] of Object.entries(input || {})) {
@@ -1008,7 +1008,15 @@ module.exports = {
     });
   },
   // สำหรับแอดมิน: ดึงรายการผู้ใช้ (รองรับค้นหา/แบ่งหน้าแบบง่าย)
-  listUsers: async ({ page = 1, pageSize = 50, search, role } = {}) => {
+  listUsers: async ({
+    page = 1,
+    pageSize = 10,
+    search,
+    role,
+    division,
+    isOnOfficialDuty,
+    isAnnualHealthCheckDone,
+  } = {}) => {
     const take = Math.max(1, Math.min(Number(pageSize) || 50, 200));
     const skip = Math.max(0, ((Number(page) || 1) - 1) * take);
     const where = {};
@@ -1027,18 +1035,22 @@ module.exports = {
         { phone: searchFilter },
       ];
     }
-    if (role) {
-      const r = String(role).toUpperCase();
-      const allowed = new Set([
-        "ADMIN",
-        "SUB_ADMIN",
-        "SCHEDULE_ADMIN",
-        "FORM_CREATOR",
-        "EXAM_UPLOADER",
-        "TEACHER",
-        "STUDENT",
-      ]);
-      if (allowed.has(r)) where.role = r;
+    const normalizedRole =
+      typeof role === "string" ? role.trim() : role ? String(role) : "";
+    if (normalizedRole) {
+      where.role = normalizedRole.toUpperCase();
+    }
+    const normalizedDivision = sanitizeStringValue(division);
+    if (normalizedDivision) {
+      where.division = { contains: normalizedDivision, mode: "insensitive" };
+    }
+    const officialDutyFlag = normalizeBooleanValue(isOnOfficialDuty);
+    if (officialDutyFlag !== undefined) {
+      where.isOnOfficialDuty = officialDutyFlag;
+    }
+    const annualHealthFlag = normalizeBooleanValue(isAnnualHealthCheckDone);
+    if (annualHealthFlag !== undefined) {
+      where.isAnnualHealthCheckDone = annualHealthFlag;
     }
 
     const whereClause = Object.keys(where).length ? where : undefined;
