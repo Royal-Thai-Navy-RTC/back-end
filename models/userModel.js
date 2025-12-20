@@ -1093,7 +1093,6 @@ module.exports = {
     if (normalizedSearch) {
       const searchFilter = {
         contains: normalizedSearch,
-        mode: "insensitive",
       };
       where.OR = [
         { username: searchFilter },

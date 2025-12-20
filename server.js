@@ -156,6 +156,15 @@ app.use(
 // ---------- Body parser error handler ----------
 // Handles invalid JSON payloads (e.g. `""John Doe""` which is not valid JSON)
 app.use((err, req, res, next) => {
+  // Payload too large (e.g., very large images)
+  if (err && err.type === "entity.too.large") {
+    return res.status(413).json({
+      message:
+        "ขนาดข้อมูลใหญ่เกินกำหนด (limit 10mb) กรุณาลดขนาดไฟล์รูป หรือส่งเป็นข้อความ/base64 ที่ย่อขนาดลง",
+      detail: err.message,
+    });
+  }
+
   const contentType = String(req.headers["content-type"] || "").toLowerCase();
   const isJsonRequest =
     req.is?.("application/json") ||
