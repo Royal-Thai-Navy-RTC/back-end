@@ -692,7 +692,6 @@ const summarizePhysicalAssessments = async (req, res) => {
       },
     });
 
-    const EXPECTED_PER_COMPANY = 100;
     const key = (b, c) => `${b || ""}__${c || ""}`;
     const agg = new Map();
 
@@ -715,7 +714,7 @@ const summarizePhysicalAssessments = async (req, res) => {
 
       const companies = companyCodesList.map((cCode) => {
         const a = agg.get(key(bCode, cCode));
-        const avg = a && a.count > 0 ? a.sum / EXPECTED_PER_COMPANY : null;
+        const avg = a && a.count > 0 ? a.sum : null;
         if (avg != null) {
           battalionHasAnyCompany = true;
           battalionCompanySum += avg;
