@@ -24,6 +24,22 @@ const TRUST_PROXY = process.env.TRUST_PROXY || "loopback";
 app.set("trust proxy", TRUST_PROXY);
 
 const isProd = process.env.NODE_ENV === "production";
+const prodOrigins = ["https://rtcas.in.th", "https://www.rtcas.in.th"];
+const allowedOrigins = isProd
+  ? prodOrigins
+  : [
+      ...prodOrigins,
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://localhost:4173",
+      "http://127.0.0.1:4173",
+    ];
+const isLocalNetworkOrigin = (origin) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3})/i.test(
+    origin || ""
+  );
 
 // ซ่อน X-Powered-By: Express
 app.disable("x-powered-by");
@@ -36,12 +52,22 @@ app.use(
     frameguard: false,
     referrerPolicy: false,
     permissionsPolicy: false,
+    // Allow static assets (e.g., avatars) to be embedded from other origins in dev
+    crossOriginResourcePolicy: isProd ? undefined : false,
+    crossOriginOpenerPolicy: isProd ? undefined : false,
   })
 );
 
 app.use(
   cors({
-    origin: ["https://rtcas.in.th", "https://www.rtcas.in.th"],
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // Allow same-origin/non-browser clients
+      if (!isProd && isLocalNetworkOrigin(origin)) {
+        return callback(null, true);
+      }
+      const isAllowed = allowedOrigins.includes(origin);
+      return callback(null, isAllowed);
+    },
     credentials: true,
     exposedHeaders: [
       "Content-Length",

@@ -44,6 +44,69 @@ router.get(
 
 /**
  * @openapi
+ * /api/admin/division/{id}:
+ *   get:
+ *     summary: Get users by division
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of users in the division
+ */
+router.get(
+  "/admin/division/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminUser.adminGetUsersByDivision
+);
+
+/**
+ * @openapi
+ * /api/admin/users/division-summary:
+ *   get:
+ *     summary: Summarize users by division
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Summary of division counts
+ */
+router.get(
+  "/admin/users/division-summary",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminUser.adminGetDivisionSummary
+);
+
+/**
+ * @openapi
+ * /api/admin/summary:
+ *   get:
+ *     summary: Summarize users by role
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Summary of role counts
+ */
+router.get(
+  "/admin/summary",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminUser.adminGetRoleSummary
+);
+
+/**
+ * @openapi
  * /api/admin/users/personal-search:
  *   get:
  *     summary: Search user personal information

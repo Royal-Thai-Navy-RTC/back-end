@@ -147,6 +147,7 @@ const adminGetAllUsers = async (req, res) => {
       division,
       isOnOfficialDuty,
       isAnnualHealthCheckDone,
+      onlyWithDivision: true,
     });
     const totalPages = Math.ceil(result.total / result.pageSize) || 1;
     res.json({
@@ -157,7 +158,76 @@ const adminGetAllUsers = async (req, res) => {
       totalPages,
     });
   } catch (err) {
-    res.status(500).json({ message: "Error fetching users" });
+    console.error("adminGetAllUsers failed:", err);
+    res
+      .status(500)
+      .json({ message: "Error fetching users", detail: err?.message });
+  }
+};
+
+const adminGetUsersByDivision = async (req, res) => {
+  const divisionId =
+    (req.params && req.params.id) || (req.params && req.params.division);
+  const divisionValue = divisionId ? String(divisionId).trim() : "";
+  if (!divisionValue) {
+    return res
+      .status(400)
+      .json({ message: "ต้องระบุ division id (/admin/division/:id)" });
+  }
+  try {
+    const { page, pageSize, search, role, isOnOfficialDuty, isAnnualHealthCheckDone } =
+      req.query || {};
+    const result = await User.listUsers({
+      page,
+      pageSize,
+      search,
+      role,
+      division: divisionValue,
+      isOnOfficialDuty,
+      isAnnualHealthCheckDone,
+      onlyWithDivision: true,
+    });
+    const totalPages = Math.ceil(result.total / result.pageSize) || 1;
+    return res.json({
+      data: result.items,
+      page: result.page,
+      pageSize: result.pageSize,
+      total: result.total,
+      totalPages,
+      division: divisionValue,
+    });
+  } catch (err) {
+    console.error("adminGetUsersByDivision failed:", err);
+    return res.status(500).json({
+      message: "Error fetching division users",
+      detail: err?.message,
+    });
+  }
+};
+
+const adminGetDivisionSummary = async (_req, res) => {
+  try {
+    const summary = await User.getDivisionSummary();
+    return res.json({ data: summary });
+  } catch (err) {
+    console.error("adminGetDivisionSummary failed:", err);
+    return res.status(500).json({
+      message: "Error fetching division summary",
+      detail: err?.message,
+    });
+  }
+};
+
+const adminGetRoleSummary = async (_req, res) => {
+  try {
+    const summary = await User.getRoleSummary();
+    return res.json({ data: summary });
+  } catch (err) {
+    console.error("adminGetRoleSummary failed:", err);
+    return res.status(500).json({
+      message: "Error fetching role summary",
+      detail: err?.message,
+    });
   }
 };
 
@@ -465,6 +535,9 @@ module.exports = {
   adminGetTeacherById,
   adminGetStudentById,
   adminGetUserById,
+  adminGetUsersByDivision,
+  adminGetDivisionSummary,
+  adminGetRoleSummary,
   adminSearchUserPersonalInfo,
   adminCreateUser,
   adminDeactivateUser,

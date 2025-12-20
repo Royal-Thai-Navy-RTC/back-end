@@ -39,6 +39,70 @@ const rankLabelMap = {
   SEAMAN_RECRUIT: "พลฯ",
 };
 
+const ROLE_CODES = [
+  "OWNER",
+  "COMMANDER",
+  "ADMIN",
+  "SUB_ADMIN",
+  "SCHEDULE_ADMIN",
+  "FORM_CREATOR",
+  "EXAM_UPLOADER",
+  "TEACHER",
+  "STUDENT",
+  "BAT1_COM1",
+  "BAT1_COM2",
+  "BAT1_COM3",
+  "BAT1_COM4",
+  "BAT1_COM5",
+  "BAT2_COM1",
+  "BAT2_COM2",
+  "BAT2_COM3",
+  "BAT2_COM4",
+  "BAT2_COM5",
+  "BAT3_COM1",
+  "BAT3_COM2",
+  "BAT3_COM3",
+  "BAT3_COM4",
+  "BAT3_COM5",
+  "BAT4_COM1",
+  "BAT4_COM2",
+  "BAT4_COM3",
+  "BAT4_COM4",
+  "BAT4_COM5",
+];
+
+const ROLE_LABELS = {
+  OWNER: "Owner",
+  COMMANDER: "ผู้บังคับบัญชา",
+  ADMIN: "แอดมิน",
+  SUB_ADMIN: "ผู้ช่วยแอดมิน",
+  SCHEDULE_ADMIN: "ผู้ดูแลตารางสอน",
+  FORM_CREATOR: "ผู้สร้างแบบฟอร์ม",
+  EXAM_UPLOADER: "ผู้อัปโหลดคะแนนสอบ",
+  TEACHER: "ครูผู้สอน",
+  STUDENT: "นักเรียน",
+  BAT1_COM1: "กองพัน 1 กองร้อย 1",
+  BAT1_COM2: "กองพัน 1 กองร้อย 2",
+  BAT1_COM3: "กองพัน 1 กองร้อย 3",
+  BAT1_COM4: "กองพัน 1 กองร้อย 4",
+  BAT1_COM5: "กองพัน 1 กองร้อย 5",
+  BAT2_COM1: "กองพัน 2 กองร้อย 1",
+  BAT2_COM2: "กองพัน 2 กองร้อย 2",
+  BAT2_COM3: "กองพัน 2 กองร้อย 3",
+  BAT2_COM4: "กองพัน 2 กองร้อย 4",
+  BAT2_COM5: "กองพัน 2 กองร้อย 5",
+  BAT3_COM1: "กองพัน 3 กองร้อย 1",
+  BAT3_COM2: "กองพัน 3 กองร้อย 2",
+  BAT3_COM3: "กองพัน 3 กองร้อย 3",
+  BAT3_COM4: "กองพัน 3 กองร้อย 4",
+  BAT3_COM5: "กองพัน 3 กองร้อย 5",
+  BAT4_COM1: "กองพัน 4 กองร้อย 1",
+  BAT4_COM2: "กองพัน 4 กองร้อย 2",
+  BAT4_COM3: "กองพัน 4 กองร้อย 3",
+  BAT4_COM4: "กองพัน 4 กองร้อย 4",
+  BAT4_COM5: "กองพัน 4 กองร้อย 5",
+};
+
 const rankKeySet = new Set(Object.keys(rankLabelMap));
 const thaiRankToEnum = Object.entries(rankLabelMap).reduce(
   (acc, [key, label]) => {
@@ -1016,10 +1080,14 @@ module.exports = {
     division,
     isOnOfficialDuty,
     isAnnualHealthCheckDone,
+    onlyWithDivision = false,
   } = {}) => {
     const take = Math.max(1, Math.min(Number(pageSize) || 50, 200));
     const skip = Math.max(0, ((Number(page) || 1) - 1) * take);
+
     const where = {};
+    const andFilters = [];
+
     const normalizedSearch =
       typeof search === "string" ? search.trim() : search ? String(search) : "";
     if (normalizedSearch) {
@@ -1033,24 +1101,39 @@ module.exports = {
         { lastName: searchFilter },
         { email: searchFilter },
         { phone: searchFilter },
+        { position: searchFilter },
+        { division: searchFilter },
       ];
     }
+
     const normalizedRole =
       typeof role === "string" ? role.trim() : role ? String(role) : "";
     if (normalizedRole) {
       where.role = normalizedRole.toUpperCase();
     }
+
     const normalizedDivision = sanitizeStringValue(division);
     if (normalizedDivision) {
-      where.division = { contains: normalizedDivision, mode: "insensitive" };
+      andFilters.push({
+        division: { contains: normalizedDivision },
+      });
     }
+    if (onlyWithDivision) {
+      andFilters.push({ division: { not: null } });
+      andFilters.push({ NOT: { division: "" } });
+    }
+
     const officialDutyFlag = normalizeBooleanValue(isOnOfficialDuty);
     if (officialDutyFlag !== undefined) {
-      where.isOnOfficialDuty = officialDutyFlag;
+      andFilters.push({ isOnOfficialDuty: officialDutyFlag });
     }
     const annualHealthFlag = normalizeBooleanValue(isAnnualHealthCheckDone);
     if (annualHealthFlag !== undefined) {
-      where.isAnnualHealthCheckDone = annualHealthFlag;
+      andFilters.push({ isAnnualHealthCheckDone: annualHealthFlag });
+    }
+
+    if (andFilters.length) {
+      where.AND = andFilters;
     }
 
     const whereClause = Object.keys(where).length ? where : undefined;
@@ -1096,16 +1179,83 @@ module.exports = {
       prisma.user.count({ where: whereClause }),
     ]);
 
-    const itemsWithRadar = withThaiRank(itemsRaw).map((item) => ({
-      ...item,
-      radarProfile: buildUserRadarProfile(item),
-    }));
+    const itemsWithRadar = withThaiRank(itemsRaw).map((item) => {
+      const avatarUrl = item.avatar || null;
+      return {
+        ...item,
+        avatar: avatarUrl,
+        profileImage: avatarUrl,
+        photo: avatarUrl,
+        profileImageUrl: avatarUrl,
+        notes: item.notes ?? null,
+        radarProfile: buildUserRadarProfile(item),
+      };
+    });
     return {
       items: itemsWithRadar,
       total,
       page: Number(page) || 1,
       pageSize: take,
     };
+  },
+  getDivisionSummary: async () => {
+    const whereDivisionNotEmpty = {
+      AND: [{ division: { not: null } }, { NOT: { division: "" } }],
+    };
+
+    const [all, onDuty, healthChecked] = await Promise.all([
+      prisma.user.groupBy({
+        by: ["division"],
+        where: whereDivisionNotEmpty,
+        _count: { _all: true },
+        orderBy: [
+          { _count: { division: "desc" } },
+          { division: "asc" },
+        ],
+      }),
+      prisma.user.groupBy({
+        by: ["division"],
+        where: { ...whereDivisionNotEmpty, isOnOfficialDuty: true },
+        _count: { _all: true },
+      }),
+      prisma.user.groupBy({
+        by: ["division"],
+        where: { ...whereDivisionNotEmpty, isAnnualHealthCheckDone: true },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const dutyMap = onDuty.reduce((acc, row) => {
+      acc[row.division] = row._count?._all || 0;
+      return acc;
+    }, {});
+    const healthMap = healthChecked.reduce((acc, row) => {
+      acc[row.division] = row._count?._all || 0;
+      return acc;
+    }, {});
+
+    return all.map((row) => ({
+      division: row.division,
+      total: row._count?._all || 0,
+      onOfficialDuty: dutyMap[row.division] || 0,
+      healthChecked: healthMap[row.division] || 0,
+    }));
+  },
+  getRoleSummary: async () => {
+    const grouped = await prisma.user.groupBy({
+      by: ["role"],
+      _count: { _all: true },
+    });
+    const countMap = grouped.reduce((acc, row) => {
+      acc[row.role] = row._count?._all || 0;
+      return acc;
+    }, {});
+
+    return ROLE_CODES.map((role) => ({
+      role,
+      label: ROLE_LABELS[role] || role,
+      count: countMap[role] || 0,
+    }));
   },
   searchUserPersonalInfo: async ({ query, limit = 100 } = {}) => {
     const normalizedQuery =
