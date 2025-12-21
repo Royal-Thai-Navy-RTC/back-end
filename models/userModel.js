@@ -1199,11 +1199,19 @@ module.exports = {
     };
   },
   getDivisionSummary: async () => {
+    const normalizeDivision = (value) => {
+      const normalized =
+        value === undefined || value === null ? "" : String(value).trim();
+      return normalized || null;
+    };
+
     const whereDivisionNotEmpty = {
       AND: [{ division: { not: null } }, { NOT: { division: "" } }],
     };
 
-    const [all, onDuty, healthChecked] = await Promise.all([
+    const now = new Date();
+
+    const [all, onDuty, healthChecked, officialDutyLeaves] = await Promise.all([
       prisma.user.groupBy({
         by: ["division"],
         where: whereDivisionNotEmpty,
@@ -1223,23 +1231,57 @@ module.exports = {
         where: { ...whereDivisionNotEmpty, isAnnualHealthCheckDone: true },
         _count: { _all: true },
       }),
+      prisma.teacherLeave.findMany({
+        where: {
+          isOfficialDuty: true,
+          status: "APPROVED",
+          startDate: { lte: now },
+          OR: [{ endDate: null }, { endDate: { gte: now } }],
+          teacher: whereDivisionNotEmpty,
+        },
+        select: {
+          teacher: { select: { division: true } },
+        },
+      }),
     ]);
 
-    const dutyMap = onDuty.reduce((acc, row) => {
-      acc[row.division] = row._count?._all || 0;
-      return acc;
-    }, {});
-    const healthMap = healthChecked.reduce((acc, row) => {
-      acc[row.division] = row._count?._all || 0;
-      return acc;
-    }, {});
+    const divisionMap = new Map();
+    for (const row of all) {
+      const divisionKey = normalizeDivision(row.division);
+      if (!divisionKey) continue;
+      divisionMap.set(divisionKey, {
+        division: divisionKey,
+        total: row._count?._all || 0,
+        onOfficialDuty: 0,
+        healthChecked: 0,
+        officialDutyLeaves: 0,
+      });
+    }
 
-    return all.map((row) => ({
-      division: row.division,
-      total: row._count?._all || 0,
-      onOfficialDuty: dutyMap[row.division] || 0,
-      healthChecked: healthMap[row.division] || 0,
-    }));
+    const applyCount = (rows, field) => {
+      for (const row of rows) {
+        const divisionKey = normalizeDivision(row.division);
+        if (!divisionKey) continue;
+        const target = divisionMap.get(divisionKey);
+        if (!target) continue;
+        target[field] += row._count?._all || 0;
+      }
+    };
+
+    applyCount(onDuty, "onOfficialDuty");
+    applyCount(healthChecked, "healthChecked");
+
+    for (const leave of officialDutyLeaves) {
+      const divisionKey = normalizeDivision(leave.teacher?.division);
+      if (!divisionKey) continue;
+      const target = divisionMap.get(divisionKey);
+      if (!target) continue;
+      target.officialDutyLeaves += 1;
+    }
+
+    return Array.from(divisionMap.values()).sort(
+      (a, b) => b.total - a.total || a.division.localeCompare(b.division)
+    );
   },
   getRoleSummary: async () => {
     const grouped = await prisma.user.groupBy({
