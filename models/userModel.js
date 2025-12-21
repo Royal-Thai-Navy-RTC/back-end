@@ -328,7 +328,8 @@ const USER_RADAR_INDICATORS = [
 const buildUserRadarProfile = (profile = {}, stats = {}) => {
   const sanitizedProfile = sanitizeUserPayload(profile) || {};
   const healthScore = computeHealthScore(sanitizedProfile);
-  const educationScore = computeEducationScore(sanitizedProfile.education);
+  // const educationScore = computeEducationScore(sanitizedProfile.education);
+  const educationScore = 100; // ปรับเป็นเต็ม 100 เสมอ
   const evaluationScore = computeEvaluationScore(stats?.studentEvaluationStats);
   const skillScore = computeSkillScore(sanitizedProfile);
   const leaveScore = computeLeaveScore(stats?.leaveStats);
