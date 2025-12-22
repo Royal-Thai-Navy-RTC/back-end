@@ -109,6 +109,14 @@ const adminUpdateUser = async (req, res) => {
   }
   try {
     const input = { ...req.body };
+    if (input.studentClassYear !== undefined) {
+      const rawYear = input.studentClassYear;
+      const normalizedYear =
+        rawYear === null || String(rawYear).trim() === ""
+          ? null
+          : Number(rawYear);
+      input.studentClassYear = normalizedYear;
+    }
     if (input.password) {
       input.passwordHash = await bcrypt.hash(String(input.password), 10);
       delete input.password;
