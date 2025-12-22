@@ -150,6 +150,18 @@ const normalizeBooleanValue = (value) => {
   return Boolean(value);
 };
 
+const normalizeOptionalInteger = (value, { fieldLabel = "field" } = {}) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const num = Number(value);
+  if (!Number.isInteger(num)) {
+    const err = new Error(`${fieldLabel} ต้องเป็นจำนวนเต็ม`);
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  return num;
+};
+
 const normalizeStringList = (value) => {
   if (value === undefined) return undefined;
   if (value === null) return null;
@@ -365,6 +377,7 @@ const USER_PROFILE_SELECT = {
   education: true,
   position: true,
   division: true,
+  studentClassYear: true,
   email: true,
   phone: true,
   emergencyContactName: true,
@@ -786,6 +799,9 @@ const normalizeAndValidateUserInput = (input = {}) => {
       ? String(input.division).trim()
       : undefined;
   const divisionValue = sanitizeStringValue(divisionValueRaw);
+  const studentClassYear = normalizeOptionalInteger(input.studentClassYear, {
+    fieldLabel: "studentClassYear",
+  });
 
   // เตรียมข้อมูลตาม schema (field ชื่อให้ตรง)
   const fullAddressValue = sanitizeStringValue(input.fullAddress);
@@ -819,6 +835,7 @@ const normalizeAndValidateUserInput = (input = {}) => {
     religion: sanitizeStringValue(input.religion),
     specialSkills: sanitizeStringValue(input.specialSkills),
     secondaryOccupation: sanitizeStringValue(input.secondaryOccupation),
+    studentClassYear,
     avatar: avatarValue,
   };
 
@@ -1157,6 +1174,7 @@ module.exports = {
           education: true,
           position: true,
           division: true,
+          studentClassYear: true,
           email: true,
           phone: true,
           emergencyContactName: true,
@@ -1424,6 +1442,7 @@ module.exports = {
       "education",
       "position",
       "division",
+      "studentClassYear",
       "isOnOfficialDuty",
       "officialDutyNote",
       "isAnnualHealthCheckDone",
@@ -1448,6 +1467,14 @@ module.exports = {
     const data = {};
     for (const [k, v] of Object.entries(input || {})) {
       if (!allowed.has(k)) continue;
+      if (k === "studentClassYear") {
+        const value = normalizeOptionalInteger(v, {
+          fieldLabel: "studentClassYear",
+        });
+        if (value === undefined) continue;
+        data.studentClassYear = value;
+        continue;
+      }
       if (v === undefined || v === null || v === "") continue;
       if (k === "birthDate") {
         const d = v instanceof Date ? v : new Date(v);

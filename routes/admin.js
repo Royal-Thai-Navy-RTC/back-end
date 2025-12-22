@@ -283,6 +283,9 @@ router.get(
  *           schema:
  *             type: object
  *             properties:
+ *               studentClassYear:
+ *                 type: integer
+ *                 description: ชั้นปีของนักเรียน (ส่ง null เพื่อล้างค่า)
  *               isOnOfficialDuty:
  *                 type: boolean
  *                 description: ระบุว่าผู้ใช้อยู่ระหว่างไปช่วยราชการหรือไม่
