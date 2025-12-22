@@ -264,7 +264,7 @@ const register = async (req, res) => {
     .filter(({ value }) => value === undefined || value === null || value === "")
     .map(({ key }) => key);
   const normalizedRole = role ? String(role).trim().toUpperCase() : "";
-  const finalRole = normalizedRole || "TEACHER";
+  const finalRole = normalizedRole || "STUDENT";
   const hasUploadedAvatar =
     Boolean(profileImage) ||
     Boolean(avatar) ||
