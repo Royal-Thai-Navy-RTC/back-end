@@ -945,6 +945,7 @@ module.exports = {
       "education",
       "position",
       "division",
+      "studentClassYear",
       "email",
       "phone",
       "emergencyContactName",
@@ -965,6 +966,18 @@ module.exports = {
     const data = {};
     for (const [k, v] of Object.entries(input || {})) {
       if (!allowed.has(k)) continue;
+      if (k === "studentClassYear") {
+        if (typeof v === "string" && v.trim() === "") {
+          continue;
+        }
+        const value = normalizeOptionalInteger(v, {
+          fieldLabel: "studentClassYear",
+        });
+        if (value !== undefined) {
+          data.studentClassYear = value;
+        }
+        continue;
+      }
       if (v === undefined || v === null) continue;
       if (k === "birthDate") {
         const d = v instanceof Date ? v : new Date(v);
