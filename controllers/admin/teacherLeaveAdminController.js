@@ -1,8 +1,23 @@
 const TeacherLeave = require("../../models/teacherLeaveModel");
 
+const requireSubAdminDivision = (req, res) => {
+  if (req.userRole !== "SUB_ADMIN") return undefined;
+  const division =
+    typeof req.userDivision === "string" ? req.userDivision.trim() : "";
+  if (!division) {
+    res.status(403).json({
+      message: "SUB_ADMIN ต้องมี division (หมวดวิชา) จึงจะดูข้อมูลได้",
+    });
+    return null;
+  }
+  return division;
+};
+
 const getTeacherLeaveSummary = async (req, res) => {
   try {
-    const summary = await TeacherLeave.getAdminLeaveSummary();
+    const division = requireSubAdminDivision(req, res);
+    if (division === null) return;
+    const summary = await TeacherLeave.getAdminLeaveSummary({ division });
     res.json(summary);
   } catch (err) {
     res.status(500).json({
@@ -15,10 +30,13 @@ const getTeacherLeaveSummary = async (req, res) => {
 const listTeacherLeaves = async (req, res) => {
   try {
     const { status, adminStatus, limit, includeOfficial } = req.query || {};
+    const division = requireSubAdminDivision(req, res);
+    if (division === null) return;
     const data = await TeacherLeave.listTeacherLeaves({
       status,
       adminStatus,
       limit,
+      division,
       includeOfficial:
         includeOfficial === undefined ? true : includeOfficial === "true",
     });
@@ -38,6 +56,8 @@ const updateTeacherLeaveStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body || {};
+    const division = requireSubAdminDivision(req, res);
+    if (division === null) return;
     const isOwner = req.userRole === "OWNER";
     const leave = isOwner
       ? await TeacherLeave.ownerUpdateGeneralLeave({
@@ -49,6 +69,7 @@ const updateTeacherLeaveStatus = async (req, res) => {
           leaveId: id,
           status,
           approverId: req.userId,
+          division,
         });
     res.json({
       message: "อัปเดตสถานะการลาสำเร็จ",
@@ -74,8 +95,11 @@ module.exports = {
   updateTeacherLeaveStatus,
   listCurrentLeaves: async (_req, res) => {
     try {
+      const division = requireSubAdminDivision(_req, res);
+      if (division === null) return;
       const data = await TeacherLeave.listCurrentApprovedLeaves({
         includeOfficial: true,
+        division,
       });
       res.json({ data });
     } catch (err) {

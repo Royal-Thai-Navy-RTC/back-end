@@ -9,6 +9,7 @@ const teacherSelectFields = {
   lastName: true,
   rank: true,
   position: true,
+  division: true,
 };
 
 const adminApproverSelectFields = {
@@ -36,6 +37,17 @@ const leaveRelationInclude = {
     select: ownerApproverSelectFields,
   },
 };
+
+const normalizeDivisionFilter = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const normalized = String(value).trim();
+  return normalized || undefined;
+};
+
+const applyGeneralLeaveFilter = (where = {}) => ({
+  ...where,
+  isOfficialDuty: false,
+});
 
 const normalizePayload = (input = {}) => {
   const missing = REQUIRED_FIELDS.filter(
@@ -151,7 +163,9 @@ const getTeacherLeaves = async ({
   });
 };
 
-const getAdminLeaveSummary = async () => {
+const getAdminLeaveSummary = async ({ division } = {}) => {
+  const divisionFilter = normalizeDivisionFilter(division);
+  const teacherDivisionWhere = divisionFilter ? { division: divisionFilter } : {};
   const now = new Date();
   const [
     totalActiveTeachers,
@@ -170,6 +184,7 @@ const getAdminLeaveSummary = async () => {
       where: {
         role: "TEACHER",
         isActive: true,
+        ...teacherDivisionWhere,
       },
     }),
     prisma.user.count({
@@ -179,19 +194,24 @@ const getAdminLeaveSummary = async () => {
       where: { role: "OWNER", isActive: true },
     }),
     prisma.user.count({
-      where: { role: "SUB_ADMIN", isActive: true },
+      where: { role: "SUB_ADMIN", isActive: true, ...teacherDivisionWhere },
     }),
     prisma.teacherLeave.findMany({
-      where: { teacher: { role: "TEACHER" } },
-      select: { teacherId: true },
-    }),
-    prisma.teacherLeave.findMany({
-      where: { teacher: { role: { in: ["ADMIN", "OWNER", "SUB_ADMIN"] } } },
+      where: { teacher: { role: "TEACHER", ...teacherDivisionWhere } },
       select: { teacherId: true },
     }),
     prisma.teacherLeave.findMany({
       where: {
-        teacher: { role: "TEACHER" },
+        teacher: {
+          role: { in: ["ADMIN", "OWNER", "SUB_ADMIN"] },
+          ...teacherDivisionWhere,
+        },
+      },
+      select: { teacherId: true },
+    }),
+    prisma.teacherLeave.findMany({
+      where: {
+        teacher: { role: "TEACHER", ...teacherDivisionWhere },
         status: { in: ["PENDING", "APPROVED"] },
         startDate: { lte: now },
         OR: [{ endDate: null }, { endDate: { gte: now } }],
@@ -212,7 +232,10 @@ const getAdminLeaveSummary = async () => {
     }),
     prisma.teacherLeave.findMany({
       where: {
-        teacher: { role: { in: ["ADMIN", "OWNER", "SUB_ADMIN"] } },
+        teacher: {
+          role: { in: ["ADMIN", "OWNER", "SUB_ADMIN"] },
+          ...teacherDivisionWhere,
+        },
         status: { in: ["PENDING", "APPROVED"] },
         startDate: { lte: now },
         OR: [{ endDate: null }, { endDate: { gte: now } }],
@@ -232,7 +255,7 @@ const getAdminLeaveSummary = async () => {
       orderBy: { startDate: "asc" },
     }),
     prisma.teacherLeave.findMany({
-      where: { teacher: { role: "TEACHER" } },
+      where: { teacher: { role: "TEACHER", ...teacherDivisionWhere } },
       orderBy: { createdAt: "desc" },
       take: 1,
       include: {
@@ -252,14 +275,17 @@ const getAdminLeaveSummary = async () => {
       where: {
         isOfficialDuty: true,
         status: "PENDING",
-        teacher: { role: "TEACHER" },
+        teacher: { role: "TEACHER", ...teacherDivisionWhere },
       },
     }),
     prisma.teacherLeave.count({
       where: {
         isOfficialDuty: true,
         status: "PENDING",
-        teacher: { role: { in: ["ADMIN", "OWNER", "SUB_ADMIN"] } },
+        teacher: {
+          role: { in: ["ADMIN", "OWNER", "SUB_ADMIN"] },
+          ...teacherDivisionWhere,
+        },
       },
     }),
   ]);
@@ -371,6 +397,7 @@ const listTeacherLeaves = async ({
   adminStatus,
   limit = 50,
   includeOfficial = true,
+  division,
 } = {}) => {
   const take = Math.max(1, Math.min(Number(limit) || 50, 200));
   let normalizedStatus;
@@ -398,6 +425,10 @@ const listTeacherLeaves = async ({
   }
   if (normalizedAdminStatus) {
     where.adminApprovalStatus = normalizedAdminStatus;
+  }
+  const divisionFilter = normalizeDivisionFilter(division);
+  if (divisionFilter) {
+    where.teacher = { division: divisionFilter };
   }
 
   return prisma.teacherLeave.findMany({
@@ -461,7 +492,12 @@ const listOwnerGeneralLeaves = async ({ status, limit = 50 } = {}) => {
   });
 };
 
-const updateTeacherLeaveStatus = async ({ leaveId, status, approverId }) => {
+const updateTeacherLeaveStatus = async ({
+  leaveId,
+  status,
+  approverId,
+  division,
+}) => {
   const id = Number(leaveId);
   if (!Number.isInteger(id) || id <= 0) {
     const err = new Error("leaveId ไม่ถูกต้อง");
@@ -477,8 +513,12 @@ const updateTeacherLeaveStatus = async ({ leaveId, status, approverId }) => {
     throw err;
   }
 
-  const existing = await prisma.teacherLeave.findUnique({
-    where: { id },
+  const divisionFilter = normalizeDivisionFilter(division);
+  const existing = await prisma.teacherLeave.findFirst({
+    where: {
+      id,
+      ...(divisionFilter ? { teacher: { division: divisionFilter } } : {}),
+    },
     select: {
       id: true,
       isOfficialDuty: true,
@@ -641,16 +681,23 @@ const ownerUpdateOfficialDutyLeave = async ({ leaveId, status, approverId }) => 
   return updateOfficialDutyLeaveStatus({ leaveId, status, approverId });
 };
 
-const listCurrentApprovedLeaves = async ({ includeOfficial = false } = {}) => {
+const listCurrentApprovedLeaves = async ({
+  includeOfficial = false,
+  division,
+} = {}) => {
   const now = new Date();
   const whereBase = {
     status: "APPROVED",
     startDate: { lte: now },
     OR: [{ endDate: null }, { endDate: { gte: now } }],
   };
+  const divisionFilter = normalizeDivisionFilter(division);
+  const whereWithDivision = divisionFilter
+    ? { ...whereBase, teacher: { division: divisionFilter } }
+    : whereBase;
   const where = includeOfficial
-    ? whereBase
-    : applyGeneralLeaveFilter(whereBase);
+    ? whereWithDivision
+    : applyGeneralLeaveFilter(whereWithDivision);
   return prisma.teacherLeave.findMany({
     where,
     orderBy: { startDate: "asc" },

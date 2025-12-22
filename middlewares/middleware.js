@@ -296,7 +296,7 @@ module.exports = {
     try {
       const user = await prisma.user.findUnique({
         where: { id: Number(req.userId) },
-        select: { id: true, role: true, isActive: true },
+        select: { id: true, role: true, isActive: true, division: true },
       });
       if (!user || user.isActive === false) {
         return res.status(403).json({ message: "Forbidden" });
@@ -304,6 +304,10 @@ module.exports = {
       // Ensure downstream handlers know the actual role (JWT may be stale)
       const role = normalizeRole(user.role);
       req.userRole = role;
+      req.userDivision =
+        typeof user.division === "string" && user.division.trim()
+          ? user.division.trim()
+          : undefined;
       if (!generalLeaveApproverRoleSet.has(role)) {
         return res.status(403).json({ message: "Unauthorized" });
       }
