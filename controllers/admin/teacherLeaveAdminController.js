@@ -16,6 +16,45 @@ const LEAVE_TYPE_LABEL = {
   OTHER: "อื่นๆ",
 };
 
+const RANK_LABEL = {
+  ADMIRAL: "พลเรือเอก",
+  ADMIRAL_FEMALE: "พลเรือเอกหญิง",
+  VICE_ADMIRAL: "พลเรือโท",
+  VICE_ADMIRAL_FEMALE: "พลเรือโทหญิง",
+  REAR_ADMIRAL: "พลเรือตรี",
+  REAR_ADMIRAL_FEMALE: "พลเรือตรีหญิง",
+  CAPTAIN: "นาวาเอก",
+  CAPTAIN_FEMALE: "นาวาเอกหญิง",
+  COMMANDER: "นาวาโท",
+  COMMANDER_FEMALE: "นาวาโทหญิง",
+  LIEUTENANT_COMMANDER: "นาวาตรี",
+  LIEUTENANT_COMMANDER_FEMALE: "นาวาตรีหญิง",
+  LIEUTENANT: "เรือเอก",
+  LIEUTENANT_FEMALE: "เรือเอกหญิง",
+  SUB_LIEUTENANT: "เรือโท",
+  SUB_LIEUTENANT_FEMALE: "เรือโทหญิง",
+  ENSIGN: "เรือตรี",
+  ENSIGN_FEMALE: "เรือตรีหญิง",
+  PETTY_OFFICER_1: "พันจ่าเอก",
+  PETTY_OFFICER_1_FEMALE: "พันจ่าเอกหญิง",
+  PETTY_OFFICER_2: "พันจ่าโท",
+  PETTY_OFFICER_2_FEMALE: "พันจ่าโทหญิง",
+  PETTY_OFFICER_3: "พันจ่าตรี",
+  PETTY_OFFICER_3_FEMALE: "พันจ่าตรีหญิง",
+  LIEUTENANT_COLONEL: "พันโท",
+  LIEUTENANT_COLONEL_FEMALE: "พันโทหญิง",
+  MAJOR: "พันตรี",
+  MAJOR_FEMALE: "พันตรีหญิง",
+  PETTY_OFFICER: "จ่าเอก",
+  PETTY_OFFICER_FEMALE: "จ่าเอกหญิง",
+  LEADING_RATING: "จ่าโท",
+  LEADING_RATING_FEMALE: "จ่าโทหญิง",
+  ABLE_SEAMAN: "จ่าตรี",
+  ABLE_SEAMAN_FEMALE: "จ่าตรีหญิง",
+  COMPANY: "กองร้อย",
+  SEAMAN_RECRUIT: "พลฯ",
+};
+
 const formatDate = (value) => {
   if (!value) return "";
   const d = new Date(value);
@@ -45,6 +84,12 @@ const toLeaveTypeLabel = (leaveType, isOfficialDuty) => {
     .toUpperCase();
   if (isOfficialDuty) return LEAVE_TYPE_LABEL.OFFICIAL_DUTY;
   return LEAVE_TYPE_LABEL[normalized] || leaveType || "";
+};
+
+const toRankLabel = (rank) => {
+  if (!rank) return "";
+  const normalized = String(rank).trim().toUpperCase();
+  return RANK_LABEL[normalized] || rank;
 };
 
 const requireSubAdminDivision = (req, res) => {
@@ -169,7 +214,6 @@ const exportTeacherLeaveHistory = async (req, res) => {
     sheet.columns = [
       { header: "ลำดับ", key: "index", width: 6 },
       { header: "ชื่อ-สกุล", key: "teacherName", width: 22 },
-      { header: "ยศ/ตำแหน่ง", key: "rankPosition", width: 18 },
       { header: "หมวดวิชา", key: "division", width: 15 },
       { header: "ประเภทการลา", key: "leaveType", width: 16 },
       { header: "ไปราชการ", key: "officialDuty", width: 10 },
@@ -192,14 +236,13 @@ const exportTeacherLeaveHistory = async (req, res) => {
             leave.teacher.lastName || ""
           }`.trim()
         : "";
-      const rankPosition = leave.teacher
-        ? [leave.teacher.rank, leave.teacher.position].filter(Boolean).join(" ")
-        : "";
+      const full_name = leave.teacher?.rank
+        ? `${toRankLabel(leave.teacher.rank)} ${teacherName}`.trim()
+        : teacherName;
 
       sheet.addRow({
         index: idx + 1,
-        teacherName,
-        rankPosition,
+        teacherName : full_name || "",
         division: leave.teacher?.division || "",
         leaveType: toLeaveTypeLabel(leave.leaveType, leave.isOfficialDuty),
         officialDuty: leave.isOfficialDuty ? "ไปราชการ" : "-",
