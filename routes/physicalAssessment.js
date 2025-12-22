@@ -83,6 +83,29 @@ router.get(
   physicalAssessmentController.listPhysicalAssessments
 );
 
+/**
+ * @openapi
+ * /api/physical-assessments/overview:
+ *   get:
+ *     summary: Physical assessments overview
+ *     tags: [Physical Assessments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Overview returned
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get(
+  "/physical-assessments/overview",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  physicalAssessmentController.getPhysicalAssessmentsOverview
+);
+
 // สรุปคะแนนเฉลี่ยรายกองพัน/กองร้อย
 /**
  * @openapi

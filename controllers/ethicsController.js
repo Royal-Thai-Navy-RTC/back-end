@@ -50,6 +50,38 @@ const parseInteger = (value) => {
   return num == null ? null : Math.round(num);
 };
 
+const formatTwoDecimals = (value) =>
+  typeof value === "number" ? Number(value.toFixed(2)) : null;
+
+const extractNumberCode = (value) => {
+  const normalized = thaiDigitsToArabic(safeString(value));
+  if (!normalized) return null;
+  const match = normalized.match(/(\d+)/);
+  return match ? match[1] : null;
+};
+
+const computeAverageScore = (score20, percentage, average100) => {
+  const values = [score20, percentage, average100]
+    .map((v) => (typeof v === "number" ? v : null))
+    .filter((v) => v != null && Number.isFinite(v));
+  if (!values.length) return null;
+  const sum = values.reduce((acc, v) => acc + v, 0);
+  return formatTwoDecimals(sum / values.length);
+};
+
+const getExtremesByAverageScore = (companies = []) => {
+  const candidates = companies.filter(
+    (c) => typeof c.averageScores?.averageScore === "number"
+  );
+  if (!candidates.length) return { highest: null, lowest: null };
+  const sorted = [...candidates].sort((a, b) => {
+    const diff = b.averageScores.averageScore - a.averageScores.averageScore;
+    if (diff !== 0) return diff;
+    return String(a.company || "").localeCompare(String(b.company || ""));
+  });
+  return { highest: sorted[0], lowest: sorted[sorted.length - 1] };
+};
+
 const parseRankingFromNote = (note) => {
   if (!note) return null;
   const normalized = normalizeText(note);
@@ -531,6 +563,126 @@ const listEthicsAssessments = async (req, res) => {
   }
 };
 
+const getEthicsAssessmentsOverview = async (_req, res) => {
+  try {
+    const [aggregate, battalionAverages, companyAverages] = await Promise.all([
+      prisma.ethicsAssessment.aggregate({
+        _count: true,
+        _avg: {
+          score20: true,
+          percentage: true,
+          average100: true,
+        },
+      }),
+      prisma.ethicsAssessment.groupBy({
+        by: ["battalion"],
+        where: { battalion: { not: null } },
+        _count: { _all: true },
+        _avg: {
+          score20: true,
+          percentage: true,
+          average100: true,
+        },
+      }),
+      prisma.ethicsAssessment.groupBy({
+        by: ["battalion", "company"],
+        where: { battalion: { not: null }, company: { not: null } },
+        _count: { _all: true },
+        _avg: {
+          score20: true,
+          percentage: true,
+          average100: true,
+        },
+      }),
+    ]);
+
+    const companyMap = new Map();
+    companyAverages.forEach((item) => {
+      const key = item.battalion || "";
+      const avgScore20 = formatTwoDecimals(item._avg.score20);
+      const avgPercentage = formatTwoDecimals(item._avg.percentage);
+      const avgAverage100 = formatTwoDecimals(item._avg.average100);
+      const averageScore = computeAverageScore(
+        avgScore20,
+        avgPercentage,
+        avgAverage100
+      );
+      const entry = {
+        battalion: item.battalion,
+        company: item.company,
+        battalionCode: extractNumberCode(item.battalion),
+        companyCode: extractNumberCode(item.company),
+        total: item._count?._all ?? 0,
+        averageScores: {
+          score20: avgScore20,
+          percentage: avgPercentage,
+          average100: avgAverage100,
+          averageScore,
+        },
+      };
+      if (!companyMap.has(key)) companyMap.set(key, []);
+      companyMap.get(key).push(entry);
+    });
+
+    return res.json({
+      total: aggregate._count,
+      averageScores: {
+        score20: formatTwoDecimals(aggregate._avg.score20),
+        percentage: formatTwoDecimals(aggregate._avg.percentage),
+        average100: formatTwoDecimals(aggregate._avg.average100),
+        averageScore: computeAverageScore(
+          aggregate._avg.score20,
+          aggregate._avg.percentage,
+          aggregate._avg.average100
+        ),
+      },
+      averageByBattalion: battalionAverages
+        .map((item) => {
+          const companies = companyMap.get(item.battalion || "") || [];
+          const { highest, lowest } = getExtremesByAverageScore(companies);
+          const avg20 = formatTwoDecimals(item._avg.score20);
+          const avgPercentage = formatTwoDecimals(item._avg.percentage);
+          const avg100 = formatTwoDecimals(item._avg.average100);
+          const battalionAverageScore = computeAverageScore(
+            avg20,
+            avgPercentage,
+            avg100
+          );
+          return {
+            battalion: item.battalion,
+            battalionCode: extractNumberCode(item.battalion),
+            total: item._count?._all ?? 0,
+            averageScores: {
+              score20: avg20,
+              percentage: avgPercentage,
+              average100: avg100,
+              averageScore: battalionAverageScore,
+            },
+            companies,
+            highestCompany: highest,
+            lowestCompany: lowest,
+          };
+        })
+        .sort((a, b) => {
+          const aCode = Number(a.battalionCode);
+          const bCode = Number(b.battalionCode);
+          if (!Number.isNaN(aCode) && !Number.isNaN(bCode)) {
+            return aCode - bCode;
+          }
+          return String(a.battalion || "").localeCompare(
+            String(b.battalion || "")
+          );
+        }),
+    });
+  } catch (err) {
+    console.error("getEthicsAssessmentsOverview failed:", err);
+    return res.status(500).json({
+      message: "ไม่สามารถดึงสรุปผลการประเมินด้านจริยธรรมได้",
+      detail: err?.message,
+    });
+  }
+};
+
 const summarizeEthicsAssessments = async (req, res) => {
   const extractCode = (value) => {
     const normalized = thaiDigitsToArabic(safeString(value));
@@ -566,14 +718,28 @@ const summarizeEthicsAssessments = async (req, res) => {
     rows.forEach((row) => {
       const battalionCode = extractCode(row.battalion);
       const companyCode = extractCode(row.company);
-      const score =
-        row.average100 ?? row.percentage ?? row.score20;
       if (!battalionCode || !companyCode) return;
-      if (score == null || Number.isNaN(Number(score))) return;
       const k = key(battalionCode, companyCode);
-      const prev = agg.get(k) || { sum: 0, count: 0 };
-      prev.sum += Number(score);
-      prev.count += 1;
+      const prev =
+        agg.get(k) || {
+          score20: { sum: 0, count: 0 },
+          percentage: { sum: 0, count: 0 },
+          average100: { sum: 0, count: 0 },
+        };
+
+      const metrics = [
+        ["score20", row.score20],
+        ["percentage", row.percentage],
+        ["average100", row.average100],
+      ];
+      metrics.forEach(([field, value]) => {
+        const num = Number(value);
+        if (Number.isFinite(num)) {
+          prev[field].sum += num;
+          prev[field].count += 1;
+        }
+      });
+
       agg.set(k, prev);
     });
 
@@ -583,16 +749,38 @@ const summarizeEthicsAssessments = async (req, res) => {
 
       const companies = companyCodesList.map((cCode) => {
         const a = agg.get(key(bCode, cCode));
-        const avg = a && a.count > 0 ? a.sum : null;
-        if (avg != null) {
+        const avgScore20 =
+          a && a.score20.count > 0
+            ? a.score20.sum / a.score20.count
+            : null;
+        const avgPercentage =
+          a && a.percentage.count > 0
+            ? a.percentage.sum / a.percentage.count
+            : null;
+        const avgAverage100 =
+          a && a.average100.count > 0
+            ? a.average100.sum / a.average100.count
+            : null;
+
+        const averageScore = computeAverageScore(
+          avgScore20,
+          avgPercentage,
+          avgAverage100
+        );
+
+        if (averageScore != null) {
           battalionHasAnyCompany = true;
-          battalionCompanySum += avg;
+          battalionCompanySum += averageScore;
         }
         return {
           battalionCode: bCode,
           companyCode: cCode,
-          averageScore: avg != null ? Number(avg.toFixed(2)) : null,
-          total: a ? a.count : 0,
+          averageScore,
+          total: Math.max(
+            a?.score20.count || 0,
+            a?.percentage.count || 0,
+            a?.average100.count || 0
+          ),
         };
       });
 
@@ -659,6 +847,7 @@ const deleteAllEthicsAssessments = async (_req, res) => {
 module.exports = {
   importEthicsAssessments,
   listEthicsAssessments,
+  getEthicsAssessmentsOverview,
   summarizeEthicsAssessments,
   deleteEthicsAssessmentById,
   deleteAllEthicsAssessments,

@@ -48,6 +48,42 @@ const parseInteger = (value) => {
   return num == null ? null : Math.round(num);
 };
 
+const formatTwoDecimals = (value) =>
+  typeof value === "number" ? Number(value.toFixed(2)) : null;
+
+const extractNumberCode = (value) => {
+  const normalized = thaiDigitsToArabic(safeString(value));
+  if (!normalized) return null;
+  const match = normalized.match(/(\d+)/);
+  return match ? match[1] : null;
+};
+
+const averageFromTotal = (totalScore, fallbackAvg) => {
+  if (typeof totalScore === "number" && Number.isFinite(totalScore)) {
+    return formatTwoDecimals(totalScore / 3);
+  }
+  return formatTwoDecimals(fallbackAvg);
+};
+
+const pickAverageScore = (avgTotalScore, avgAverageScore) => {
+  const total = formatTwoDecimals(avgTotalScore);
+  const avg = formatTwoDecimals(avgAverageScore);
+  return total != null ? formatTwoDecimals(total / 3) : avg;
+};
+
+const getExtremesByAverageScore = (companies = []) => {
+  const candidates = companies.filter(
+    (c) => typeof c.averageScores?.averageScore === "number"
+  );
+  if (!candidates.length) return { highest: null, lowest: null };
+  const sorted = [...candidates].sort((a, b) => {
+    const diff = b.averageScores.averageScore - a.averageScores.averageScore;
+    if (diff !== 0) return diff;
+    return String(a.company || "").localeCompare(String(b.company || ""));
+  });
+  return { highest: sorted[0], lowest: sorted[sorted.length - 1] };
+};
+
 const parseRankingFromNote = (note) => {
   if (!note) return null;
   const normalized = thaiDigitsToArabic(safeString(note));
@@ -639,6 +675,145 @@ const deleteDisciplineAssessmentById = async (req, res) => {
   }
 };
 
+const getDisciplineAssessmentsOverview = async (_req, res) => {
+  try {
+    const [aggregate, battalionAverages, companyAverages] = await Promise.all([
+      prisma.disciplineAssessment.aggregate({
+        _count: true,
+        _avg: {
+          infantryScore: true,
+          drillScore: true,
+          practiceScore: true,
+          regulationScore: true,
+          totalScore: true,
+          averageScore: true,
+        },
+      }),
+      prisma.disciplineAssessment.groupBy({
+        by: ["battalion"],
+        where: { battalion: { not: null } },
+        _count: { _all: true },
+        _avg: {
+          infantryScore: true,
+          drillScore: true,
+          practiceScore: true,
+          regulationScore: true,
+          totalScore: true,
+          averageScore: true,
+        },
+      }),
+      prisma.disciplineAssessment.groupBy({
+        by: ["battalion", "company"],
+        where: { battalion: { not: null }, company: { not: null } },
+        _count: { _all: true },
+        _avg: {
+          infantryScore: true,
+          drillScore: true,
+          practiceScore: true,
+          regulationScore: true,
+          totalScore: true,
+          averageScore: true,
+        },
+      }),
+    ]);
+
+    const companyMap = new Map();
+    companyAverages.forEach((item) => {
+      const key = item.battalion || "";
+      const avgInfantry = formatTwoDecimals(item._avg.infantryScore);
+      const avgDrill = formatTwoDecimals(item._avg.drillScore);
+      const avgPractice = formatTwoDecimals(item._avg.practiceScore);
+      const avgRegulation = formatTwoDecimals(item._avg.regulationScore);
+      const avgTotal = formatTwoDecimals(item._avg.totalScore);
+      const avgAverage = formatTwoDecimals(item._avg.averageScore);
+      const averageScore = averageFromTotal(
+        typeof item._avg.totalScore === "number" ? item._avg.totalScore : null,
+        avgAverage
+      );
+      const entry = {
+        battalion: item.battalion,
+        company: item.company,
+        battalionCode: extractNumberCode(item.battalion),
+        companyCode: extractNumberCode(item.company),
+        total: item._count?._all ?? 0,
+        averageScores: {
+          infantryScore: avgInfantry,
+          drillScore: avgDrill,
+          practiceScore: avgPractice,
+          regulationScore: avgRegulation,
+          totalScore: avgTotal,
+          averageScore,
+        },
+      };
+      if (!companyMap.has(key)) companyMap.set(key, []);
+      companyMap.get(key).push(entry);
+    });
+
+    return res.json({
+      total: aggregate._count,
+      averageScores: {
+        infantryScore: formatTwoDecimals(aggregate._avg.infantryScore),
+        drillScore: formatTwoDecimals(aggregate._avg.drillScore),
+        practiceScore: formatTwoDecimals(aggregate._avg.practiceScore),
+        regulationScore: formatTwoDecimals(aggregate._avg.regulationScore),
+        totalScore: formatTwoDecimals(aggregate._avg.totalScore),
+        averageScore: averageFromTotal(
+          aggregate._avg.totalScore,
+          aggregate._avg.averageScore
+        ),
+      },
+      averageByBattalion: battalionAverages
+        .map((item) => {
+          const companies = companyMap.get(item.battalion || "") || [];
+          const { highest, lowest } = getExtremesByAverageScore(companies);
+          const avgInfantry = formatTwoDecimals(item._avg.infantryScore);
+          const avgDrill = formatTwoDecimals(item._avg.drillScore);
+          const avgPractice = formatTwoDecimals(item._avg.practiceScore);
+          const avgRegulation = formatTwoDecimals(item._avg.regulationScore);
+          const avgTotal = formatTwoDecimals(item._avg.totalScore);
+          const avgAverage = formatTwoDecimals(item._avg.averageScore);
+          return {
+            battalion: item.battalion,
+            battalionCode: extractNumberCode(item.battalion),
+            total: item._count?._all ?? 0,
+            averageScores: {
+              infantryScore: avgInfantry,
+              drillScore: avgDrill,
+              practiceScore: avgPractice,
+              regulationScore: avgRegulation,
+              totalScore: avgTotal,
+              averageScore: averageFromTotal(
+                typeof item._avg.totalScore === "number"
+                  ? item._avg.totalScore
+                  : null,
+                avgAverage
+              ),
+            },
+            companies,
+            highestCompany: highest,
+            lowestCompany: lowest,
+          };
+        })
+        .sort((a, b) => {
+          const aCode = Number(a.battalionCode);
+          const bCode = Number(b.battalionCode);
+          if (!Number.isNaN(aCode) && !Number.isNaN(bCode)) {
+            return aCode - bCode;
+          }
+          return String(a.battalion || "").localeCompare(
+            String(b.battalion || "")
+          );
+        }),
+    });
+  } catch (err) {
+    console.error("getDisciplineAssessmentsOverview failed:", err);
+    return res.status(500).json({
+      message: "ไม่สามารถดึงสรุปผลการประเมินด้านวินัยได้",
+      detail: err?.message,
+    });
+  }
+};
+
 const summarizeDisciplineAssessments = async (req, res) => {
   const extractCode = (value) => {
     const normalized = thaiDigitsToArabic(safeString(value));
@@ -689,15 +864,17 @@ const summarizeDisciplineAssessments = async (req, res) => {
 
       const companies = companyCodesList.map((cCode) => {
         const a = agg.get(key(bCode, cCode));
-        const avg = a && a.count > 0 ? a.sum : null;
-        if (avg != null) {
+        const avg = a && a.count > 0 ? a.sum / a.count : null;
+        const avgScore = avg != null ? Number((avg / 3).toFixed(2)) : null;
+        if (avgScore != null) {
           battalionHasAnyCompany = true;
-          battalionCompanySum += avg;
+          battalionCompanySum += avgScore;
         }
         return {
           battalionCode: bCode,
           companyCode: cCode,
-          averageScore: avg != null ? Number(avg.toFixed(2)) : null,
+          totalScore: avg != null ? Number(avg.toFixed(2)) : null,
+          averageScore: avgScore,
           total: a ? a.count : 0,
         };
       });
@@ -741,6 +918,7 @@ const deleteAllDisciplineAssessments = async (_req, res) => {
 module.exports = {
   importDisciplineAssessments,
   listDisciplineAssessments,
+  getDisciplineAssessmentsOverview,
   summarizeDisciplineAssessments,
   deleteDisciplineAssessmentById,
   deleteAllDisciplineAssessments,

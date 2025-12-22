@@ -45,6 +45,16 @@ const parseInteger = (value) => {
   return num == null ? null : Math.round(num);
 };
 
+const formatTwoDecimals = (value) =>
+  typeof value === "number" ? Number(value.toFixed(2)) : null;
+
+const extractNumberCode = (value) => {
+  const normalized = thaiDigitsToArabic(safeString(value));
+  if (!normalized) return null;
+  const match = normalized.match(/(\d+)/);
+  return match ? match[1] : null;
+};
+
 const parseRankingFromNote = (note) => {
   if (!note) return null;
   const normalized = safeString(note);
@@ -664,6 +674,153 @@ const listPhysicalAssessments = async (req, res) => {
   }
 };
 
+const getExtremesByAverageScore = (companies = []) => {
+  const candidates = companies.filter(
+    (c) => typeof c.averageScores?.averageScore === "number"
+  );
+  if (!candidates.length) return { highest: null, lowest: null };
+  const sorted = [...candidates].sort((a, b) => {
+    const diff = b.averageScores.averageScore - a.averageScores.averageScore;
+    if (diff !== 0) return diff;
+    return String(a.company || "").localeCompare(String(b.company || ""));
+  });
+  return { highest: sorted[0], lowest: sorted[sorted.length - 1] };
+};
+
+const getPhysicalAssessmentsOverview = async (_req, res) => {
+  try {
+    const [aggregate, battalionAverages, companyAverages] = await Promise.all([
+      prisma.physicalAssessment.aggregate({
+        _count: true,
+        _avg: {
+          sitUpScore: true,
+          pushUpScore: true,
+          runScore: true,
+          physicalRoutineScore: true,
+          totalScore: true,
+          averageScore: true,
+        },
+      }),
+      prisma.physicalAssessment.groupBy({
+        by: ["battalion"],
+        where: { battalion: { not: null } },
+        _count: { _all: true },
+        _avg: {
+          sitUpScore: true,
+          pushUpScore: true,
+          runScore: true,
+          physicalRoutineScore: true,
+          totalScore: true,
+          averageScore: true,
+        },
+      }),
+      prisma.physicalAssessment.groupBy({
+        by: ["battalion", "company"],
+        where: { battalion: { not: null }, company: { not: null } },
+        _count: { _all: true },
+        _avg: {
+          sitUpScore: true,
+          pushUpScore: true,
+          runScore: true,
+          physicalRoutineScore: true,
+          totalScore: true,
+          averageScore: true,
+        },
+      }),
+    ]);
+
+    const companyMap = new Map();
+    companyAverages.forEach((item) => {
+      const key = item.battalion || "";
+      const totalScore = formatTwoDecimals(item._avg.totalScore);
+      const avgScoreFromTotal =
+        totalScore != null
+          ? formatTwoDecimals(totalScore / 4)
+          : formatTwoDecimals(item._avg.averageScore);
+      const entry = {
+        battalion: item.battalion,
+        company: item.company,
+        battalionCode: extractNumberCode(item.battalion),
+        companyCode: extractNumberCode(item.company),
+        total: item._count?._all ?? 0,
+        averageScores: {
+          sitUpScore: formatTwoDecimals(item._avg.sitUpScore),
+          pushUpScore: formatTwoDecimals(item._avg.pushUpScore),
+          runScore: formatTwoDecimals(item._avg.runScore),
+          physicalRoutineScore: formatTwoDecimals(
+            item._avg.physicalRoutineScore
+          ),
+          totalScore,
+          averageScore: avgScoreFromTotal,
+        },
+      };
+      if (!companyMap.has(key)) companyMap.set(key, []);
+      companyMap.get(key).push(entry);
+    });
+
+    return res.json({
+      total: aggregate._count,
+      averageScores: {
+        sitUpScore: formatTwoDecimals(aggregate._avg.sitUpScore),
+        pushUpScore: formatTwoDecimals(aggregate._avg.pushUpScore),
+        runScore: formatTwoDecimals(aggregate._avg.runScore),
+        physicalRoutineScore: formatTwoDecimals(
+          aggregate._avg.physicalRoutineScore
+        ),
+        totalScore: formatTwoDecimals(aggregate._avg.totalScore),
+        averageScore:
+          aggregate._avg.totalScore != null
+            ? formatTwoDecimals(aggregate._avg.totalScore / 4)
+            : formatTwoDecimals(aggregate._avg.averageScore),
+      },
+      averageByBattalion: battalionAverages
+        .map((item) => {
+          const companies = companyMap.get(item.battalion || "") || [];
+          const { highest, lowest } = getExtremesByAverageScore(companies);
+          const battalionTotalScore = formatTwoDecimals(item._avg.totalScore);
+          const battalionAverageScore =
+            battalionTotalScore != null
+              ? formatTwoDecimals(battalionTotalScore / 4)
+              : formatTwoDecimals(item._avg.averageScore);
+          return {
+            battalion: item.battalion,
+            battalionCode: extractNumberCode(item.battalion),
+            total: item._count?._all ?? 0,
+            averageScores: {
+              sitUpScore: formatTwoDecimals(item._avg.sitUpScore),
+              pushUpScore: formatTwoDecimals(item._avg.pushUpScore),
+              runScore: formatTwoDecimals(item._avg.runScore),
+              physicalRoutineScore: formatTwoDecimals(
+                item._avg.physicalRoutineScore
+              ),
+              totalScore: battalionTotalScore,
+              averageScore: battalionAverageScore,
+            },
+            companies,
+            highestCompany: highest,
+            lowestCompany: lowest,
+          };
+        })
+        .sort((a, b) => {
+          const aCode = Number(a.battalionCode);
+          const bCode = Number(b.battalionCode);
+          if (!Number.isNaN(aCode) && !Number.isNaN(bCode)) {
+            return aCode - bCode;
+          }
+          return String(a.battalion || "").localeCompare(
+            String(b.battalion || "")
+          );
+        }),
+    });
+  } catch (err) {
+    console.error("getPhysicalAssessmentsOverview failed:", err);
+    return res.status(500).json({
+      message: "ไม่สามารถดึงสรุปผลการประเมินด้านร่างกายได้",
+      detail: err?.message,
+    });
+  }
+};
+
 const summarizePhysicalAssessments = async (req, res) => {
   const extractCode = (value) => {
     const normalized = thaiDigitsToArabic(safeString(value));
@@ -698,12 +855,16 @@ const summarizePhysicalAssessments = async (req, res) => {
     rows.forEach((row) => {
       const battalionCode = extractCode(row.battalion);
       const companyCode = extractCode(row.company);
-      const score = row.averageScore ?? row.totalScore;
+      let totalScore = Number(row.totalScore);
+      if (!Number.isFinite(totalScore)) {
+        const avgScore = Number(row.averageScore);
+        totalScore = Number.isFinite(avgScore) ? avgScore * 4 : null;
+      }
       if (!battalionCode || !companyCode) return;
-      if (score == null || Number.isNaN(Number(score))) return;
+      if (totalScore == null || Number.isNaN(Number(totalScore))) return;
       const k = key(battalionCode, companyCode);
-      const prev = agg.get(k) || { sum: 0, count: 0 };
-      prev.sum += Number(score);
+      const prev = agg.get(k) || { sumTotalScore: 0, count: 0 };
+      prev.sumTotalScore += Number(totalScore);
       prev.count += 1;
       agg.set(k, prev);
     });
@@ -714,15 +875,23 @@ const summarizePhysicalAssessments = async (req, res) => {
 
       const companies = companyCodesList.map((cCode) => {
         const a = agg.get(key(bCode, cCode));
-        const avg = a && a.count > 0 ? a.sum : null;
-        if (avg != null) {
+        const avgTotalScore =
+          a && a.count > 0 ? a.sumTotalScore / a.count : null;
+        const avgScorePerCompany =
+          avgTotalScore != null ? avgTotalScore / 4 : null;
+        if (avgScorePerCompany != null) {
           battalionHasAnyCompany = true;
-          battalionCompanySum += avg;
+          battalionCompanySum += avgScorePerCompany;
         }
         return {
           battalionCode: bCode,
           companyCode: cCode,
-          averageScore: avg != null ? Number(avg.toFixed(2)) : null,
+          totalScore:
+            avgTotalScore != null ? Number(avgTotalScore.toFixed(2)) : null,
+          averageScore:
+            avgScorePerCompany != null
+              ? Number(avgScorePerCompany.toFixed(2))
+              : null,
           total: a ? a.count : 0,
         };
       });
@@ -793,6 +962,7 @@ const deleteAllPhysicalAssessments = async (_req, res) => {
 module.exports = {
   importPhysicalAssessments,
   listPhysicalAssessments,
+  getPhysicalAssessmentsOverview,
   summarizePhysicalAssessments,
   deletePhysicalAssessmentById,
   deleteAllPhysicalAssessments,

@@ -45,6 +45,38 @@ const parseInteger = (value) => {
   return num == null ? null : Math.round(num);
 };
 
+const formatTwoDecimals = (value) =>
+  typeof value === "number" ? Number(value.toFixed(2)) : null;
+
+const extractNumberCode = (value) => {
+  const normalized = thaiDigitsToArabic(safeString(value));
+  if (!normalized) return null;
+  const match = normalized.match(/(\d+)/);
+  return match ? match[1] : null;
+};
+
+const computeAverageScore = (practical, theory, total) => {
+  const values = [practical, theory, total]
+    .map((v) => (typeof v === "number" ? v : null))
+    .filter((v) => v != null && Number.isFinite(v));
+  if (!values.length) return null;
+  const sum = values.reduce((acc, v) => acc + v, 0);
+  return formatTwoDecimals(sum / values.length);
+};
+
+const getExtremesByAverageScore = (companies = []) => {
+  const candidates = companies.filter(
+    (c) => typeof c.averageScores?.averageScore === "number"
+  );
+  if (!candidates.length) return { highest: null, lowest: null };
+  const sorted = [...candidates].sort((a, b) => {
+    const diff = b.averageScores.averageScore - a.averageScores.averageScore;
+    if (diff !== 0) return diff;
+    return String(a.company || "").localeCompare(String(b.company || ""));
+  });
+  return { highest: sorted[0], lowest: sorted[sorted.length - 1] };
+};
+
 const parseRankingFromNote = (note) => {
   if (!note) return null;
   const normalized = safeString(note);
@@ -654,6 +686,134 @@ const listKnowledgeAssessments = async (req, res) => {
   }
 };
 
+const getKnowledgeAssessmentsOverview = async (_req, res) => {
+  try {
+    const [aggregate, battalionAverages, companyAverages] = await Promise.all([
+      prisma.knowledgeAssessment.aggregate({
+        _count: true,
+        _avg: {
+          practicalScore: true,
+          theoryScore: true,
+          totalScore: true,
+          averagePercentage: true,
+        },
+      }),
+      prisma.knowledgeAssessment.groupBy({
+        by: ["battalion"],
+        where: { battalion: { not: null } },
+        _count: { _all: true },
+        _avg: {
+          practicalScore: true,
+          theoryScore: true,
+          totalScore: true,
+          averagePercentage: true,
+        },
+      }),
+      prisma.knowledgeAssessment.groupBy({
+        by: ["battalion", "company"],
+        where: { battalion: { not: null }, company: { not: null } },
+        _count: { _all: true },
+        _avg: {
+          practicalScore: true,
+          theoryScore: true,
+          totalScore: true,
+          averagePercentage: true,
+        },
+      }),
+    ]);
+
+    const companyMap = new Map();
+    companyAverages.forEach((item) => {
+      const key = item.battalion || "";
+      const avgPractical = formatTwoDecimals(item._avg.practicalScore);
+      const avgTheory = formatTwoDecimals(item._avg.theoryScore);
+      const avgTotal = formatTwoDecimals(item._avg.totalScore);
+      const avgPercentage = formatTwoDecimals(item._avg.averagePercentage);
+      const averageScore = computeAverageScore(
+        avgPractical,
+        avgTheory,
+        avgTotal
+      );
+      const entry = {
+        battalion: item.battalion,
+        company: item.company,
+        battalionCode: extractNumberCode(item.battalion),
+        companyCode: extractNumberCode(item.company),
+        total: item._count?._all ?? 0,
+        averageScores: {
+          practicalScore: avgPractical,
+          theoryScore: avgTheory,
+          totalScore: avgTotal,
+          averagePercentage: avgPercentage,
+          averageScore,
+        },
+      };
+      if (!companyMap.has(key)) companyMap.set(key, []);
+      companyMap.get(key).push(entry);
+    });
+
+    return res.json({
+      total: aggregate._count,
+      averageScores: {
+        practicalScore: formatTwoDecimals(aggregate._avg.practicalScore),
+        theoryScore: formatTwoDecimals(aggregate._avg.theoryScore),
+        totalScore: formatTwoDecimals(aggregate._avg.totalScore),
+        averagePercentage: formatTwoDecimals(aggregate._avg.averagePercentage),
+        averageScore: computeAverageScore(
+          aggregate._avg.practicalScore,
+          aggregate._avg.theoryScore,
+          aggregate._avg.totalScore
+        ),
+      },
+      averageByBattalion: battalionAverages
+        .map((item) => {
+          const companies = companyMap.get(item.battalion || "") || [];
+          const { highest, lowest } = getExtremesByAverageScore(companies);
+          const avgPractical = formatTwoDecimals(item._avg.practicalScore);
+          const avgTheory = formatTwoDecimals(item._avg.theoryScore);
+          const avgTotal = formatTwoDecimals(item._avg.totalScore);
+          const avgPercentage = formatTwoDecimals(item._avg.averagePercentage);
+          const battalionAverageScore = computeAverageScore(
+            avgPractical,
+            avgTheory,
+            avgTotal
+          );
+          return {
+            battalion: item.battalion,
+            battalionCode: extractNumberCode(item.battalion),
+            total: item._count?._all ?? 0,
+            averageScores: {
+              practicalScore: avgPractical,
+              theoryScore: avgTheory,
+              totalScore: avgTotal,
+              averagePercentage: avgPercentage,
+              averageScore: battalionAverageScore,
+            },
+            companies,
+            highestCompany: highest,
+            lowestCompany: lowest,
+          };
+        })
+        .sort((a, b) => {
+          const aCode = Number(a.battalionCode);
+          const bCode = Number(b.battalionCode);
+          if (!Number.isNaN(aCode) && !Number.isNaN(bCode)) {
+            return aCode - bCode;
+          }
+          return String(a.battalion || "").localeCompare(
+            String(b.battalion || "")
+          );
+        }),
+    });
+  } catch (err) {
+    console.error("getKnowledgeAssessmentsOverview failed:", err);
+    return res.status(500).json({
+      message: "ไม่สามารถดึงสรุปผลการประเมินด้านความรู้ได้",
+      detail: err?.message,
+    });
+  }
+};
+
 const deleteKnowledgeAssessmentById = async (req, res) => {
   const assessmentId = Number(req.params.id);
   if (!Number.isInteger(assessmentId) || assessmentId <= 0) {
@@ -699,8 +859,10 @@ const summarizeKnowledgeAssessments = async (req, res) => {
       select: {
         battalion: true,
         company: true,
-        averagePercentage: true,
+        practicalScore: true,
+        theoryScore: true,
         totalScore: true,
+        averagePercentage: true,
       },
     });
 
@@ -710,13 +872,29 @@ const summarizeKnowledgeAssessments = async (req, res) => {
     rows.forEach((row) => {
       const battalionCode = extractCode(row.battalion);
       const companyCode = extractCode(row.company);
-      const score = row.averagePercentage ?? row.totalScore;
       if (!battalionCode || !companyCode) return;
-      if (score == null || Number.isNaN(Number(score))) return;
       const k = key(battalionCode, companyCode);
-      const prev = agg.get(k) || { sum: 0, count: 0 };
-      prev.sum += Number(score);
-      prev.count += 1;
+      const prev =
+        agg.get(k) || {
+          practicalScore: { sum: 0, count: 0 },
+          theoryScore: { sum: 0, count: 0 },
+          totalScore: { sum: 0, count: 0 },
+        };
+
+      const metrics = [
+        ["practicalScore", row.practicalScore],
+        ["theoryScore", row.theoryScore],
+        ["totalScore", row.totalScore],
+      ];
+
+      metrics.forEach(([field, value]) => {
+        const num = Number(value);
+        if (Number.isFinite(num)) {
+          prev[field].sum += num;
+          prev[field].count += 1;
+        }
+      });
+
       agg.set(k, prev);
     });
 
@@ -726,16 +904,38 @@ const summarizeKnowledgeAssessments = async (req, res) => {
 
       const companies = companyCodesList.map((cCode) => {
         const a = agg.get(key(bCode, cCode));
-        const avg = a && a.count > 0 ? a.sum : null;
-        if (avg != null) {
+        const avgPractical =
+          a && a.practicalScore.count > 0
+            ? a.practicalScore.sum / a.practicalScore.count
+            : null;
+        const avgTheory =
+          a && a.theoryScore.count > 0
+            ? a.theoryScore.sum / a.theoryScore.count
+            : null;
+        const avgTotal =
+          a && a.totalScore.count > 0
+            ? a.totalScore.sum / a.totalScore.count
+            : null;
+
+        const averageScore = computeAverageScore(
+          avgPractical,
+          avgTheory,
+          avgTotal
+        );
+
+        if (averageScore != null) {
           battalionHasAnyCompany = true;
-          battalionCompanySum += avg;
+          battalionCompanySum += averageScore;
         }
         return {
           battalionCode: bCode,
           companyCode: cCode,
-          averageScore: avg != null ? Number(avg.toFixed(2)) : null,
-          total: a ? a.count : 0,
+          averageScore,
+          total: Math.max(
+            a?.practicalScore.count || 0,
+            a?.theoryScore.count || 0,
+            a?.totalScore.count || 0
+          ),
         };
       });
 
@@ -778,6 +978,7 @@ const deleteAllKnowledgeAssessments = async (_req, res) => {
 module.exports = {
   importKnowledgeAssessments,
   listKnowledgeAssessments,
+  getKnowledgeAssessmentsOverview,
   summarizeKnowledgeAssessments,
   deleteKnowledgeAssessmentById,
   deleteAllKnowledgeAssessments,

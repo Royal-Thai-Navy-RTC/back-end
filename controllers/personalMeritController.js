@@ -47,6 +47,42 @@ const parseInteger = (value) => {
   return num == null ? null : Math.round(num);
 };
 
+const formatTwoDecimals = (value) =>
+  typeof value === "number" ? Number(value.toFixed(2)) : null;
+
+const extractBattalionCode = (value) => {
+  const text = safeString(value).replace(/\s+/g, "");
+  if (!text) return null;
+  const match =
+    text.match(/(?:พัน|bn|battalion)\.?(?:ฝ\.)?(\d{1,2})/i) ||
+    text.match(/(\d{1,2})/);
+  return match ? match[1] : null;
+};
+
+const extractCompanyCode = (value) => {
+  const text = safeString(value).replace(/\s+/g, "");
+  if (!text) return null;
+  const match =
+    text.match(/(?:ร้อย|co|company)\.?(?:ฝ\.)?(\d{1,2})/i) ||
+    text.match(/(\d{1,2})/);
+  return match ? match[1] : null;
+};
+
+const getExtremesByTotalScore = (companies = []) => {
+  const candidates = companies.filter(
+    (c) => typeof c.averageScores?.totalScore === "number"
+  );
+  if (!candidates.length) {
+    return { highest: null, lowest: null };
+  }
+  const sorted = [...candidates].sort((a, b) => {
+    const diff = b.averageScores.totalScore - a.averageScores.totalScore;
+    if (diff !== 0) return diff;
+    return String(a.company || "").localeCompare(String(b.company || ""));
+  });
+  return { highest: sorted[0], lowest: sorted[sorted.length - 1] };
+};
+
 const parseRankAndName = (value) => {
   const text = safeString(value);
   if (!text) return { rankTitle: null, soldierName: null };
@@ -357,57 +393,109 @@ const listPersonalMeritScores = async (req, res) => {
 
 const getPersonalMeritScoresOverview = async (_req, res) => {
   try {
-    const aggregate = await prisma.personalMeritScore.aggregate({
-      _count: true,
-      _avg: {
-        knowledgeScore: true,
-        disciplineScore: true,
-        physicalScore: true,
-        totalScore: true,
-      },
-      _min: {
-        knowledgeScore: true,
-        disciplineScore: true,
-        physicalScore: true,
-        totalScore: true,
-      },
-      _max: {
-        knowledgeScore: true,
-        disciplineScore: true,
-        physicalScore: true,
-        totalScore: true,
-      },
+    const [aggregate, battalionAverages, companyAverages] = await Promise.all([
+      prisma.personalMeritScore.aggregate({
+        _count: true,
+        _avg: {
+          knowledgeScore: true,
+          disciplineScore: true,
+          physicalScore: true,
+          totalScore: true,
+        },
+        _min: {
+          knowledgeScore: true,
+          disciplineScore: true,
+          physicalScore: true,
+          totalScore: true,
+        },
+        _max: {
+          knowledgeScore: true,
+          disciplineScore: true,
+          physicalScore: true,
+          totalScore: true,
+        },
+      }),
+      prisma.personalMeritScore.groupBy({
+        by: ["battalion"],
+        where: { battalion: { not: null } },
+        _count: { _all: true },
+        _avg: {
+          knowledgeScore: true,
+          disciplineScore: true,
+          physicalScore: true,
+          totalScore: true,
+        },
+      }),
+      prisma.personalMeritScore.groupBy({
+        by: ["battalion", "company"],
+        where: { battalion: { not: null }, company: { not: null } },
+        _count: { _all: true },
+        _avg: {
+          knowledgeScore: true,
+          disciplineScore: true,
+          physicalScore: true,
+          totalScore: true,
+        },
+      }),
+    ]);
+
+    const companyMap = new Map();
+    companyAverages.forEach((item) => {
+      const key = item.battalion || "";
+      const entry = {
+        battalion: item.battalion,
+        company: item.company,
+        battalionCode: extractBattalionCode(item.battalion),
+        companyCode: extractCompanyCode(item.company),
+        total: item._count?._all ?? 0,
+        averageScores: {
+          knowledgeScore: formatTwoDecimals(item._avg.knowledgeScore),
+          disciplineScore: formatTwoDecimals(item._avg.disciplineScore),
+          physicalScore: formatTwoDecimals(item._avg.physicalScore),
+          totalScore: formatTwoDecimals(item._avg.totalScore),
+        },
+      };
+      if (!companyMap.has(key)) companyMap.set(key, []);
+      companyMap.get(key).push(entry);
     });
 
     return res.json({
       total: aggregate._count,
-      // totalAvgScores: aggregate._avg,
       averageScores: {
-        knowledgeScore: aggregate._avg.knowledgeScore
-          ? Number(aggregate._avg.knowledgeScore.toFixed(2))
-          : null,
-        disciplineScore: aggregate._avg.disciplineScore
-          ? Number(aggregate._avg.disciplineScore.toFixed(2))
-          : null,
-        physicalScore: aggregate._avg.physicalScore
-          ? Number(aggregate._avg.physicalScore.toFixed(2))
-          : null,
-        totalScore: aggregate._avg.totalScore
-          ? Number(aggregate._avg.totalScore.toFixed(2))
-          : null,
+        knowledgeScore: formatTwoDecimals(aggregate._avg.knowledgeScore),
+        disciplineScore: formatTwoDecimals(aggregate._avg.disciplineScore),
+        physicalScore: formatTwoDecimals(aggregate._avg.physicalScore),
+        totalScore: formatTwoDecimals(aggregate._avg.totalScore),
       },
-      // minScores: {
-      //   knowledgeScore: aggregate._min.knowledgeScore,
-      //   disciplineScore: aggregate._min.disciplineScore,
-      //   physicalScore: aggregate._min.physicalScore,
-      //   totalScore: aggregate._min.totalScore,
-      // },
-      // maxScores: {
-      //   knowledgeScore: aggregate._max.knowledgeScore,
-      //   disciplineScore: aggregate._max.disciplineScore,
-      //   physicalScore: aggregate._max.physicalScore,
-      //   totalScore: aggregate._max.totalScore,
-      // },
+      averageByBattalion: battalionAverages
+        .map((item) => {
+          const companies = companyMap.get(item.battalion || "") || [];
+          const { highest, lowest } = getExtremesByTotalScore(companies);
+          return {
+            battalion: item.battalion,
+            battalionCode: extractBattalionCode(item.battalion),
+            total: item._count?._all ?? 0,
+            averageScores: {
+              knowledgeScore: formatTwoDecimals(item._avg.knowledgeScore),
+              disciplineScore: formatTwoDecimals(item._avg.disciplineScore),
+              physicalScore: formatTwoDecimals(item._avg.physicalScore),
+              totalScore: formatTwoDecimals(item._avg.totalScore),
+            },
+            companies,
+            highestCompany: highest,
+            lowestCompany: lowest,
+          };
+        })
+        .sort((a, b) => {
+          const aCode = Number(a.battalionCode);
+          const bCode = Number(b.battalionCode);
+          if (!Number.isNaN(aCode) && !Number.isNaN(bCode)) {
+            return aCode - bCode;
+          }
+          return String(a.battalion || "").localeCompare(
+            String(b.battalion || "")
+          );
+        }),
     });
   } catch (err) {
     console.error("getPersonalMeritScoresOverview failed:", err);

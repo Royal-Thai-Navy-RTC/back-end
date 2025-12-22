@@ -85,6 +85,29 @@ router.get(
 
 /**
  * @openapi
+ * /api/knowledge-assessments/overview:
+ *   get:
+ *     summary: Knowledge assessments overview
+ *     tags: [Knowledge Assessments]
+     security:
+       - bearerAuth: []
+     responses:
+       200:
+         description: Overview returned
+       401:
+         description: Unauthorized
+       403:
+         description: Forbidden
+ */
+router.get(
+  "/knowledge-assessments/overview",
+  middleware.verifyToken,
+  middleware.authorizeExamAccess,
+  knowledgeAssessmentController.getKnowledgeAssessmentsOverview
+);
+
+/**
+ * @openapi
  * /api/knowledge-assessments/summary:
  *   get:
  *     summary: Summarize knowledge assessments
