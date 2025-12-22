@@ -439,6 +439,48 @@ const listTeacherLeaves = async ({
   });
 };
 
+const listLeavesByYear = async ({
+  year,
+  division,
+  includeOfficial = true,
+} = {}) => {
+  const numericYear = Number(year);
+  if (!Number.isInteger(numericYear)) {
+    const err = new Error("ปีไม่ถูกต้อง");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  if (numericYear < 2000 || numericYear > 2600) {
+    const err = new Error("ปีต้องอยู่ระหว่าง 2000-2600");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+
+  const start = new Date(Date.UTC(numericYear, 0, 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(numericYear + 1, 0, 1, 0, 0, 0, 0));
+
+  const where = {
+    startDate: {
+      gte: start,
+      lt: end,
+    },
+  };
+  if (!includeOfficial) {
+    where.isOfficialDuty = false;
+  }
+
+  const divisionFilter = normalizeDivisionFilter(division);
+  if (divisionFilter) {
+    where.teacher = { division: divisionFilter };
+  }
+
+  return prisma.teacherLeave.findMany({
+    where,
+    orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
+    include: leaveRelationInclude,
+  });
+};
+
 const listOfficialDutyLeavesForOwner = async ({ status, limit = 50 } = {}) => {
   const take = Math.max(1, Math.min(Number(limit) || 50, 200));
   let normalizedStatus;
@@ -788,6 +830,7 @@ module.exports = {
   listTeacherLeaves,
   listOwnerGeneralLeaves,
   listOfficialDutyLeavesForOwner,
+  listLeavesByYear,
   updateTeacherLeaveStatus,
   ownerUpdateGeneralLeave,
   ownerUpdateOfficialDutyLeave,

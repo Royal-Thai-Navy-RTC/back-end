@@ -506,6 +506,39 @@ router.get(
 
 /**
  * @openapi
+ * /api/admin/teacher-leaves/export:
+ *   get:
+ *     summary: Export teacher leave history as Excel
+ *     tags: [Admin Leaves]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: year
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           example: 2025
+ *         description: ปีที่ต้องการส่งออก (ค่าเริ่มต้นคือปีปัจจุบัน)
+ *     responses:
+ *       200:
+ *         description: Excel file
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get(
+  "/admin/teacher-leaves/export",
+  middleware.verifyToken,
+  middleware.authorizeGeneralLeaveApprover,
+  adminTeacherLeaves.exportTeacherLeaveHistory
+);
+
+/**
+ * @openapi
   * /api/admin/teacher-leaves/{id}/status:
   *   patch:
   *     summary: Update teacher leave status
