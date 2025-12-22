@@ -517,6 +517,11 @@ enum TaskPriority {
   LOW
 }
 
+enum VideoPlatform {
+  YOUTUBE
+  TIKTOK
+}
+
 model News {
   id           Int     @id @default(autoincrement())
   title        String  @db.VarChar(255)
@@ -529,6 +534,21 @@ model News {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model VideoLink {
+  id           Int           @id @default(autoincrement())
+  title        String        @db.VarChar(255)
+  url          String        @db.VarChar(500)
+  platform     VideoPlatform
+  isActive     Boolean       @default(true)
+  displayOrder Int?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([isActive])
+  @@index([platform])
+  @@index([displayOrder])
 }
 
 model SoldierPersonalScore {
