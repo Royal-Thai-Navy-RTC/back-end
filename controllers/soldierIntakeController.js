@@ -2005,6 +2005,16 @@ const importUnitAssignments = async (req, res) => {
   }
 };
 
+const listIntakeShifts = async (_req, res) => {
+  try {
+    const shifts = await SoldierIntake.listIntakeShifts();
+    res.json({ data: shifts });
+  } catch (err) {
+    console.error("Failed to list intake shifts", err);
+    res.status(500).json({ message: "ไม่สามารถดึงข้อมูลผลัดได้" });
+  }
+};
+
 module.exports = {
   createIntake,
   listIntakes,
@@ -2019,4 +2029,5 @@ module.exports = {
   deleteAllIntakes,
   exportIntakesPdf,
   exportIntakePdfByCitizenId,
+  listIntakeShifts,
 };

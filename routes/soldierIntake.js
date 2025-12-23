@@ -28,6 +28,22 @@ router.get(
   soldierIntakeController.getIntakePublicStatus
 );
 
+/**
+ * @openapi
+ * /api/soldier-intakes/shifts:
+ *   get:
+ *     summary: List available intake shifts (public)
+ *     tags: [Soldier Intake]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: List of intake shifts
+ */
+router.get(
+  "/soldier-intakes/shifts",
+  soldierIntakeController.listIntakeShifts
+);
+
 // อัปเดตสถานะฟอร์ม (ADMIN)
 /**
  * @openapi
@@ -254,6 +270,29 @@ router.delete(
   middleware.verifyToken,
   middleware.authorizeOwner,
   soldierIntakeController.deleteAllIntakes
+);
+
+/**
+ * @openapi
+ * /api/admin/soldier-intakes/shifts:
+ *   get:
+ *     summary: List available intake shifts
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of intake shifts
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get(
+  "/admin/soldier-intakes/shifts",
+  middleware.verifyToken,
+  middleware.authorizeSoldierData,
+  soldierIntakeController.listIntakeShifts
 );
 
 /**

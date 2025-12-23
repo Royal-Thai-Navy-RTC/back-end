@@ -75,41 +75,42 @@ function buildDateRange(startDate, endDate) {
 }
 
 // ✅ ดึงข้อมูลด้วย Prisma แทน SQL ตรง ๆ (ใช้สำหรับ export Excel เท่านั้น)
-async function findReports({ startDate, endDate }) {
+async function findReports({ teacherId, startDate, endDate }) {
   const trainingDateRange = buildDateRange(startDate, endDate);
 
+  const where = {
+    ...(trainingDateRange ? { trainingDate: trainingDateRange } : {}),
+  };
+
+  const normalizedTeacherId = Number(teacherId);
+  if (Number.isInteger(normalizedTeacherId) && normalizedTeacherId > 0) {
+    where.teacherId = normalizedTeacherId;
+  }
+
   const reports = await prisma.trainingReport.findMany({
-    where: {
-      ...(trainingDateRange ? { trainingDate: trainingDateRange } : {}),
-    },
+    where,
     orderBy: [
       { trainingDate: "asc" },
       { trainingTime: "asc" },
       { id: "asc" }
     ],
+    include: {
+      teacher: {
+        select: {
+          firstName: true,
+          lastName: true,
+          username: true,
+        },
+      },
+    },
   });
 
   return reports;
 }
 
 // ✅ สร้างไฟล์ Excel หน้าเหมือนตัวอย่าง
-async function exportReportsToExcel({ teacherId, startDate, endDate }) {
-  const rows = await findReports({ teacherId, startDate, endDate });
-
-  let homeroomTeacher = "";
-  if (teacherId) {
-    const user = await prisma.user.findUnique({
-      where: { id: teacherId },
-      select: { firstName: true, lastName: true, username: true },
-    });
-
-    if (user) {
-      homeroomTeacher = `${user.firstName || ""} ${user.lastName || ""}`.trim();
-      if (!homeroomTeacher && user.username) {
-        homeroomTeacher = user.username;
-      }
-    }
-  }
+async function exportReportsToExcel({ startDate, endDate }) {
+  const rows = await findReports({ startDate, endDate });
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("รายงานการฝึก");
@@ -202,6 +203,10 @@ async function exportReportsToExcel({ teacherId, startDate, endDate }) {
   rows.forEach((item) => {
     const timeRange = buildTimeRange(item.trainingTime, item.durationHours);
     const unitText = `${item.battalion || ""}/${item.company || ""}`;
+    const teacherFullName = item.teacher
+      ? `${item.teacher.firstName || ""} ${item.teacher.lastName || ""}`.trim()
+      : "";
+    const homeroomTeacher = teacherFullName || item.teacher?.username || "";
 
     const row = sheet.getRow(currentRow);
 
@@ -312,7 +317,6 @@ const exportTrainingReportsExcel = async (req, res) => {
     const { startDate, endDate } = req.query || {};
 
     const excelBuffer = await exportReportsToExcel({
-      teacherId: req.userId,
       startDate,
       endDate,
     });

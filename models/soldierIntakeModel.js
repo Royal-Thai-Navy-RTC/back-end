@@ -1426,6 +1426,25 @@ module.exports = {
     }));
   },
 
+  listIntakeShifts: async () => {
+    ensureModelAvailable();
+    const rows = await prisma.soldierIntake.findMany({
+      where: { intakeShift: { not: null } },
+      select: { intakeShift: true },
+      distinct: ["intakeShift"],
+      orderBy: { intakeShift: "asc" },
+    });
+    const seen = new Set();
+    return rows
+      .map((row) => (row?.intakeShift || "").trim())
+      .filter((value) => {
+        if (!value) return false;
+        if (seen.has(value)) return false;
+        seen.add(value);
+        return true;
+      });
+  },
+
   summary: async (battalionCode, companyCode) => {
     ensureModelAvailable();
 
