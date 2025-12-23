@@ -212,7 +212,7 @@ const getAdminLeaveSummary = async ({ division } = {}) => {
     prisma.teacherLeave.findMany({
       where: {
         teacher: { role: "TEACHER", ...teacherDivisionWhere },
-        status: { in: ["PENDING", "APPROVED"] },
+        status: "APPROVED",
         startDate: { lte: now },
         OR: [{ endDate: null }, { endDate: { gte: now } }],
       },
@@ -236,7 +236,7 @@ const getAdminLeaveSummary = async ({ division } = {}) => {
           role: { in: ["ADMIN", "OWNER", "SUB_ADMIN"] },
           ...teacherDivisionWhere,
         },
-        status: { in: ["PENDING", "APPROVED"] },
+        status: "APPROVED",
         startDate: { lte: now },
         OR: [{ endDate: null }, { endDate: { gte: now } }],
       },
@@ -726,12 +726,24 @@ const ownerUpdateOfficialDutyLeave = async ({ leaveId, status, approverId }) => 
 const listCurrentApprovedLeaves = async ({
   includeOfficial = false,
   division,
+  teacherId,
 } = {}) => {
   const now = new Date();
+  let teacherFilter = {};
+  if (teacherId !== undefined && teacherId !== null) {
+    const numericTeacherId = Number(teacherId);
+    if (!Number.isInteger(numericTeacherId) || numericTeacherId <= 0) {
+      const err = new Error("teacherId ไม่ถูกต้อง");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+    teacherFilter = { teacherId: numericTeacherId };
+  }
   const whereBase = {
     status: "APPROVED",
     startDate: { lte: now },
     OR: [{ endDate: null }, { endDate: { gte: now } }],
+    ...teacherFilter,
   };
   const divisionFilter = normalizeDivisionFilter(division);
   const whereWithDivision = divisionFilter

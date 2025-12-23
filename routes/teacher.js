@@ -146,6 +146,44 @@ router.get(
 
 /**
  * @openapi
+ * /api/teacher/leaves/current:
+ *   get:
+ *     summary: List my current active leaves (admin or teacher)
+ *     tags: [Teacher Leaves]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: includeOfficial
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *         description: ตั้งค่าเป็น false เพื่อไม่ดึงข้อมูลลาไปราชการ
+ *       - in: query
+ *         name: teacherId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: สำหรับ ADMIN/OWNER เท่านั้น ใช้ระบุครูเป้าหมาย
+ *     responses:
+ *       200:
+ *         description: List returned
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get(
+  "/teacher/leaves/current",
+  middleware.verifyToken,
+  middleware.authorizeAdminOrTeacher,
+  teacherLeaveController.listMyCurrentLeaves
+);
+
+/**
+ * @openapi
  * /api/teacher/official-duty-leaves:
  *   post:
  *     summary: Request official duty leave (admin or teacher)

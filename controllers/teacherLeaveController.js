@@ -97,6 +97,29 @@ const listMyOfficialDutyLeaves = async (req, res) => {
   }
 };
 
+const listMyCurrentLeaves = async (req, res) => {
+  try {
+    const includeOfficial = req.query?.includeOfficial !== "false";
+    const targetTeacherId =
+      req.userRole === "ADMIN" || req.userRole === "OWNER"
+        ? req.query?.teacherId || req.userId
+        : req.userId;
+    const leaves = await TeacherLeave.listCurrentApprovedLeaves({
+      includeOfficial,
+      teacherId: targetTeacherId,
+    });
+    res.json({ data: leaves });
+  } catch (err) {
+    if (err.code === "VALIDATION_ERROR") {
+      return res.status(400).json({ message: err.message });
+    }
+    res.status(500).json({
+      message: "ไม่สามารถดึงข้อมูลการลาปัจจุบันได้",
+      detail: err.message,
+    });
+  }
+};
+
 const cancelMyLeave = async (req, res) => {
   try {
     const leave = await TeacherLeave.cancelLeaveByTeacher({
@@ -123,5 +146,6 @@ module.exports = {
   requestOfficialDutyLeave,
   listMyLeaves,
   listMyOfficialDutyLeaves,
+  listMyCurrentLeaves,
   cancelMyLeave,
 };
