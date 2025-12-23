@@ -414,6 +414,7 @@ model SoldierIntake {
   companyCode     String?  @db.VarChar(50)
   platoonCode     Int?
   sequenceNumber  Int?
+  intakeShift     String?  @db.VarChar(32)
   accidentHistory Boolean? @default(false)
   surgeryHistory  Boolean? @default(false)
   tattoo          Boolean? @default(false)

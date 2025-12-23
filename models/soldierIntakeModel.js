@@ -241,6 +241,113 @@ const normalizeNonNegativeInt = (value, field) => {
   return num;
 };
 
+const toBuddhistYear = (yearNumber) => {
+  if (!Number.isFinite(yearNumber)) return null;
+  const intYear = Math.round(yearNumber);
+  if (intYear < 100) return 2500 + intYear; // short form 68 -> 2568
+  if (intYear < 2500) return intYear + 543; // assume Gregorian -> convert
+  return intYear;
+};
+
+const parseIntakeShiftValue = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  const numbers = text.match(/\d+/g);
+  if (!numbers || numbers.length === 0) return null;
+  const shiftNum = Number(numbers[0]);
+  if (!Number.isInteger(shiftNum) || shiftNum < 1 || shiftNum > 4) return null;
+
+  let buddhistYear = null;
+  if (numbers.length >= 2) {
+    const candidateYear = Number(numbers[1]);
+    const normalizedYear = toBuddhistYear(candidateYear);
+    if (normalizedYear && Number.isInteger(normalizedYear)) {
+      buddhistYear = normalizedYear;
+    }
+  }
+
+  return { shift: shiftNum, buddhistYear };
+};
+
+const formatIntakeShiftValue = (shift, buddhistYear) => {
+  if (!Number.isInteger(shift) || shift < 1 || shift > 4) return undefined;
+  if (!Number.isInteger(buddhistYear)) return String(shift);
+  const shortYear = String(buddhistYear).slice(-2);
+  return `${shift}/${shortYear}`;
+};
+
+const determineIntakeShiftNumber = (date = new Date()) => {
+  const ref = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(ref.getTime())) return null;
+  const month = ref.getMonth() + 1; // 1-12
+  if (month >= 5 && month <= 7) return 1; // พ.ค. - ก.ค.
+  if (month >= 8 && month <= 10) return 2; // ส.ค. - ต.ค.
+  if (month === 11 || month === 12 || month === 1) return 3; // พ.ย. - ม.ค.
+  return 4; // ก.พ. - เม.ย.
+};
+
+const determineIntakeShiftYear = (date = new Date(), shiftNumber) => {
+  const ref = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(ref.getTime())) return null;
+  const buddhistYear = ref.getFullYear() + 543;
+  const shift = Number(shiftNumber);
+  if (shift === 4) {
+    // ผลัด 4 ถือเป็นรุ่นของปีก่อนหน้า (รายงานตัว ก.พ. ปีถัดไป)
+    return buddhistYear - 1;
+  }
+  return buddhistYear;
+};
+
+const normalizeIntakeShift = (value, options = {}) => {
+  const parsed = parseIntakeShiftValue(value);
+  if (!parsed) return undefined;
+  const shift = parsed.shift;
+  const refDate =
+    options.referenceDate instanceof Date ? options.referenceDate : new Date();
+  const year =
+    parsed.buddhistYear ??
+    determineIntakeShiftYear(refDate, shift) ??
+    null;
+  if (!Number.isInteger(shift) || shift < 1 || shift > 4) {
+    const err = new Error("intakeShift ต้องเป็น 1, 2, 3 หรือ 4");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  if (year && !Number.isInteger(year)) {
+    const err = new Error("intakeShift year ไม่ถูกต้อง");
+    err.code = "VALIDATION_ERROR";
+    throw err;
+  }
+  return formatIntakeShiftValue(shift, year);
+};
+
+const determineIntakeShift = (date = new Date()) => {
+  const shift = determineIntakeShiftNumber(date);
+  if (!shift) return undefined;
+  const year = determineIntakeShiftYear(date, shift);
+  return formatIntakeShiftValue(shift, year);
+};
+
+const buildIntakeShiftWhere = (value) => {
+  const parsed = parseIntakeShiftValue(value);
+  if (!parsed) return null;
+  const formatted = parsed.buddhistYear
+    ? formatIntakeShiftValue(parsed.shift, parsed.buddhistYear)
+    : null;
+  if (formatted) {
+    // รองรับรูปแบบเก่า (มีวงเล็บ) แบบ startsWith
+    return {
+      OR: [
+        { intakeShift: { equals: formatted } },
+        { intakeShift: { startsWith: `${formatted} (` } },
+      ],
+    };
+  }
+  // ถ้าไม่ได้ระบุปี ให้ filter ตามเลขผลัด (prefix)
+  return { intakeShift: { startsWith: `${parsed.shift}/` } };
+};
+
 const normalizeInput = (input = {}) => {
   const firstName = normalizeString(input.firstName);
   const lastName = normalizeString(input.lastName);
@@ -287,6 +394,7 @@ const normalizeInput = (input = {}) => {
     companyCode: normalizeString(input.companyCode),
     platoonCode,
     sequenceNumber,
+    intakeShift: normalizeIntakeShift(input.intakeShift),
     education: normalizeString(input.education),
     previousJob: normalizeString(input.previousJob),
     religion: normalizeString(input.religion),
@@ -334,6 +442,11 @@ const applyJsonArrayContainsFilter = (where, field, value) => {
 const buildIntakeWhereClause = (filters = {}) => {
   const where = {};
 
+  const ensureAnd = () => {
+    if (!where.AND) where.AND = [];
+    return where.AND;
+  };
+
   const battalionCode = normalizeString(filters?.battalionCode);
   if (battalionCode) {
     where.battalionCode = battalionCode;
@@ -342,6 +455,12 @@ const buildIntakeWhereClause = (filters = {}) => {
   const companyCode = normalizeString(filters?.companyCode);
   if (companyCode) {
     where.companyCode = companyCode;
+  }
+
+  const intakeShiftWhere = buildIntakeShiftWhere(filters?.intakeShift);
+  if (intakeShiftWhere) {
+    const and = ensureAnd();
+    and.push(intakeShiftWhere);
   }
 
   if (
@@ -384,11 +503,6 @@ const buildIntakeWhereClause = (filters = {}) => {
   } else if (filters?.hasSpecialSkills === false) {
     where.specialSkills = null;
   }
-
-  const ensureAnd = () => {
-    if (!where.AND) where.AND = [];
-    return where.AND;
-  };
 
   if (filters?.hasChronicDiseases === true) {
     const and = ensureAnd();
@@ -905,6 +1019,10 @@ module.exports = {
       score: roundTwoDecimals(radarSum),
       percent: roundTwoDecimals(radarPercent),
     };
+
+    if (!data.intakeShift) {
+      data.intakeShift = determineIntakeShift(new Date());
+    }
 
     // ถ้าตารางเป็น string แทน ให้ใช้แบบนี้แทน:
     // data.radarProfileJson = JSON.stringify(radarProfile);

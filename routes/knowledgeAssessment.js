@@ -89,15 +89,15 @@ router.get(
  *   get:
  *     summary: Knowledge assessments overview
  *     tags: [Knowledge Assessments]
-     security:
-       - bearerAuth: []
-     responses:
-       200:
-         description: Overview returned
-       401:
-         description: Unauthorized
-       403:
-         description: Forbidden
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Overview returned
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  */
 router.get(
   "/knowledge-assessments/overview",

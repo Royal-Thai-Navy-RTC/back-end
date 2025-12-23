@@ -15,6 +15,24 @@ const getTrainingReportDashboard = async (req, res) => {
   }
 };
 
+const getCompanyTrainingReportSummary = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query || {};
+    const data = await TrainingReport.getCompanyParticipantSummary({
+      startDate,
+      endDate,
+    });
+    res.json(data);
+  } catch (err) {
+    const status = err.code === "VALIDATION_ERROR" ? 400 : 500;
+    res.status(status).json({
+      message: "ไม่สามารถโหลดสรุปการส่งยอดกองร้อยได้",
+      detail: err.message,
+    });
+  }
+};
+
 module.exports = {
   getTrainingReportDashboard,
+  getCompanyTrainingReportSummary,
 };

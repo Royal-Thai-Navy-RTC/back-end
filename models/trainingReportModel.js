@@ -85,6 +85,31 @@ const bangkokDayRangeUtc = (date) => {
   return { startUtc, endUtc };
 };
 
+const buildTrainingDateRange = (startDate, endDate) => {
+  if (!startDate && !endDate) return undefined;
+
+  const range = {};
+  if (startDate) {
+    const start = new Date(`${startDate}T00:00:00`);
+    if (Number.isNaN(start.getTime())) {
+      const err = new Error("รูปแบบ startDate ไม่ถูกต้อง (ต้องเป็น YYYY-MM-DD)");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+    range.gte = start;
+  }
+  if (endDate) {
+    const end = new Date(`${endDate}T23:59:59`);
+    if (Number.isNaN(end.getTime())) {
+      const err = new Error("รูปแบบ endDate ไม่ถูกต้อง (ต้องเป็น YYYY-MM-DD)");
+      err.code = "VALIDATION_ERROR";
+      throw err;
+    }
+    range.lte = end;
+  }
+  return Object.keys(range).length ? range : undefined;
+};
+
 const findScheduleForReport = async ({ teacherId, trainingDate, subject }) => {
   const { startUtc, endUtc } = bangkokDayRangeUtc(trainingDate);
   return prisma.teachingSchedule.findFirst({
@@ -284,8 +309,75 @@ const getAdminTrainingReportSummary = async ({ search } = {}) => {
   };
 };
 
+const getCompanyParticipantSummary = async ({ startDate, endDate } = {}) => {
+  const trainingDate = buildTrainingDateRange(startDate, endDate);
+
+  const subjectsGroup = await prisma.trainingReport.groupBy({
+    by: ["battalion", "company", "subject"],
+    ...(trainingDate ? { where: { trainingDate } } : {}),
+    _sum: { participantCount: true },
+    _count: { _all: true },
+  });
+
+  const subjectMap = new Map();
+  for (const row of subjectsGroup) {
+    const key = `${row.battalion || ""}|||${row.company || ""}`;
+    if (!subjectMap.has(key)) {
+      subjectMap.set(key, []);
+    }
+    if (row.subject) {
+      subjectMap.get(key).push({
+        subject: String(row.subject),
+        participantTotal: row._sum.participantCount || 0,
+        reportCount: row._count._all || 0,
+      });
+    }
+  }
+
+  const groups = await prisma.trainingReport.groupBy({
+    by: ["battalion", "company"],
+    ...(trainingDate ? { where: { trainingDate } } : {}),
+    _sum: { participantCount: true },
+    _count: { _all: true },
+  });
+
+  const mapped = groups
+    .filter((g) => g.company || g.battalion)
+    .map((g) => ({
+      battalion: g.battalion || "ไม่ระบุ",
+      company: g.company || "ไม่ระบุ",
+      participantTotal: g._sum.participantCount || 0,
+      reportCount: g._count._all || 0,
+      subjects: (subjectMap.get(`${g.battalion || ""}|||${g.company || ""}`) || [])
+        .sort((a, b) => a.subject.localeCompare(b.subject, undefined, { sensitivity: "base" })),
+    }))
+    .sort((a, b) => {
+      const batA = Number(a.battalion);
+      const batB = Number(b.battalion);
+      if (!Number.isNaN(batA) && !Number.isNaN(batB) && batA !== batB) {
+        return batA - batB;
+      }
+      return String(a.company).localeCompare(String(b.company), undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
+
+  return {
+    filters: {
+      startDate: startDate || null,
+      endDate: endDate || null,
+    },
+    labels: mapped.map((item) => `${item.battalion}/${item.company}`),
+    data: mapped.map((item) => item.participantTotal),
+    groups: mapped,
+    totalParticipants: mapped.reduce((acc, cur) => acc + (cur.participantTotal || 0), 0),
+  };
+};
+
 module.exports = {
   createTrainingReport,
   getRecentReportsForTeacher,
   getAdminTrainingReportSummary,
+  getCompanyParticipantSummary,
 };

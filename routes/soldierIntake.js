@@ -111,6 +111,13 @@ router.post(
  *         required: false
  *         schema:
  *           type: integer
+ *       - in: query
+ *         name: intakeShift
+ *         required: false
+ *         schema:
+ *           type: string
+ *           example: "1/68"
+ *         description: คัดกรองผลัด เช่น "1/68" (ถ้าใส่แค่เลขผลัดจะค้นตามผลัดทั้งหมด)
  *     responses:
  *       200:
  *         description: List returned
@@ -134,6 +141,14 @@ router.get(
  *     tags: [Soldier Intake]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: intakeShift
+ *         required: false
+ *         schema:
+ *           type: string
+ *           example: "1/68"
+ *         description: กรองผลัด เช่น "1/68" (ไม่ใส่จะส่งออกทั้งหมด)
  *     responses:
  *       200:
  *         description: Excel file
@@ -157,6 +172,14 @@ router.get(
  *     tags: [Soldier Intake]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: intakeShift
+ *         required: false
+ *         schema:
+ *           type: string
+ *           example: "1/68"
+ *         description: กรองผลัด เช่น "1/68" (ไม่ใส่จะส่งออกทั้งหมด)
  *     responses:
  *       200:
  *         description: PDF file

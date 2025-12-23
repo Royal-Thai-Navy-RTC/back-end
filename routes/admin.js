@@ -453,6 +453,46 @@ router.get(
 );
 
 /**
+ * @openapi
+  * /api/admin/training-reports/company-summary:
+  *   get:
+  *     summary: Company participant summary from training reports
+  *     tags: [Admin Training]
+  *     security:
+  *       - bearerAuth: []
+  *     parameters:
+  *       - in: query
+  *         name: startDate
+  *         required: false
+  *         schema:
+  *           type: string
+  *           format: date
+  *         description: กรองข้อมูลตั้งแต่วันที่ (YYYY-MM-DD)
+  *       - in: query
+  *         name: endDate
+  *         required: false
+  *         schema:
+  *           type: string
+  *           format: date
+  *         description: กรองข้อมูลถึงวันที่ (YYYY-MM-DD)
+  *     responses:
+  *       200:
+  *         description: Summary returned
+  *       400:
+  *         description: Invalid input
+  *       401:
+  *         description: Unauthorized
+  *       403:
+  *         description: Forbidden
+  */
+router.get(
+  "/admin/training-reports/company-summary",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  adminTrainingReports.getCompanyTrainingReportSummary
+);
+
+/**
  * =========================
  * Admin : Teacher Leaves
  * =========================

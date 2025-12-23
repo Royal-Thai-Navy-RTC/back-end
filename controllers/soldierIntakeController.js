@@ -262,6 +262,39 @@ const normalizeFilterString = (value) => {
   return text || undefined;
 };
 
+const normalizeIntakeShiftFilter = (value) => {
+  if (value === undefined || value === null || value === "") return undefined;
+  const numbers = String(value).trim().match(/\d+/g);
+  if (!numbers || numbers.length === 0) return undefined;
+  const shift = Number(numbers[0]);
+  if (!Number.isInteger(shift) || shift < 1 || shift > 4) return undefined;
+
+  const yearPart = numbers[1];
+  if (!yearPart) {
+    if (shift === 4) {
+      const currentBuddhistYear = new Date().getFullYear() + 543;
+      const year = currentBuddhistYear - 1;
+      const shortYear = String(year).slice(-2);
+      return `${shift}/${shortYear}`;
+    }
+    return String(shift);
+  }
+
+  const toBuddhistYear = (yearNumber) => {
+    if (!Number.isFinite(yearNumber)) return null;
+    const intYear = Math.round(yearNumber);
+    if (intYear < 100) return 2500 + intYear;
+    if (intYear < 2500) return intYear + 543;
+    return intYear;
+  };
+
+  const buddhistYear = toBuddhistYear(Number(yearPart));
+  if (!buddhistYear) return String(shift);
+  const shortYear = String(buddhistYear).slice(-2);
+  // return `${shift}/${shortYear} (${buddhistYear})`;
+  return `${shift}/${shortYear}`;
+};
+
 const autoFitColumns = (rows) => {
   if (!Array.isArray(rows) || rows.length === 0) return [];
   const headers = Object.keys(rows[0]);
@@ -331,6 +364,16 @@ const buildExportFilters = (req) => {
     const value = normalize(filters.companyCode);
     filters.companyCode = value || undefined;
   }
+
+  const intakeShift = normalizeIntakeShiftFilter(
+    filters.intakeShift ?? req.query.intakeShift ?? req.query.shift
+  );
+  if (intakeShift) {
+    filters.intakeShift = intakeShift;
+  } else {
+    delete filters.intakeShift;
+  }
+
   const unitFilter = mapRoleToUnitFilter(req.userRole);
 
   if (unitFilter) {
@@ -1447,6 +1490,15 @@ const listIntakes = async (req, res) => {
     applyStringFilter("educationFilter", "education");
     applyStringFilter("bloodFilter", "bloodGroup");
 
+    const intakeShift = normalizeIntakeShiftFilter(
+      req.query.intakeShift ?? req.query.shift
+    );
+    if (intakeShift) {
+      filters.intakeShift = intakeShift;
+    } else {
+      delete filters.intakeShift;
+    }
+
     const parsePositiveIntFilter = (value) => {
       if (value === undefined || value === null || value === "")
         return undefined;
@@ -1584,6 +1636,7 @@ const exportIntakes = async (req, res) => {
       กองร้อย: item.companyCode || "",
       หมวด: item.platoonCode ?? "",
       ลำดับ: item.sequenceNumber ?? "",
+      ผลัด: item.intakeShift || "",
       การศึกษา: item.education || "",
       อาชีพก่อนเป็นทหาร: item.previousJob || "",
       ศาสนา: item.religion || "",
