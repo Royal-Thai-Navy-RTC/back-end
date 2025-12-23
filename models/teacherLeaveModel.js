@@ -699,11 +699,11 @@ const ownerUpdateGeneralLeave = async ({ leaveId, status, approverId }) => {
   if (existing.isOfficialDuty) {
     return ownerUpdateOfficialDutyLeave({ leaveId, status, approverId });
   }
-  if (existing.adminApprovalStatus !== "APPROVED") {
-    const err = new Error("ต้องผ่านการอนุมัติจากแอดมินก่อน");
-    err.code = "VALIDATION_ERROR";
-    throw err;
-  }
+  // if (existing.adminApprovalStatus !== "APPROVED") {
+  //   const err = new Error("ต้องผ่านการอนุมัติจากแอดมินก่อน");
+  //   err.code = "VALIDATION_ERROR";
+  //   throw err;
+  // }
 
   const data = {
     ownerApprovalStatus: normalizedStatus,
