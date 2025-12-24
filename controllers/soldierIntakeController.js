@@ -341,13 +341,23 @@ const createIntake = async (req, res) => {
 const mapRoleToUnitFilter = (role) => {
   if (!role || typeof role !== "string") return null;
 
-  const match = /^BAT(\d+)_COM(\d+)$/.exec(role);
-  if (!match) return null;
+  const normalized = role.trim().toUpperCase();
+  const companyMatch = /^BAT(\d+)_COM(\d+)$/.exec(normalized);
+  if (companyMatch) {
+    return {
+      battalionCode: String(Number(companyMatch[1])),
+      companyCode: String(Number(companyMatch[2])),
+    };
+  }
 
-  return {
-    battalionCode: String(Number(match[1])),
-    companyCode: String(Number(match[2])),
-  };
+  const battalionMatch = /^BAT(\d+)_CMD$/.exec(normalized);
+  if (battalionMatch) {
+    return {
+      battalionCode: String(Number(battalionMatch[1])),
+    };
+  }
+
+  return null;
 };
 
 const buildExportFilters = (req) => {
@@ -376,8 +386,10 @@ const buildExportFilters = (req) => {
 
   const unitFilter = mapRoleToUnitFilter(req.userRole);
 
-  if (unitFilter) {
+  if (unitFilter?.battalionCode) {
     filters.battalionCode = unitFilter.battalionCode;
+  }
+  if (unitFilter?.companyCode) {
     filters.companyCode = unitFilter.companyCode;
   }
 
@@ -1580,8 +1592,10 @@ const listIntakes = async (req, res) => {
       delete filters.religionOther;
     }
 
-    if (unitFilter) {
+    if (unitFilter?.battalionCode) {
       filters.battalionCode = unitFilter.battalionCode;
+    }
+    if (unitFilter?.companyCode) {
       filters.companyCode = unitFilter.companyCode;
     }
 
@@ -1882,8 +1896,10 @@ const summary = async (req, res) => {
     const filters = { ...(req.query || {}) };
     const unitFilter = mapRoleToUnitFilter(req.userRole);
 
-    if (unitFilter) {
+    if (unitFilter?.battalionCode) {
       filters.battalionCode = unitFilter.battalionCode;
+    }
+    if (unitFilter?.companyCode) {
       filters.companyCode = unitFilter.companyCode;
     }
     const data = await SoldierIntake.summary(
