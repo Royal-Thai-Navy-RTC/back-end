@@ -34,6 +34,13 @@ const optionalAvatarUpload = (req, res, next) => {
  *     responses:
  *       200:
  *         description: List of users
+ *     parameters:
+ *       - in: query
+ *         name: onlydivision
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *         description: กรองเฉพาะผู้ใช้ที่มี division (default false)
  */
 router.get(
   "/admin/users",

@@ -100,6 +100,15 @@ const saveBase64Avatar = async (userId, parsed) => {
   return publicPath;
 };
 
+const parseBooleanQuery = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return undefined;
+  if (["true", "1", "yes", "y"].includes(normalized)) return true;
+  if (["false", "0", "no", "n"].includes(normalized)) return false;
+  return undefined;
+};
+
 const adminUpdateUser = async (req, res) => {
   const targetId = req.params && req.params.id;
   if (!targetId) {
@@ -146,7 +155,9 @@ const adminGetAllUsers = async (req, res) => {
       division,
       isOnOfficialDuty,
       isAnnualHealthCheckDone,
+      onlydivision,
     } = req.query || {};
+    const onlyWithDivisionFlag = parseBooleanQuery(onlydivision);
     const result = await User.listUsers({
       page,
       pageSize,
@@ -155,6 +166,7 @@ const adminGetAllUsers = async (req, res) => {
       division,
       isOnOfficialDuty,
       isAnnualHealthCheckDone,
+      onlyWithDivision: onlyWithDivisionFlag === undefined ? false : onlyWithDivisionFlag,
     });
     const totalPages = Math.ceil(result.total / result.pageSize) || 1;
     res.json({
