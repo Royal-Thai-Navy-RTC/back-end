@@ -155,7 +155,6 @@ const adminGetAllUsers = async (req, res) => {
       division,
       isOnOfficialDuty,
       isAnnualHealthCheckDone,
-      onlyWithDivision: true,
     });
     const totalPages = Math.ceil(result.total / result.pageSize) || 1;
     res.json({
