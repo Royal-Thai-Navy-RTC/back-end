@@ -309,8 +309,11 @@ const getAdminTrainingReportSummary = async ({ search } = {}) => {
   };
 };
 
-const getCompanyParticipantSummary = async ({ startDate, endDate } = {}) => {
-  const trainingDate = buildTrainingDateRange(startDate, endDate);
+const getCompanyParticipantSummary = async ({ date, startDate, endDate } = {}) => {
+  const singleDate = typeof date === "string" && date.trim() ? date.trim() : null;
+  const filterStart = singleDate || startDate;
+  const filterEnd = singleDate || endDate;
+  const trainingDate = buildTrainingDateRange(filterStart, filterEnd);
 
   const subjectsGroup = await prisma.trainingReport.groupBy({
     by: ["battalion", "company", "subject"],
@@ -365,8 +368,9 @@ const getCompanyParticipantSummary = async ({ startDate, endDate } = {}) => {
 
   return {
     filters: {
-      startDate: startDate || null,
-      endDate: endDate || null,
+      date: singleDate || null,
+      startDate: filterStart || null,
+      endDate: filterEnd || null,
     },
     labels: mapped.map((item) => `${item.battalion}/${item.company}`),
     data: mapped.map((item) => item.participantTotal),

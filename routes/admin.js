@@ -458,12 +458,19 @@ router.get(
   *   get:
   *     summary: Company participant summary from training reports
   *     tags: [Admin Training]
-  *     security:
-  *       - bearerAuth: []
-  *     parameters:
-  *       - in: query
-  *         name: startDate
-  *         required: false
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: กรองตามวันเดียว (ส่งค่านี้จะ override startDate/endDate)
+ *       - in: query
+ *         name: startDate
+ *         required: false
   *         schema:
   *           type: string
   *           format: date

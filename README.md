@@ -58,7 +58,7 @@
 ## 4) Admin – แดชบอร์ดรายงานการฝึก (ADMIN)
 
 - `GET /admin/training-reports` — query `search`; คืน overview + teacherStats + recentReports
-- `GET /admin/training-reports/company-summary` — query `startDate`, `endDate`; คืน labels/data/groups สำหรับกราฟจำนวนผู้เข้าร่วมตามกองพัน/กองร้อย
+- `GET /admin/training-reports/company-summary` — query `date` (single day) หรือ `startDate`, `endDate`; คืน labels/data/groups สำหรับกราฟจำนวนผู้เข้าร่วมตามกองพัน/กองร้อย
 
 ---
 

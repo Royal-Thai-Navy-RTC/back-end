@@ -17,8 +17,10 @@ const getTrainingReportDashboard = async (req, res) => {
 
 const getCompanyTrainingReportSummary = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query || {};
+    const { startDate, endDate, date } = req.query || {};
+    // `date` is a convenience param for filtering a single day; it overrides start/end when provided
     const data = await TrainingReport.getCompanyParticipantSummary({
+      date,
       startDate,
       endDate,
     });

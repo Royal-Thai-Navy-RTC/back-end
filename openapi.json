@@ -439,6 +439,16 @@
     "parameters": [
       {
         "in": "query",
+        "name": "date",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        },
+        "description": "Filter by a single day; overrides startDate/endDate when provided"
+      },
+      {
+        "in": "query",
         "name": "startDate",
         "required": false,
         "schema": {
