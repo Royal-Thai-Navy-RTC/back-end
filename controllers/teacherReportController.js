@@ -4,6 +4,45 @@ const TrainingReport = require("../models/trainingReportModel");
 const ExcelJS = require("exceljs");
 const prisma = require("../utils/prisma");
 
+const RANK_LABEL = {
+  ADMIRAL: "พลเรือเอก",
+  ADMIRAL_FEMALE: "พลเรือเอกหญิง",
+  VICE_ADMIRAL: "พลเรือโท",
+  VICE_ADMIRAL_FEMALE: "พลเรือโทหญิง",
+  REAR_ADMIRAL: "พลเรือตรี",
+  REAR_ADMIRAL_FEMALE: "พลเรือตรีหญิง",
+  CAPTAIN: "นาวาเอก",
+  CAPTAIN_FEMALE: "นาวาเอกหญิง",
+  COMMANDER: "นาวาโท",
+  COMMANDER_FEMALE: "นาวาโทหญิง",
+  LIEUTENANT_COMMANDER: "นาวาตรี",
+  LIEUTENANT_COMMANDER_FEMALE: "นาวาตรีหญิง",
+  LIEUTENANT: "เรือเอก",
+  LIEUTENANT_FEMALE: "เรือเอกหญิง",
+  SUB_LIEUTENANT: "เรือโท",
+  SUB_LIEUTENANT_FEMALE: "เรือโทหญิง",
+  ENSIGN: "เรือตรี",
+  ENSIGN_FEMALE: "เรือตรีหญิง",
+  PETTY_OFFICER_1: "พันจ่าเอก",
+  PETTY_OFFICER_1_FEMALE: "พันจ่าเอกหญิง",
+  PETTY_OFFICER_2: "พันจ่าโท",
+  PETTY_OFFICER_2_FEMALE: "พันจ่าโทหญิง",
+  PETTY_OFFICER_3: "พันจ่าตรี",
+  PETTY_OFFICER_3_FEMALE: "พันจ่าตรีหญิง",
+  LIEUTENANT_COLONEL: "พันโท",
+  LIEUTENANT_COLONEL_FEMALE: "พันโทหญิง",
+  MAJOR: "พันตรี",
+  MAJOR_FEMALE: "พันตรีหญิง",
+  PETTY_OFFICER: "จ่าเอก",
+  PETTY_OFFICER_FEMALE: "จ่าเอกหญิง",
+  LEADING_RATING: "จ่าโท",
+  LEADING_RATING_FEMALE: "จ่าโทหญิง",
+  ABLE_SEAMAN: "จ่าตรี",
+  ABLE_SEAMAN_FEMALE: "จ่าตรีหญิง",
+  COMPANY: "กองร้อย",
+  SEAMAN_RECRUIT: "พลฯ",
+};
+
 // ชื่อวัน/เดือนแบบไทย
 const thaiDays = [
   "อาทิตย์",
@@ -29,6 +68,12 @@ const thaiMonths = [
   "พฤศจิกายน",
   "ธันวาคม",
 ];
+
+const toRankLabel = (rank) => {
+  if (!rank) return "";
+  const normalized = String(rank).trim().toUpperCase();
+  return RANK_LABEL[normalized] || rank;
+};
 
 function formatThaiDate(dateInput) {
   if (!dateInput) return "";
@@ -97,6 +142,7 @@ async function findReports({ teacherId, startDate, endDate }) {
     include: {
       teacher: {
         select: {
+          rank: true,
           firstName: true,
           lastName: true,
           username: true,
@@ -204,10 +250,9 @@ async function exportReportsToExcel({ startDate, endDate }) {
     const timeRange = buildTimeRange(item.trainingTime, item.durationHours);
     const unitText = `${item.battalion || ""}/${item.company || ""}`;
     const teacherFullName = item.teacher
-      ? `${item.teacher.firstName || ""} ${item.teacher.lastName || ""}`.trim()
+      ? `${toRankLabel(item.teacher.rank)} ${item.teacher.firstName || ""} ${item.teacher.lastName || ""}`.trim()
       : "";
     const homeroomTeacher = teacherFullName || item.teacher?.username || "";
-
     const row = sheet.getRow(currentRow);
 
     row.getCell(1).value = ""; // margin
