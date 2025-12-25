@@ -219,4 +219,17 @@ module.exports = {
       select: baseSelect,
     });
   },
+
+  deleteVideoLink: async (id) => {
+    const linkId = parseId(id);
+    const existing = await prisma.videoLink.findUnique({
+      where: { id: linkId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw notFoundError();
+    }
+    await prisma.videoLink.delete({ where: { id: linkId } });
+    return { id: linkId };
+  },
 };

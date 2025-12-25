@@ -39,8 +39,18 @@ const updateVideoLink = async (req, res) => {
   }
 };
 
+const deleteVideoLink = async (req, res) => {
+  try {
+    const result = await VideoLink.deleteVideoLink(req.params.id);
+    res.json({ message: "ลบวิดีโอสำเร็จ", deleted: result });
+  } catch (err) {
+    handleError(err, res, "ไม่สามารถลบวิดีโอ");
+  }
+};
+
 module.exports = {
   listVideoLinks,
   createVideoLink,
   updateVideoLink,
+  deleteVideoLink,
 };

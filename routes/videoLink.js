@@ -129,4 +129,37 @@ router.patch(
   videoLinkController.updateVideoLink
 );
 
+/**
+ * @openapi
+ * /api/video-links/{id}:
+ *   delete:
+ *     summary: Delete video link (admin)
+ *     tags: [VideoLinks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Deleted
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ */
+router.delete(
+  "/video-links/:id",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  videoLinkController.deleteVideoLink
+);
+
 module.exports = router;
