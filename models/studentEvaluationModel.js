@@ -571,7 +571,7 @@ module.exports = {
       : normalizeUnitCode(input.battalionCode);
 
     if (!isServiceTemplate) {
-      if (!companyCode) throwValidationError("ต้องระบุรหัสกองร้อย");
+      // if (!companyCode) throwValidationError("ต้องระบุรหัสกองร้อย");
       if (!battalionCode) throwValidationError("ต้องระบุรหัสกองพัน");
     }
     const questionMap = new Map();
