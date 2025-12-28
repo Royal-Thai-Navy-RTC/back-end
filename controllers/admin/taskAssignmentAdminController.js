@@ -47,7 +47,15 @@ const createTask = async (req, res) => {
 
 const listTasks = async (req, res) => {
   try {
-    const tasks = await TaskAssignment.listTasks(req.query || {});
+    const isOwner = req.userRole === "OWNER";
+    const filters = { ...(req.query || {}) };
+
+    // Non-owners should only see tasks assigned to themselves.
+    if (!isOwner) {
+      filters.assigneeId = req.userId;
+    }
+
+    const tasks = await TaskAssignment.listTasks(filters);
     res.json({ data: tasks });
   } catch (err) {
     console.error("list task error", err);
