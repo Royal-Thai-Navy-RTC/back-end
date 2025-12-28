@@ -18,6 +18,11 @@ const THAI_FONT_PATH = path.join(
 const LOGO_PATH = path.join(__dirname, "..", "assets", "logo.jpg");
 const LOGO_PATH_PNG = path.join(__dirname, "..", "assets", "logo_png.png");
 const ADDRESS_DATA_PATH = path.join(__dirname, "..", "assets", "address-data.json");
+const SOLDIER_TEMPLATE_PATHS = [
+  path.join(__dirname, "..", "uploads", "solider", "template-new-solider.xlsx"),
+  path.join(__dirname, "..", "uploads", "soldier", "template-new-solider.xlsx"),
+];
+const SOLDIER_TEMPLATE_DOWNLOAD_NAME = "template-new-solider.xlsx";
 let optionalSharp = null;
 let cachedAddressMaps = null;
 
@@ -67,6 +72,18 @@ const loadAddressMaps = () => {
     };
   }
   return cachedAddressMaps;
+};
+
+const findSoldierTemplatePath = async () => {
+  for (const candidate of SOLDIER_TEMPLATE_PATHS) {
+    try {
+      await fs.promises.access(candidate, fs.constants.R_OK);
+      return candidate;
+    } catch (err) {
+      continue;
+    }
+  }
+  return null;
 };
 
 const mapAddressNamesFromIds = (record) => {
@@ -417,6 +434,27 @@ const getExportIntakeRecords = async (req, res) => {
     return null;
   }
   return records;
+};
+
+const downloadSoldierTemplate = async (_req, res) => {
+  try {
+    const templatePath = await findSoldierTemplatePath();
+    if (!templatePath) {
+      return res.status(404).json({ message: "ไม่พบไฟล์เทมเพลต" });
+    }
+    res.download(templatePath, SOLDIER_TEMPLATE_DOWNLOAD_NAME, (err) => {
+      if (err && !res.headersSent) {
+        res
+          .status(500)
+          .json({ message: "ไม่สามารถดาวน์โหลดไฟล์เทมเพลตได้" });
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "ไม่สามารถดาวน์โหลดไฟล์เทมเพลตได้",
+      detail: err.message,
+    });
+  }
 };
 
 const applyThaiFontIfAvailable = (doc) => {
@@ -2041,6 +2079,7 @@ module.exports = {
   summary,
   getIntakePublicStatus,
   setIntakePublicStatus,
+  downloadSoldierTemplate,
   importUnitAssignments,
   deleteAllIntakes,
   exportIntakesPdf,

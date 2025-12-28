@@ -207,7 +207,7 @@ router.get(
 router.get(
   "/admin/soldier-intakes/export/pdf",
   middleware.verifyToken,
-  middleware.authorizeSoldierData,
+ middleware.authorizeSoldierData,
   soldierIntakeController.exportIntakesPdf
 );
 
@@ -247,6 +247,31 @@ router.get(
   middleware.verifyToken,
   middleware.authorizeSoldierData,
   soldierIntakeController.exportIntakePdfByCitizenId
+);
+
+/**
+ * @openapi
+ * /api/admin/soldier-intakes/template/download:
+ *   get:
+ *     summary: Download soldier intake Excel template (admin/owner)
+ *     tags: [Soldier Intake]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Template file
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ */
+router.get(
+  "/admin/soldier-intakes/template/download",
+  middleware.verifyToken,
+  middleware.authorizeAdmin,
+  soldierIntakeController.downloadSoldierTemplate
 );
 
 /**
