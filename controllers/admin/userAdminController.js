@@ -351,7 +351,9 @@ const adminCreateUser = async (req, res) => {
     delete userInput.avatar;
   }
   try {
-    const created = await User.createUser(userInput);
+    const created = await User.createUser(userInput, {
+      allowMissingEmailPhone: true,
+    });
     if (req.file) {
       try {
         await finalizeAvatarUpload(created.id, req.file);

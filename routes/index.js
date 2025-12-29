@@ -17,6 +17,7 @@ const disciplineAssessmentRoutes = require("./disciplineAssessment");
 const newsRoutes = require("./news");
 const ethicsRoutes = require("./ethics");
 const videoLinkRoutes = require("./videoLink");
+const featureToggleRoutes = require("./featureToggle");
 
 const router = express.Router();
 
@@ -38,6 +39,7 @@ router.use("/", disciplineAssessmentRoutes);
 router.use("/", ethicsRoutes);
 router.use("/", newsRoutes);
 router.use("/", videoLinkRoutes);
+router.use("/", featureToggleRoutes);
 
 module.exports = router;
 

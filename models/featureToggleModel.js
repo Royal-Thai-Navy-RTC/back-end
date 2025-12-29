@@ -41,6 +41,7 @@ const setToggle = async (key, enabled, updatedById, description) => {
 
 const soldierIntakeKey = "SOLDIER_INTAKE_PUBLIC";
 const registrationKey = "USER_REGISTRATION_OPEN";
+const frontCardKey = "FRONT_CARD_VISIBLE";
 
 module.exports = {
   getToggle,
@@ -56,5 +57,8 @@ module.exports = {
       updatedById,
       "เปิด/ปิดการสมัครสมาชิก (owner เท่านั้น)"
     ),
+  getFrontCardStatus: () => getToggle(frontCardKey, true),
+  setFrontCardStatus: (enabled, updatedById) =>
+    setToggle(frontCardKey, enabled, updatedById, "เปิด/ปิด card บนหน้า front-end"),
   getBoolean,
 };

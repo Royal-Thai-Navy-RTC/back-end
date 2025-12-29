@@ -144,6 +144,22 @@ const sanitizeStringValue = (value) => {
   return trimmed;
 };
 
+const buildPlaceholderEmail = (username) => {
+  const safe =
+    sanitizeStringValue(username)?.toLowerCase().replace(/[^a-z0-9]+/g, "") ||
+    "user";
+  const suffix = Date.now().toString(36);
+  return `${safe}-${suffix}@placeholder.local`;
+};
+
+const buildPlaceholderPhone = () => {
+  const timePart = Date.now().toString();
+  const rand = Math.floor(Math.random() * 1000)
+    .toString()
+    .padStart(3, "0");
+  return `9${timePart}${rand}`.slice(-11);
+};
+
 const normalizeBooleanValue = (value) => {
   if (value === undefined || value === null) return undefined;
   if (typeof value === "string") {
@@ -752,15 +768,14 @@ const getUserAdminDetail = async (id) => {
 };
 
 // ตรวจสอบและจัดรูปแบบข้อมูลให้ตรงกับ schema.prisma
-const normalizeAndValidateUserInput = (input = {}) => {
-  const requiredFields = [
-    "username",
-    "password", // ใช้รับจาก client แล้วจะแปลงเป็น passwordHash
-    "firstName",
-    "lastName",
-    "email",
-    "phone",
-  ];
+const normalizeAndValidateUserInput = (
+  input = {},
+  { allowMissingEmailPhone = false } = {}
+) => {
+  const requiredFields = ["username", "password", "firstName", "lastName"];
+  if (!allowMissingEmailPhone) {
+    requiredFields.push("email", "phone");
+  }
 
   const missing = requiredFields.filter((k) => {
     const value = input[k];
@@ -811,11 +826,20 @@ const normalizeAndValidateUserInput = (input = {}) => {
   const studentClassYear = normalizeOptionalInteger(input.studentClassYear, {
     fieldLabel: "studentClassYear",
   });
+  const usernameValue = String(input.username).trim();
+  const emailValue = sanitizeStringValue(input.email);
+  const phoneValue = sanitizeStringValue(input.phone);
+  const finalEmail =
+    emailValue ||
+    (allowMissingEmailPhone ? buildPlaceholderEmail(usernameValue) : undefined);
+  const finalPhone =
+    phoneValue ||
+    (allowMissingEmailPhone ? buildPlaceholderPhone() : undefined);
 
   // เตรียมข้อมูลตาม schema (field ชื่อให้ตรง)
   const fullAddressValue = sanitizeStringValue(input.fullAddress);
   const data = {
-    username: String(input.username).trim(),
+    username: usernameValue,
     // passwordHash จะถูกเติมภายหลังจาก hash
     firstName: String(input.firstName).trim(),
     lastName: String(input.lastName).trim(),
@@ -833,8 +857,8 @@ const normalizeAndValidateUserInput = (input = {}) => {
     isAnnualHealthCheckDone: normalizeBooleanValue(
       input.isAnnualHealthCheckDone
     ),
-    email: sanitizeStringValue(input.email),
-    phone: sanitizeStringValue(input.phone),
+    email: finalEmail,
+    phone: finalPhone,
     emergencyContactName: sanitizeStringValue(input.emergencyContactName),
     emergencyContactPhone: sanitizeStringValue(input.emergencyContactPhone),
     medicalHistory: sanitizeStringValue(input.medicalHistory),
@@ -859,8 +883,11 @@ const normalizeAndValidateUserInput = (input = {}) => {
 };
 
 // สร้างผู้ใช้ใหม่ให้ตรงกับ schema.prisma (บังคับ field ที่จำเป็น และบันทึก passwordHash)
-const createUser = async (userInput) => {
-  const { data } = normalizeAndValidateUserInput(userInput);
+const createUser = async (userInput, options = {}) => {
+  const { data } = normalizeAndValidateUserInput(
+    userInput,
+    options || undefined
+  );
 
   const passwordHash = await bcrypt.hash(String(userInput.password), 10);
 
