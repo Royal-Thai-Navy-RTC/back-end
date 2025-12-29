@@ -228,10 +228,8 @@ module.exports = {
       err.code = "NOT_FOUND";
       throw err;
     }
-    const canManage =
-      requesterRole === "OWNER" ||
-      requesterRole === "ADMIN" ||
-      requesterId === task.assigneeId;
+    const isAdmin = requesterRole === "OWNER" || requesterRole === "ADMIN";
+    const canManage = isAdmin || requesterId === task.assigneeId;
     if (!canManage) {
       const err = new Error("ไม่มีสิทธิ์อัปเดตงานนี้");
       err.code = "FORBIDDEN";
@@ -250,6 +248,12 @@ module.exports = {
       err.code = "VALIDATION_ERROR";
       throw err;
     }
+
+    // if ((upperStatus === "SUBMITTED" || upperStatus === "DONE") && !isAdmin) {
+    //   const err = new Error("เฉพาะแอดมินเท่านั้นที่ส่งงานได้");
+    //   err.code = "FORBIDDEN";
+    //   throw err;
+    // }
 
     if (CLOSED_STATUS_SET.has(task.status)) {
       const err = new Error("งานนี้ปิดแล้ว ไม่สามารถแก้ไขสถานะได้");

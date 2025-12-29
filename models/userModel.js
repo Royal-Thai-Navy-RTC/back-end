@@ -144,22 +144,6 @@ const sanitizeStringValue = (value) => {
   return trimmed;
 };
 
-const buildPlaceholderEmail = (username) => {
-  const safe =
-    sanitizeStringValue(username)?.toLowerCase().replace(/[^a-z0-9]+/g, "") ||
-    "user";
-  const suffix = Date.now().toString(36);
-  return `${safe}-${suffix}@placeholder.local`;
-};
-
-const buildPlaceholderPhone = () => {
-  const timePart = Date.now().toString();
-  const rand = Math.floor(Math.random() * 1000)
-    .toString()
-    .padStart(3, "0");
-  return `9${timePart}${rand}`.slice(-11);
-};
-
 const normalizeBooleanValue = (value) => {
   if (value === undefined || value === null) return undefined;
   if (typeof value === "string") {
@@ -829,12 +813,8 @@ const normalizeAndValidateUserInput = (
   const usernameValue = String(input.username).trim();
   const emailValue = sanitizeStringValue(input.email);
   const phoneValue = sanitizeStringValue(input.phone);
-  const finalEmail =
-    emailValue ||
-    (allowMissingEmailPhone ? buildPlaceholderEmail(usernameValue) : undefined);
-  const finalPhone =
-    phoneValue ||
-    (allowMissingEmailPhone ? buildPlaceholderPhone() : undefined);
+  const finalEmail = emailValue || undefined;
+  const finalPhone = phoneValue || undefined;
 
   // เตรียมข้อมูลตาม schema (field ชื่อให้ตรง)
   const fullAddressValue = sanitizeStringValue(input.fullAddress);
