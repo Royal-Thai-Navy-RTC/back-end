@@ -102,7 +102,11 @@ const updateLibraryItem = async (req, res) => {
 
 const deleteLibraryItem = async (req, res) => {
   try {
+    const existing = await Library.getLibraryItemById(req.params.id);
     await Library.softDeleteLibraryItem(req.params.id);
+    if (existing?.fileUrl) {
+      deleteIfExists(resolveLibraryDiskPath(existing.fileUrl));
+    }
     res.status(204).send();
   } catch (err) {
     handleError(err, res, "ไม่สามารถลบรายการคลัง");
