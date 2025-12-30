@@ -23,6 +23,12 @@ const examAccessRoleSet = new Set([
   "EXAM_UPLOADER",
   "COMMANDER",
 ]);
+const battalionCommanderRoleSet = new Set([
+  "BAT1_CMD",
+  "BAT2_CMD",
+  "BAT3_CMD",
+  "BAT4_CMD",
+]);
 const leaveRequesterRoleSet = new Set([
   ...adminRoleSet,
   ...teacherRoleSet,
@@ -223,7 +229,9 @@ module.exports = {
       }
       const role = normalizeRole(user.role);
       req.userRole = role;
-      if (!examAccessRoleSet.has(role)) {
+      const allowReadOnlyCommander =
+        req.method === "GET" && battalionCommanderRoleSet.has(role);
+      if (!examAccessRoleSet.has(role) && !allowReadOnlyCommander) {
         return res.status(403).json({ message: "Unauthorized" });
       }
       next();
