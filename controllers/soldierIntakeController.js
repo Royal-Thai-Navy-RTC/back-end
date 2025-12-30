@@ -1854,7 +1854,9 @@ const updateIntake = async (req, res) => {
     if (uploaded) {
       payload.idCardImageUrl = toPublicPath(uploaded);
     }
-    const updated = await SoldierIntake.updateIntake(req.params.id, payload);
+    const updated = await SoldierIntake.updateIntake(req.params.id, payload, {
+      updatedById: req.userId,
+    });
     if (uploaded) {
       const oldUrl = before?.idCardImageUrl;
       const newUrl = payload.idCardImageUrl;
@@ -2047,7 +2049,9 @@ const importUnitAssignments = async (req, res) => {
       return res.status(400).json({ message: "ไม่พบเลขบัตรประชาชนในไฟล์" });
     }
 
-    const result = await SoldierIntake.importUnitAssignments(filteredRecords);
+    const result = await SoldierIntake.importUnitAssignments(filteredRecords, {
+      updatedById: req.userId,
+    });
     cleanup();
     res.json({ message: "อัปเดตข้อมูลสำเร็จ", result });
   } catch (err) {

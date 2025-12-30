@@ -598,12 +598,43 @@ const parseCombatReadinessSort = (value) => {
   return null;
 };
 
-const normalizeIntakeRecords = (records = []) =>
-  records.map((record) => ({
+const UPDATED_BY_SELECT = {
+  id: true,
+  username: true,
+  firstName: true,
+  lastName: true,
+};
+
+const formatUserDisplayName = (user) => {
+  if (!user) return null;
+  const firstName =
+    typeof user.firstName === "string" ? user.firstName.trim() : "";
+  const lastName =
+    typeof user.lastName === "string" ? user.lastName.trim() : "";
+  const fullName = `${firstName} ${lastName}`.trim();
+  if (fullName) return fullName;
+  const username =
+    typeof user.username === "string" ? user.username.trim() : "";
+  return username || null;
+};
+
+const normalizeIntakeRecord = (record = {}) => {
+  if (!record) return record;
+  const radarProfile = sanitizeRadarProfile(record.radarProfile);
+  const combatReadiness = sanitizeCombatReadiness(record.combatReadiness);
+  const updatedByName =
+    record.updatedByName || formatUserDisplayName(record.updatedBy) || null;
+
+  return {
     ...record,
-    radarProfile: sanitizeRadarProfile(record.radarProfile),
-    combatReadiness: sanitizeCombatReadiness(record.combatReadiness),
-  }));
+    radarProfile,
+    combatReadiness,
+    updatedByName,
+  };
+};
+
+const normalizeIntakeRecords = (records = []) =>
+  records.map((record) => normalizeIntakeRecord(record));
 
 const ensureModelAvailable = () => {
   if (!prisma.soldierIntake) {
@@ -1132,7 +1163,10 @@ module.exports = {
     // -----------------------------
     if (combatReadinessSort) {
       // ดึงทั้งหมดตาม where ก่อน แล้วค่อย sort+filter+paginate ใน JS
-      const items = await prisma.soldierIntake.findMany({ where });
+      const items = await prisma.soldierIntake.findMany({
+        where,
+        include: { updatedBy: { select: UPDATED_BY_SELECT } },
+      });
       let normalizedItems = normalizeIntakeRecords(items);
 
       // คำนวณ eligibility ให้ตรงกับกราฟ
@@ -1195,6 +1229,7 @@ module.exports = {
     const items = await prisma.soldierIntake.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      include: { updatedBy: { select: UPDATED_BY_SELECT } },
     });
 
     let normalizedItems = normalizeIntakeRecords(items);
@@ -1232,17 +1267,14 @@ module.exports = {
     }
     const record = await prisma.soldierIntake.findUnique({
       where: { id: intakeId },
+      include: { updatedBy: { select: UPDATED_BY_SELECT } },
     });
     if (!record) {
       const err = new Error("ไม่พบข้อมูล");
       err.code = "NOT_FOUND";
       throw err;
     }
-    return {
-      ...record,
-      radarProfile: sanitizeRadarProfile(record.radarProfile),
-      combatReadiness: sanitizeCombatReadiness(record.combatReadiness),
-    };
+    return normalizeIntakeRecord(record);
   },
 
   getIntakeByCitizenId: async (citizenId, filters = {}) => {
@@ -1263,17 +1295,14 @@ module.exports = {
     const record = await prisma.soldierIntake.findFirst({
       where,
       orderBy: { createdAt: "desc" },
+      include: { updatedBy: { select: UPDATED_BY_SELECT } },
     });
     if (!record) {
       const err = new Error("ไม่พบข้อมูล");
       err.code = "NOT_FOUND";
       throw err;
     }
-    return {
-      ...record,
-      radarProfile: sanitizeRadarProfile(record.radarProfile),
-      combatReadiness: sanitizeCombatReadiness(record.combatReadiness),
-    };
+    return normalizeIntakeRecord(record);
   },
 
   getIntakeByUnitCode: async (unitCode, filters = {}) => {
@@ -1316,20 +1345,17 @@ module.exports = {
     const record = await prisma.soldierIntake.findFirst({
       where,
       orderBy: { createdAt: "desc" },
+      include: { updatedBy: { select: UPDATED_BY_SELECT } },
     });
     if (!record) {
       const err = new Error("ไม่พบข้อมูล");
       err.code = "NOT_FOUND";
       throw err;
     }
-    return {
-      ...record,
-      radarProfile: sanitizeRadarProfile(record.radarProfile),
-      combatReadiness: sanitizeCombatReadiness(record.combatReadiness),
-    };
+    return normalizeIntakeRecord(record);
   },
 
-  updateIntake: async (id, input = {}) => {
+  updateIntake: async (id, input = {}, options = {}) => {
     ensureModelAvailable();
     const intakeId = Number(id);
     if (!Number.isInteger(intakeId) || intakeId <= 0) {
@@ -1373,9 +1399,23 @@ module.exports = {
       score: roundTwoDecimals(radarSum),
       percent: roundTwoDecimals(radarPercent),
     };
+
+    const updaterId = Number(options.updatedById);
+    if (Number.isInteger(updaterId)) {
+      data.updatedById = updaterId;
+    } else if (options.updatedById === null) {
+      data.updatedById = null;
+    }
+
+    if (options.updatedByName !== undefined) {
+      const updaterName = normalizeString(options.updatedByName);
+      data.updatedByName = updaterName ?? null;
+    }
+
     return prisma.soldierIntake.update({
       where: { id: intakeId },
       data,
+      include: { updatedBy: { select: UPDATED_BY_SELECT } },
     });
   },
 
@@ -1418,12 +1458,9 @@ module.exports = {
     const items = await prisma.soldierIntake.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      include: { updatedBy: { select: UPDATED_BY_SELECT } },
     });
-    return items.map((item) => ({
-      ...item,
-      radarProfile: sanitizeRadarProfile(item.radarProfile),
-      combatReadiness: sanitizeCombatReadiness(item.combatReadiness),
-    }));
+    return normalizeIntakeRecords(items);
   },
 
   listIntakeShifts: async () => {
@@ -1860,7 +1897,7 @@ module.exports = {
     };
   },
 
-  importUnitAssignments: async (records = []) => {
+  importUnitAssignments: async (records = [], options = {}) => {
     ensureModelAvailable();
     if (!Array.isArray(records) || records.length === 0) {
       const err = new Error("ไม่พบข้อมูลในไฟล์");
@@ -1931,6 +1968,17 @@ module.exports = {
       if (Object.keys(data).length === 0) {
         result.skipped += 1;
         continue;
+      }
+
+      const updaterId = Number(options.updatedById);
+      if (Number.isInteger(updaterId)) {
+        data.updatedById = updaterId;
+      } else if (options.updatedById === null) {
+        data.updatedById = null;
+      }
+      if (options.updatedByName !== undefined) {
+        const updaterName = normalizeString(options.updatedByName);
+        data.updatedByName = updaterName ?? null;
       }
 
       await prisma.soldierIntake.update({

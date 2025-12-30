@@ -60,6 +60,7 @@ model User {
   teacherLeaves                 TeacherLeave[]              @relation("TeacherLeaves")
   teachingSchedules             TeachingSchedule[]
   trainingReports               TrainingReport[]
+  soldierIntakesUpdated         SoldierIntake[]          @relation("SoldierIntakeUpdatedBy")
 
   @@index([lastName, firstName])
   @@index([rank])
@@ -408,6 +409,8 @@ model SoldierIntake {
   idCardImageUrl  String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  updatedById     Int?
+  updatedByName   String?  @db.VarChar(255)
   serviceYears    Float?
   bloodGroup      String?  @db.VarChar(8)
   battalionCode   String?  @db.VarChar(50)
@@ -423,10 +426,12 @@ model SoldierIntake {
   certificates    Json?
   radarProfile    Json?
   combatReadiness Json?
+  updatedBy       User?    @relation("SoldierIntakeUpdatedBy", fields: [updatedById], references: [id])
 
   @@index([citizenId])
   @@index([phone])
   @@index([email])
+  @@index([updatedById], map: "SoldierIntake_updatedById_fkey")
 }
 
 enum Role {
