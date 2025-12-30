@@ -143,6 +143,36 @@ module.exports = {
       return res.status(500).json({ message: "Authorization error" });
     }
   },
+  // อนุญาต ADMIN/OWNER ตามปกติ และเปิดให้ SCHEDULE_ADMIN ใช้ได้เฉพาะการดึงรายชื่อครู
+  authorizeAdminOrScheduleTeacherList: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (adminRoleSet.has(role)) {
+        return next();
+      }
+      // schedule admin: allow only teacher list endpoints
+      if (role === "SCHEDULE_ADMIN") {
+        const requestedRole = normalizeRole(req.query?.role);
+        const isTeacherListEndpoint =
+          typeof req.path === "string" &&
+          req.path.toLowerCase().includes("/teachers");
+        if (requestedRole === "TEACHER" || isTeacherListEndpoint) {
+          return next();
+        }
+      }
+      return res.status(403).json({ message: "Unauthorized" });
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
   authorizeOwner: async (req, res, next) => {
     try {
       const user = await prisma.user.findUnique({

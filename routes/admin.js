@@ -45,7 +45,7 @@ const optionalAvatarUpload = (req, res, next) => {
 router.get(
   "/admin/users",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeAdminOrScheduleTeacherList,
   adminUser.adminGetAllUsers
 );
 
@@ -173,7 +173,7 @@ router.get(
 router.get(
   "/admin/users/teachers",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeAdminOrScheduleTeacherList,
   adminUser.adminGetAllTeachers
 );
 
