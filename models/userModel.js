@@ -36,6 +36,7 @@ const rankLabelMap = {
   LEADING_RATING_FEMALE: "จ่าโทหญิง",
   ABLE_SEAMAN: "จ่าตรี",
   ABLE_SEAMAN_FEMALE: "จ่าตรีหญิง",
+  BATTALION: "กองพัน",
   COMPANY: "กองร้อย",
   SEAMAN_RECRUIT: "พลฯ",
 };

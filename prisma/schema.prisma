@@ -500,6 +500,7 @@ enum Rank {
   LEADING_RATING_FEMALE       @map("จ่าโทหญิง")
   ABLE_SEAMAN                 @map("จ่าตรี")
   ABLE_SEAMAN_FEMALE          @map("จ่าตรีหญิง")
+  BATTALION                   @map("กองพัน")
   COMPANY                     @map("กองร้อย")
   SEAMAN_RECRUIT              @map("พลฯ")
 }
