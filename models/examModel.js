@@ -319,8 +319,7 @@ module.exports = {
       const companies = companyCodesList.map((cCode) => {
         const a = agg.get(key(bCode, cCode));
         // เฉลี่ยแบบหาร 100 เสมอ (ถือว่าขาดสอบ = 0 คะแนน)
-        const avg =
-          a && a.count > 0 ? a.sum / EXPECTED_PER_COMPANY : null;
+        const avg = a && a.count > 0 ? a.sum / EXPECTED_PER_COMPANY : null;
 
         if (avg != null) {
           battalionHasAnyCompany = true;
@@ -364,8 +363,18 @@ module.exports = {
     });
   },
 
-  deleteAllExamResults: async () => {
-    const res = await prisma.examResult.deleteMany({});
+  deleteAllExamResults: async (subject) => {
+    console.log(subject);
+    if (!subject || subject.trim() === "") {
+      throw new Error("subject is required");
+    }
+
+    const res = await prisma.examResult.deleteMany({
+      where: {
+        subject: { contains: subject },
+      },
+    });
+
     return { deleted: res.count };
   },
 

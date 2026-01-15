@@ -119,10 +119,14 @@ const deleteExamResult = async (req, res) => {
   }
 };
 
-const deleteAllExamResults = async (_req, res) => {
+const deleteAllExamResults = async (req, res) => {
   try {
-    const result = await ExamModel.deleteAllExamResults();
-    return res.json({ message: "ลบข้อมูลสอบทั้งหมดสำเร็จ", deleted: result.deleted });
+    const { subject } = req.query;
+    const result = await ExamModel.deleteAllExamResults(subject);
+    return res.json({
+      message: "ลบข้อมูลสอบทั้งหมดสำเร็จ",
+      deleted: result.deleted,
+    });
   } catch (err) {
     return handleError(err, res, "ไม่สามารถลบข้อมูลสอบทั้งหมดได้");
   }
