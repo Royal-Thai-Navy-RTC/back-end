@@ -442,6 +442,7 @@ enum Role {
   SCHEDULE_ADMIN @map("ผู้ดูแลตารางสอน")
   FORM_CREATOR   @map("ผู้สร้างแบบฟอร์ม")
   EXAM_UPLOADER  @map("ผู้อัปโหลดคะแนนสอบ")
+  NEWS_MANAGER   @map("ผู้จัดการข่าวสาร")
   TEACHER        @map("ครูผู้สอน")
   STUDENT        @map("นักเรียน")
   BAT1_CMD       @map("ผู้พัน 1")

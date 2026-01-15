@@ -4,6 +4,7 @@ services:
   db:
     image: mysql:8.0
     container_name: mysql_db
+    platform: linux/amd64
     restart: always
     environment:
       TZ: Asia/Bangkok                # ตั้ง timezone ของ container
@@ -22,6 +23,7 @@ services:
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: phpmyadmin
+    platform: linux/amd64
     restart: always
     ports:
       - "8080:80"

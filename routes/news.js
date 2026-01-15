@@ -55,7 +55,7 @@ router.post(
   "/admin/news",
   // protect,
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeNewsManager,
   uploadNewsImage.single("image"), // ชื่อ field รูปต้องตรงกับ frontend
   createNews
 );
@@ -80,7 +80,7 @@ router.post(
 router.get(
   "/admin/news",
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeNewsManager,
   getAllNews
 );
 
@@ -125,7 +125,7 @@ router.put(
   "/admin/news/:id",
   // protect,
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeNewsManager,
   uploadNewsImage.single("image"), // รองรับแก้รูปด้วย
   updateNews
 );
@@ -159,7 +159,7 @@ router.delete(
   "/admin/news/:id",
   // protect,
   middleware.verifyToken,
-  middleware.authorizeAdmin,
+  middleware.authorizeNewsManager,
   deleteNews
 );
 

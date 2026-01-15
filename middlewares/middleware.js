@@ -35,6 +35,7 @@ const leaveRequesterRoleSet = new Set([
   "SCHEDULE_ADMIN",
   "FORM_CREATOR",
   "EXAM_UPLOADER",
+  "NEWS_MANAGER",
 ]);
 const nonStudentRoleSet = new Set([
   "OWNER",
@@ -376,6 +377,25 @@ module.exports = {
         });
       }
 
+      next();
+    } catch (e) {
+      return res.status(500).json({ message: "Authorization error" });
+    }
+  },
+  authorizeNewsManager: async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(req.userId) },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const role = normalizeRole(user.role);
+      req.userRole = role;
+      if (role !== "NEWS_MANAGER" && !adminRoleSet.has(role)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
       next();
     } catch (e) {
       return res.status(500).json({ message: "Authorization error" });
