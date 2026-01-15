@@ -39,7 +39,7 @@ const router = express.Router();
 router.post(
   "/teacher/training-reports",
   middleware.verifyToken,
-  middleware.authorizeTeacher,
+  middleware.authorizeAdminOrTeacher,
   teacherReportController.submitTrainingReport
 );
 
@@ -62,7 +62,7 @@ router.post(
 router.get(
   "/teacher/training-reports/latest",
   middleware.verifyToken,
-  middleware.authorizeTeacher,
+  middleware.authorizeAdminOrTeacher,
   teacherReportController.getRecentTrainingReports
 );
 
