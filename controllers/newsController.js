@@ -1,4 +1,6 @@
 const prisma = require("../utils/prisma");
+const fs = require("fs");
+const path = require("path");
 
 const MAX_SAFE_INT = BigInt(Number.MAX_SAFE_INTEGER);
 
