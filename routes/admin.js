@@ -814,7 +814,7 @@ router.delete(
 router.post(
   "/admin/tasks",
   middleware.verifyToken,
-  middleware.authorizeOwner,
+  middleware.authorizeAdmin,
   adminTaskAssignment.createTask
 );
 
