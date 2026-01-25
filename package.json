@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/Royal-Thai-Navy-RTC/back-end#readme",
   "dependencies": {
-    "@prisma/adapter-mariadb": "^7.0.0",
+    "@prisma/adapter-mariadb": "^7.1.0",
     "@prisma/client": "^7.0.0",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
